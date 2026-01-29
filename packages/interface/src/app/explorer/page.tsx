@@ -143,7 +143,7 @@ export default function ExplorerPage() {
             </h1>
           </div>
           <p className="text-muted-foreground text-lg md:text-xl max-w-2xl leading-relaxed pl-2 border-l-4 border-teal-500">
-            Inspect normalized reputation signals for any wallet address.
+            See how a wallet is evaluated in different scenarios.
           </p>
         </div>
 
@@ -279,7 +279,7 @@ export default function ExplorerPage() {
             <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-hide">
               <div className="flex items-center gap-2 text-muted-foreground text-sm font-bold uppercase tracking-wider whitespace-nowrap mr-4">
                 <LayoutDashboard className="w-4 h-4" />
-                <span>Context:</span>
+                <span>Scenario:</span>
               </div>
               <div className="flex gap-2">
                 {result.results.map((r: any) => (
@@ -352,13 +352,13 @@ export default function ExplorerPage() {
                     value="structured"
                     className="bg-transparent border-none p-0 text-muted-foreground data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:shadow-none rounded-none text-lg transition-colors hover:text-foreground"
                   >
-                    Normalized Signals
+                    Signals
                   </TabsTrigger>
                   <TabsTrigger
                     value="json"
                     className="bg-transparent border-none p-0 text-muted-foreground data-[state=active]:text-foreground data-[state=active]:font-bold data-[state=active]:shadow-none rounded-none text-lg transition-colors hover:text-foreground"
                   >
-                    Raw JSON
+                    JSON
                   </TabsTrigger>
                 </TabsList>
                 <div className="text-xs text-muted-foreground font-mono hidden md:block">
