@@ -54,12 +54,21 @@ const TALENT_THRESHOLDS = {
  * normalizeTalentBuilder({ builder: { availability: "available", score: 75 } })
  * // Returns "ADVANCED"
  */
-export function normalizeTalentBuilder(profile: TalentProfile | null): Capability {
+export function normalizeTalentBuilder(profile: TalentProfile | any | null): Capability {
     if (!profile) return "NONE"
-    if (profile.builder.availability !== "available") return "NONE"
-    if (profile.builder.score === undefined) return "NONE"
 
-    const score = profile.builder.score
+    let score: number | undefined
+
+    // SDK format
+    if (profile.data && typeof profile.data.builderScore === 'number') {
+        score = profile.data.builderScore
+    } 
+    // Legacy format
+    else if (profile.builder && profile.builder.availability === "available" && typeof profile.builder.score === 'number') {
+        score = profile.builder.score
+    }
+
+    if (score === undefined) return "NONE"
 
     if (score >= TALENT_THRESHOLDS.EXPERT) return "EXPERT"
     if (score >= TALENT_THRESHOLDS.ADVANCED) return "ADVANCED"
@@ -77,12 +86,21 @@ export function normalizeTalentBuilder(profile: TalentProfile | null): Capabilit
  * normalizeTalentCreator({ creator: { availability: "available", score: 90 } })
  * // Returns "EXPERT"
  */
-export function normalizeTalentCreator(profile: TalentProfile | null): Capability {
+export function normalizeTalentCreator(profile: TalentProfile | any | null): Capability {
     if (!profile) return "NONE"
-    if (profile.creator.availability !== "available") return "NONE"
-    if (profile.creator.score === undefined) return "NONE"
 
-    const score = profile.creator.score
+    let score: number | undefined
+
+    // SDK format
+    if (profile.data && typeof profile.data.creatorScore === 'number') {
+        score = profile.data.creatorScore
+    } 
+    // Legacy format
+    else if (profile.creator && profile.creator.availability === "available" && typeof profile.creator.score === 'number') {
+        score = profile.creator.score
+    }
+
+    if (score === undefined) return "NONE"
 
     if (score >= TALENT_THRESHOLDS.EXPERT) return "EXPERT"
     if (score >= TALENT_THRESHOLDS.ADVANCED) return "ADVANCED"
@@ -93,13 +111,25 @@ export function normalizeTalentCreator(profile: TalentProfile | null): Capabilit
 /**
  * Check if Talent builder data is available.
  */
-export function isTalentBuilderAvailable(profile: TalentProfile | null): boolean {
-    return profile !== null && profile.builder.availability === "available"
+export function isTalentBuilderAvailable(profile: TalentProfile | any | null): boolean {
+    if (!profile) return false
+    
+    // SDK format
+    if (profile.data && typeof profile.data.builderScore === 'number') return true
+    
+    // Legacy format
+    return profile.builder && profile.builder.availability === "available"
 }
 
 /**
  * Check if Talent creator data is available.
  */
-export function isTalentCreatorAvailable(profile: TalentProfile | null): boolean {
-    return profile !== null && profile.creator.availability === "available"
+export function isTalentCreatorAvailable(profile: TalentProfile | any | null): boolean {
+    if (!profile) return false
+    
+    // SDK format
+    if (profile.data && typeof profile.data.creatorScore === 'number') return true
+
+    // Legacy format
+    return profile.creator && profile.creator.availability === "available"
 }

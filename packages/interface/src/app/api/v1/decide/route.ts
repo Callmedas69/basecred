@@ -32,17 +32,11 @@ export async function POST(req: NextRequest) {
             };
             const raw = await getUnifiedProfile(sub, config);
             
-            // Adapter: Map SDK types to Engine types
-            // Safely construct TalentProfile to match Engine requirements
-            const talent = raw.talent ? {
-                builder: (raw.talent as any).builder || { availability: "not_found" },
-                creator: (raw.talent as any).creator || { availability: "not_found" }
-            } : null;
-
+            // Adapter: Pass SDK objects directly (Engine natively supports SDK structure)
             const profileData = {
                 ethos: (raw.ethos as any) ?? null,
-                neynar: (raw.farcaster as any) ?? null, 
-                talent,
+                neynar: (raw.farcaster as any) ?? null,
+                talent: (raw.talent as any) ?? null,
                 lastActivityAt: null // SDK does not provide this directly in Availability
             };
 

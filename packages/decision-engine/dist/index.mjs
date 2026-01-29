@@ -352,9 +352,13 @@ var ETHOS_THRESHOLDS = {
 };
 function normalizeEthosTrust(profile) {
   if (!profile) return null;
-  if (profile.availability !== "available") return null;
-  if (profile.credibility_score === void 0) return null;
-  const score = profile.credibility_score;
+  let score;
+  if (profile.data && typeof profile.data.score === "number") {
+    score = profile.data.score;
+  } else if (profile.availability === "available" && typeof profile.credibility_score === "number") {
+    score = profile.credibility_score;
+  }
+  if (score === void 0) return null;
   if (score >= ETHOS_THRESHOLDS.VERY_HIGH) return "VERY_HIGH";
   if (score >= ETHOS_THRESHOLDS.HIGH) return "HIGH";
   if (score >= ETHOS_THRESHOLDS.NEUTRAL) return "NEUTRAL";
@@ -362,7 +366,9 @@ function normalizeEthosTrust(profile) {
   return "VERY_LOW";
 }
 function isEthosAvailable(profile) {
-  return profile !== null && profile.availability === "available";
+  if (!profile) return false;
+  if (profile.data && typeof profile.data.score === "number") return true;
+  return profile.availability === "available";
 }
 
 // src/engine/normalizers/neynar.ts
@@ -383,8 +389,13 @@ var SPAM_RISK_THRESHOLDS = {
 };
 function normalizeNeynarSocialTrust(user) {
   if (!user) return null;
-  if (user.farcaster_user_score === void 0) return null;
-  const score = user.farcaster_user_score;
+  let score;
+  if (user.data && typeof user.data.userScore === "number") {
+    score = user.data.userScore;
+  } else if (user.farcaster_user_score !== void 0) {
+    score = user.farcaster_user_score;
+  }
+  if (score === void 0) return null;
   if (score >= SOCIAL_TRUST_THRESHOLDS.VERY_HIGH) return "VERY_HIGH";
   if (score >= SOCIAL_TRUST_THRESHOLDS.HIGH) return "HIGH";
   if (score >= SOCIAL_TRUST_THRESHOLDS.NEUTRAL) return "NEUTRAL";
@@ -393,8 +404,13 @@ function normalizeNeynarSocialTrust(user) {
 }
 function normalizeNeynarSpamRisk(user) {
   if (!user) return null;
-  if (user.farcaster_user_score === void 0) return null;
-  const score = user.farcaster_user_score;
+  let score;
+  if (user.data && typeof user.data.userScore === "number") {
+    score = user.data.userScore;
+  } else if (user.farcaster_user_score !== void 0) {
+    score = user.farcaster_user_score;
+  }
+  if (score === void 0) return null;
   if (score >= SPAM_RISK_THRESHOLDS.VERY_LOW) return "VERY_LOW";
   if (score >= SPAM_RISK_THRESHOLDS.LOW) return "LOW";
   if (score >= SPAM_RISK_THRESHOLDS.NEUTRAL) return "NEUTRAL";
@@ -402,7 +418,9 @@ function normalizeNeynarSpamRisk(user) {
   return "VERY_HIGH";
 }
 function isNeynarAvailable(user) {
-  return user !== null && user.farcaster_user_score !== void 0;
+  if (!user) return false;
+  if (user.data && typeof user.data.userScore === "number") return true;
+  return user.farcaster_user_score !== void 0;
 }
 
 // src/engine/normalizers/talent.ts
@@ -414,9 +432,13 @@ var TALENT_THRESHOLDS = {
 };
 function normalizeTalentBuilder(profile) {
   if (!profile) return "NONE";
-  if (profile.builder.availability !== "available") return "NONE";
-  if (profile.builder.score === void 0) return "NONE";
-  const score = profile.builder.score;
+  let score;
+  if (profile.data && typeof profile.data.builderScore === "number") {
+    score = profile.data.builderScore;
+  } else if (profile.builder && profile.builder.availability === "available" && typeof profile.builder.score === "number") {
+    score = profile.builder.score;
+  }
+  if (score === void 0) return "NONE";
   if (score >= TALENT_THRESHOLDS.EXPERT) return "EXPERT";
   if (score >= TALENT_THRESHOLDS.ADVANCED) return "ADVANCED";
   if (score >= TALENT_THRESHOLDS.INTERMEDIATE) return "INTERMEDIATE";
@@ -424,19 +446,27 @@ function normalizeTalentBuilder(profile) {
 }
 function normalizeTalentCreator(profile) {
   if (!profile) return "NONE";
-  if (profile.creator.availability !== "available") return "NONE";
-  if (profile.creator.score === void 0) return "NONE";
-  const score = profile.creator.score;
+  let score;
+  if (profile.data && typeof profile.data.creatorScore === "number") {
+    score = profile.data.creatorScore;
+  } else if (profile.creator && profile.creator.availability === "available" && typeof profile.creator.score === "number") {
+    score = profile.creator.score;
+  }
+  if (score === void 0) return "NONE";
   if (score >= TALENT_THRESHOLDS.EXPERT) return "EXPERT";
   if (score >= TALENT_THRESHOLDS.ADVANCED) return "ADVANCED";
   if (score >= TALENT_THRESHOLDS.INTERMEDIATE) return "INTERMEDIATE";
   return "NONE";
 }
 function isTalentBuilderAvailable(profile) {
-  return profile !== null && profile.builder.availability === "available";
+  if (!profile) return false;
+  if (profile.data && typeof profile.data.builderScore === "number") return true;
+  return profile.builder && profile.builder.availability === "available";
 }
 function isTalentCreatorAvailable(profile) {
-  return profile !== null && profile.creator.availability === "available";
+  if (!profile) return false;
+  if (profile.data && typeof profile.data.creatorScore === "number") return true;
+  return profile.creator && profile.creator.availability === "available";
 }
 
 // src/engine/normalizers/index.ts

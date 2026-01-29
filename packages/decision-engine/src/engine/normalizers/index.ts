@@ -31,9 +31,9 @@ import {
  * Combined profile data from all providers.
  */
 export interface UnifiedProfileData {
-    ethos: EthosProfile | null
-    neynar: NeynarUser | null
-    talent: TalentProfile | null
+    ethos: EthosProfile | any | null
+    neynar: NeynarUser | any | null
+    talent: TalentProfile | any | null
     /** Timestamp of last activity (for recency calculation) */
     lastActivityAt?: Date | null
 }
