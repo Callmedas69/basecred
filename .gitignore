@@ -1,5 +1,4 @@
 node_modules
 .mcp.json
 CLAUDE.md
-raw_docs/
-.env
+raw_docs/.env
