@@ -75,11 +75,21 @@ const SPAM_RISK_THRESHOLDS = {
  * normalizeNeynarSocialTrust({ farcaster_user_score: 0.85 })
  * // Returns "HIGH"
  */
-export function normalizeNeynarSocialTrust(user: NeynarUser | null): Tier | null {
+export function normalizeNeynarSocialTrust(user: NeynarUser | any | null): Tier | null {
     if (!user) return null
-    if (user.farcaster_user_score === undefined) return null
 
-    const score = user.farcaster_user_score
+    let score: number | undefined
+
+    // SDK format
+    if (user.data && typeof user.data.userScore === 'number') {
+        score = user.data.userScore
+    } 
+    // Legacy format
+    else if (user.farcaster_user_score !== undefined) {
+        score = user.farcaster_user_score
+    }
+
+    if (score === undefined) return null
 
     if (score >= SOCIAL_TRUST_THRESHOLDS.VERY_HIGH) return "VERY_HIGH"
     if (score >= SOCIAL_TRUST_THRESHOLDS.HIGH) return "HIGH"
@@ -99,11 +109,21 @@ export function normalizeNeynarSocialTrust(user: NeynarUser | null): Tier | null
  * normalizeNeynarSpamRisk({ farcaster_user_score: 0.85 })
  * // Returns "VERY_LOW" (high quality = low spam)
  */
-export function normalizeNeynarSpamRisk(user: NeynarUser | null): Tier | null {
+export function normalizeNeynarSpamRisk(user: NeynarUser | any | null): Tier | null {
     if (!user) return null
-    if (user.farcaster_user_score === undefined) return null
 
-    const score = user.farcaster_user_score
+    let score: number | undefined
+
+    // SDK format
+    if (user.data && typeof user.data.userScore === 'number') {
+        score = user.data.userScore
+    } 
+    // Legacy format
+    else if (user.farcaster_user_score !== undefined) {
+        score = user.farcaster_user_score
+    }
+
+    if (score === undefined) return null
 
     // Inverse mapping: high score = low spam risk
     if (score >= SPAM_RISK_THRESHOLDS.VERY_LOW) return "VERY_LOW"
@@ -116,6 +136,12 @@ export function normalizeNeynarSpamRisk(user: NeynarUser | null): Tier | null {
 /**
  * Check if a Neynar user is available for normalization.
  */
-export function isNeynarAvailable(user: NeynarUser | null): boolean {
-    return user !== null && user.farcaster_user_score !== undefined
+export function isNeynarAvailable(user: NeynarUser | any | null): boolean {
+    if (!user) return false
+    
+    // SDK format
+    if (user.data && typeof user.data.userScore === 'number') return true
+    
+    // Legacy format
+    return user.farcaster_user_score !== undefined
 }

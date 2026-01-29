@@ -55,13 +55,22 @@ const ETHOS_THRESHOLDS = {
  * normalizeEthosTrust(null)
  * // Returns null
  */
-export function normalizeEthosTrust(profile: EthosProfile | null): Tier | null {
+export function normalizeEthosTrust(profile: EthosProfile | any | null): Tier | null {
     // Handle missing or unavailable profiles
     if (!profile) return null
-    if (profile.availability !== "available") return null
-    if (profile.credibility_score === undefined) return null
 
-    const score = profile.credibility_score
+    let score: number | undefined
+
+    // Check for SDK format first (nested data.score)
+    if (profile.data && typeof profile.data.score === 'number') {
+        score = profile.data.score
+    } 
+    // Check for legacy/raw format
+    else if (profile.availability === "available" && typeof profile.credibility_score === 'number') {
+        score = profile.credibility_score
+    }
+
+    if (score === undefined) return null
 
     // Map score to tier using thresholds
     if (score >= ETHOS_THRESHOLDS.VERY_HIGH) return "VERY_HIGH"
@@ -74,6 +83,12 @@ export function normalizeEthosTrust(profile: EthosProfile | null): Tier | null {
 /**
  * Check if an Ethos profile is available for normalization.
  */
-export function isEthosAvailable(profile: EthosProfile | null): boolean {
-    return profile !== null && profile.availability === "available"
+export function isEthosAvailable(profile: EthosProfile | any | null): boolean {
+    if (!profile) return false
+    
+    // SDK format (implicit availability via existence of data)
+    if (profile.data && typeof profile.data.score === 'number') return true
+    
+    // Legacy format
+    return profile.availability === "available"
 }
