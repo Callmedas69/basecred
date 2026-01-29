@@ -1,0 +1,31 @@
+.heroBanner {
+  padding: 4rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background-color: transparent;
+}
+
+.hero__title {
+  font-size: 10rem;
+  font-weight: 900;
+  margin-bottom: 1rem;
+  text-transform: lowercase;
+  letter-spacing: -0.05em;
+  line-height: 0.8;
+}
+
+.hero__subtitle {
+  font-size: 1.5rem;
+  font-weight: 500;
+  margin-bottom: 2rem;
+  color: #141414;
+  opacity: 0.5;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}

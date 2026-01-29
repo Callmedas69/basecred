@@ -1,0 +1,59 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ETHOS_LEVEL_POLICY_V1 > policy snapshot matches expected definition 1`] = `
+{
+  "id": "ethos@v1",
+  "thresholds": [
+    {
+      "label": "Untrusted",
+      "max": 799,
+      "min": 0,
+    },
+    {
+      "label": "Questionable",
+      "max": 1199,
+      "min": 800,
+    },
+    {
+      "label": "Neutral",
+      "max": 1399,
+      "min": 1200,
+    },
+    {
+      "label": "Known",
+      "max": 1599,
+      "min": 1400,
+    },
+    {
+      "label": "Established",
+      "max": 1799,
+      "min": 1600,
+    },
+    {
+      "label": "Reputable",
+      "max": 1999,
+      "min": 1800,
+    },
+    {
+      "label": "Exemplary",
+      "max": 2199,
+      "min": 2000,
+    },
+    {
+      "label": "Distinguished",
+      "max": 2399,
+      "min": 2200,
+    },
+    {
+      "label": "Revered",
+      "max": 2599,
+      "min": 2400,
+    },
+    {
+      "label": "Renowned",
+      "max": 2800,
+      "min": 2600,
+    },
+  ],
+}
+`;

@@ -1,0 +1,39 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`BUILDER_LEVEL_POLICY_V1 > policy snapshot matches expected definition 1`] = `
+{
+  "id": "builder@v1",
+  "thresholds": [
+    {
+      "label": "Novice",
+      "max": 39,
+      "min": 0,
+    },
+    {
+      "label": "Apprentice",
+      "max": 79,
+      "min": 40,
+    },
+    {
+      "label": "Practitioner",
+      "max": 119,
+      "min": 80,
+    },
+    {
+      "label": "Advanced",
+      "max": 169,
+      "min": 120,
+    },
+    {
+      "label": "Expert",
+      "max": 249,
+      "min": 170,
+    },
+    {
+      "label": "Master",
+      "max": Infinity,
+      "min": 250,
+    },
+  ],
+}
+`;

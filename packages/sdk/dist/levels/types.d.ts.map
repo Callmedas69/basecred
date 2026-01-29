@@ -1,0 +1,1 @@
+{"version":3,"file":"types.d.ts","sourceRoot":"","sources":["../../src/levels/types.ts"],"names":[],"mappings":"AAAA;;GAEG;AAEH,MAAM,WAAW,cAAc;IAC7B,GAAG,EAAE,MAAM,CAAC;IACZ,GAAG,EAAE,MAAM,CAAC;IACZ,KAAK,EAAE,MAAM,CAAC;CACf;AAED,MAAM,WAAW,WAAW;IAC1B,EAAE,EAAE,MAAM,CAAC;IACX,UAAU,EAAE,cAAc,EAAE,CAAC;CAC9B"}

@@ -1,0 +1,52 @@
+{
+  "name": "basecred-sdk",
+  "version": "0.6.0",
+  "description": "A neutral SDK that fetches and assembles reputation data from Ethos Network, Talent Protocol, and Neynar (Farcaster) without interpretation, ranking, or judgment.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublish:check": "node scripts/prepublish-check.js",
+    "prepublishOnly": "node scripts/prepublish-check.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "keywords": [
+    "reputation",
+    "credibility",
+    "identity",
+    "ethos",
+    "talent-protocol",
+    "farcaster",
+    "neynar",
+    "web3",
+    "sdk",
+    "signals"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GeoartStudio/basecred-sdk",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://basecred-demo.geoart.studio"
+}

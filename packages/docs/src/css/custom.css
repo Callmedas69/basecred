@@ -1,0 +1,62 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+:root {
+  --ifm-color-primary: #14b8a6; /* Teal 500 */
+  --ifm-color-primary-dark: #11a795;
+  --ifm-color-primary-darker: #109f8d;
+  --ifm-color-primary-darkest: #0d8274;
+  --ifm-color-primary-light: #2bcdae;
+  --ifm-color-primary-lighter: #36d3b4;
+  --ifm-color-primary-lightest: #59e5c9;
+  
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.05);
+
+  /* BASE THEME OVERRIDES (Enforced Light Mode) */
+  --ifm-background-color: #ffffff;
+  --ifm-font-color-base: #141414;
+  --ifm-link-color: var(--ifm-color-primary);
+  
+  /* Navbar */
+  --ifm-navbar-background-color: #ffffff;
+  --ifm-navbar-link-color: #525252;
+  --ifm-navbar-link-hover-color: var(--ifm-color-primary);
+  --ifm-navbar-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+
+  /* Sidebar */
+  --ifm-menu-color: #525252;
+  --ifm-menu-color-active: var(--ifm-color-primary);
+  --ifm-menu-link-sublist-icon: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16px" height="16px" viewBox="0 0 24 24"><path fill="rgba(0,0,0,0.5)" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>');
+  
+  /* Footer */
+  --ifm-footer-background-color: #f5f5f5;
+  --ifm-footer-color: #141414;
+  --ifm-footer-link-color: #525252;
+  --ifm-footer-title-color: #141414;
+
+  /* Table of Contents */
+  --ifm-toc-border-color: #e5e5e5;
+  --ifm-toc-link-color: #525252;
+  --ifm-toc-link-color-active: var(--ifm-color-primary);
+
+  /* Content */
+  --ifm-heading-color: #141414;
+  --ifm-blockquote-color: #525252;
+  --ifm-blockquote-border-color: var(--ifm-color-primary);
+}
+
+/* Force light theme styles even if docusaurus adds data-theme='dark' by mistake */
+[data-theme='dark'] {
+  --ifm-background-color: #ffffff;
+  --ifm-font-color-base: #141414;
+  --ifm-navbar-background-color: #ffffff;
+  --ifm-menu-color: #525252;
+  --ifm-color-primary: #14b8a6;
+  --ifm-scrollbar-thumb-background-color: #e5e5e5;
+  --ifm-scrollbar-track-background-color: #ffffff;
+}

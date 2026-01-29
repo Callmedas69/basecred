@@ -1,0 +1,4 @@
+.docs/*
+Roadmap.md
+SDK-DESIGN.md
+.env.local
