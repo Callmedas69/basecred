@@ -24,6 +24,8 @@ export default function DocsSchemaPage() {
   "constraints": [], // Array of specific limitations if ALLOW_WITH_LIMITS
   "ruleIds": ["rule_id_1", "rule_id_2"], // IDs of rules that triggered
   "version": "1.0.0", // Engine version
+  "accessStatus": "eligible" | "limited" | "not_ready" | "blocked", // Optional, retail-facing interpretation
+  "blockingFactors": ["trust", "builder"], // Optional, context-aware guidance
   "requestId": "req_...", // Trace ID
   "timestamp": "2024-01-01T00:00:00Z"
 }`}
@@ -53,6 +55,20 @@ export default function DocsSchemaPage() {
                     <td className="py-3 font-mono text-teal-400">explain</td>
                     <td className="py-3 font-mono text-sm">string[]</td>
                     <td className="py-3">Human-readable reasons. Safe to display to end-users.</td>
+                </tr>
+                <tr>
+                    <td className="py-3 font-mono text-teal-400">accessStatus</td>
+                    <td className="py-3 font-mono text-sm">"eligible" | "limited" | "not_ready" | "blocked"</td>
+                    <td className="py-3">
+                      Optional, retail-facing summary of the decision used for UX. Derived from the underlying decision and rule set and does not change enforcement.
+                    </td>
+                </tr>
+                <tr>
+                    <td className="py-3 font-mono text-teal-400">blockingFactors</td>
+                    <td className="py-3 font-mono text-sm">string[]</td>
+                    <td className="py-3">
+                      Optional list of high-level factors currently blocking access in the requested context. Intended for progression guidance, not for policy decisions.
+                    </td>
                 </tr>
             </tbody>
           </table>

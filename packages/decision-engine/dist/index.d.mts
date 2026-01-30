@@ -11,10 +11,10 @@ type Tier = "VERY_LOW" | "LOW" | "NEUTRAL" | "HIGH" | "VERY_HIGH";
  * VERY_LOW (0) < LOW (1) < NEUTRAL (2) < HIGH (3) < VERY_HIGH (4)
  */
 declare const TIER_ORDER: Record<Tier, number>;
-type Capability = "NONE" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+type Capability = "EXPLORER" | "BUILDER" | "EXPERT" | "ELITE";
 /**
  * Explicit ordering for Capability comparisons (ascending)
- * NONE (0) < INTERMEDIATE (1) < ADVANCED (2) < EXPERT (3)
+ * EXPLORER (0) < BUILDER (1) < EXPERT (2) < ELITE (3)
  */
 declare const CAPABILITY_ORDER: Record<Capability, number>;
 /**
@@ -103,6 +103,121 @@ type PartialSignals = Partial<NormalizedSignals> & {
 declare const DEFAULT_SIGNALS: NormalizedSignals;
 
 /**
+ * Decision Output Types
+ *
+ * These types define the structure of decision responses
+ * from the Decision Engine.
+ */
+
+/**
+ * Categorical confidence tier for API responses.
+ * Mapped from numeric confidence (base 50 + deltas).
+ */
+type ConfidenceTier = "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH";
+/**
+ * Retail-facing access status derived from the authoritative decision.
+ *
+ * This is a global, non-decisional interpretation layer and MUST NOT
+ * be used to change engine behavior or thresholds.
+ */
+type AccessStatus = "eligible" | "limited" | "not_ready" | "blocked";
+/**
+ * Machine-readable decision output from the engine.
+ * This is the primary response format for the /v1/decide API.
+ */
+interface DecisionOutput {
+    /** The actual decision: ALLOW, DENY, or ALLOW_WITH_LIMITS */
+    decision: Decision;
+    /** Confidence level in this decision */
+    confidence: ConfidenceTier;
+    /**
+     * Constraints applied when decision is ALLOW_WITH_LIMITS.
+     * Empty array for ALLOW or DENY.
+     */
+    constraints: string[];
+    /**
+     * Seconds to wait before retrying (for rate-limited or temporary denials).
+     * null if not applicable.
+     */
+    retryAfter: number | null;
+    /** IDs of rules that contributed to this decision */
+    ruleIds: string[];
+    /** Engine version used for this decision */
+    version: string;
+    /** Human-readable explanation of the decision */
+    explain: string[];
+    /**
+     * Derived, retail-facing access status.
+     *
+     * This field is OPTIONAL and is populated by the progression layer.
+     * It does not affect enforcement or core decision semantics.
+     */
+    accessStatus?: AccessStatus;
+    /**
+     * Context-aware factors currently blocking access.
+     *
+     * This is a high-level, fixable guidance list and MUST NOT expose
+     * raw scores or implementation details.
+     */
+    blockingFactors?: string[];
+}
+/**
+ * Human-readable explanation format.
+ * Optional enhancement to DecisionOutput.
+ */
+interface DecisionExplanation {
+    /** One-line summary */
+    summary: string;
+    /** Detailed breakdown of factors */
+    factors: string[];
+}
+/**
+ * Decision log entry for auditing.
+ * Does NOT include raw scores or signals (data minimization).
+ */
+interface DecisionLog {
+    /** Hashed identity (for privacy) */
+    subjectHash: string;
+    /** Context where decision was made */
+    context: string;
+    /** The decision that was made */
+    decision: Decision;
+    /** Confidence tier */
+    confidence: ConfidenceTier;
+    /** Rule IDs that matched */
+    ruleIds: string[];
+    /** Signal coverage at decision time (for debugging) */
+    signalCoverage: number;
+    /** Unix timestamp */
+    timestamp: number;
+}
+/**
+ * All valid contexts where the decision engine can be invoked.
+ * Centralizing this ensures we don't have "magic strings" scattered around.
+ */
+type DecisionContext = "allowlist.general" | "apply" | "comment" | "publish" | "governance.vote";
+/**
+ * Request body for POST /v1/decide
+ */
+interface DecideRequest {
+    /** Wallet address or Farcaster FID */
+    subject: string;
+    /** Decision context (e.g., "allowlist.general") */
+    context: DecisionContext;
+}
+/**
+ * Error response format
+ */
+interface DecisionError {
+    /** Error code */
+    code: string;
+    /** Human-readable error message */
+    message: string;
+    /** Additional details (optional) */
+    details?: Record<string, unknown>;
+}
+
+/**
  * Rule Types and DSL Definitions
  *
  * Rules are the core of the Decision Engine.
@@ -126,7 +241,7 @@ interface Rule {
      * Context where this rule applies.
      * Use "*" for global rules (apply to all contexts)
      */
-    context: string | "*";
+    context: string | "*" | DecisionContext;
     /**
      * Condition function that determines if this rule matches.
      * Must be a pure function with no side effects.
@@ -169,7 +284,7 @@ interface DSLRule {
     /** Version of this rule */
     version: string;
     /** Context where this rule applies */
-    context: string;
+    context: string | DecisionContext;
     /**
      * Conditions to evaluate (implicit AND)
      * For OR logic, create separate rules
@@ -206,95 +321,6 @@ interface RulesetMetadata {
 interface Ruleset {
     metadata: RulesetMetadata;
     rules: DSLRule[];
-}
-
-/**
- * Decision Output Types
- *
- * These types define the structure of decision responses
- * from the Decision Engine.
- */
-
-/**
- * Categorical confidence tier for API responses.
- * Mapped from numeric confidence (base 50 + deltas).
- */
-type ConfidenceTier = "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH";
-/**
- * Machine-readable decision output from the engine.
- * This is the primary response format for the /v1/decide API.
- */
-interface DecisionOutput {
-    /** The actual decision: ALLOW, DENY, or ALLOW_WITH_LIMITS */
-    decision: Decision;
-    /** Confidence level in this decision */
-    confidence: ConfidenceTier;
-    /**
-     * Constraints applied when decision is ALLOW_WITH_LIMITS.
-     * Empty array for ALLOW or DENY.
-     */
-    constraints: string[];
-    /**
-     * Seconds to wait before retrying (for rate-limited or temporary denials).
-     * null if not applicable.
-     */
-    retryAfter: number | null;
-    /** IDs of rules that contributed to this decision */
-    ruleIds: string[];
-    /** Engine version used for this decision */
-    version: string;
-    /** Human-readable explanation of the decision */
-    explain: string[];
-}
-/**
- * Human-readable explanation format.
- * Optional enhancement to DecisionOutput.
- */
-interface DecisionExplanation {
-    /** One-line summary */
-    summary: string;
-    /** Detailed breakdown of factors */
-    factors: string[];
-}
-/**
- * Decision log entry for auditing.
- * Does NOT include raw scores or signals (data minimization).
- */
-interface DecisionLog {
-    /** Hashed identity (for privacy) */
-    subjectHash: string;
-    /** Context where decision was made */
-    context: string;
-    /** The decision that was made */
-    decision: Decision;
-    /** Confidence tier */
-    confidence: ConfidenceTier;
-    /** Rule IDs that matched */
-    ruleIds: string[];
-    /** Signal coverage at decision time (for debugging) */
-    signalCoverage: number;
-    /** Unix timestamp */
-    timestamp: number;
-}
-/**
- * Request body for POST /v1/decide
- */
-interface DecideRequest {
-    /** Wallet address or Farcaster FID */
-    subject: string;
-    /** Decision context (e.g., "allowlist.general") */
-    context: string;
-}
-/**
- * Error response format
- */
-interface DecisionError {
-    /** Error code */
-    code: string;
-    /** Human-readable error message */
-    message: string;
-    /** Additional details (optional) */
-    details?: Record<string, unknown>;
 }
 
 /**
@@ -355,7 +381,7 @@ declare const ENGINE_VERSION = "v1";
  * const decision = decide(signals, "allowlist.general")
  * // { decision: "ALLOW", confidence: "HIGH", ... }
  */
-declare function decide(signals: NormalizedSignals, context: string): DecisionOutput;
+declare function decide(signals: NormalizedSignals, context: DecisionContext): DecisionOutput;
 
 /**
  * Ethos Signal Normalizer
@@ -399,8 +425,10 @@ interface NeynarUser {
 /**
  * Talent Protocol Signal Normalizer
  *
- * Maps Talent Protocol builder/creator scores to Capability levels.
- * Talent is the source of truth for skills and abilities.
+ * Maps Talent Protocol builder / creator scores
+ * into normalized Capability levels.
+ *
+ * Talent is treated as the source of truth.
  */
 
 type TalentAvailability = "available" | "not_found" | "unlinked" | "error";
@@ -411,8 +439,12 @@ interface TalentFacet {
     last_updated_at?: string;
 }
 interface TalentProfile {
-    builder: TalentFacet;
-    creator: TalentFacet;
+    builder?: TalentFacet;
+    creator?: TalentFacet;
+    data?: {
+        builderScore?: number;
+        creatorScore?: number;
+    };
 }
 
 /**
@@ -500,7 +532,7 @@ interface DecideUseCaseInput {
     /** Wallet address or Farcaster FID */
     subject: string;
     /** Decision context */
-    context: string;
+    context: DecisionContext;
 }
 interface DecideUseCaseOutput extends DecisionOutput {
     /** Subject hash for logging (privacy-preserving) */
@@ -531,4 +563,4 @@ declare function validateDecideRequest(request: unknown): {
     error: string;
 };
 
-export { ALL_RULES, BASE_CONFIDENCE, CAPABILITY_ORDER, type Capability, type ConfidenceTier, DEFAULT_SIGNALS, type DSLCondition, type DSLOperator, type DSLRule, type DecideRequest, type DecideUseCaseInput, type DecideUseCaseOutput, type Decision, type DecisionError, type DecisionExplanation, type DecisionLog, type DecisionOutput, ENGINE_VERSION, type NormalizedSignals, type PartialSignals, type Rule, type Ruleset, type RulesetMetadata, TIER_ORDER, type Tier, type UnifiedProfileData, calculateSignalCoverage, capabilityGt, capabilityGte, capabilityLt, capabilityLte, decide, executeDecision, getAllContexts, getRuleById, getRulesForContext, mapConfidence, normalizeSignals, tierGt, tierGte, tierLt, tierLte, validateDecideRequest };
+export { ALL_RULES, type AccessStatus, BASE_CONFIDENCE, CAPABILITY_ORDER, type Capability, type ConfidenceTier, DEFAULT_SIGNALS, type DSLCondition, type DSLOperator, type DSLRule, type DecideRequest, type DecideUseCaseInput, type DecideUseCaseOutput, type Decision, type DecisionError, type DecisionExplanation, type DecisionLog, type DecisionOutput, ENGINE_VERSION, type NormalizedSignals, type PartialSignals, type Rule, type Ruleset, type RulesetMetadata, TIER_ORDER, type Tier, type UnifiedProfileData, calculateSignalCoverage, capabilityGt, capabilityGte, capabilityLt, capabilityLte, decide, executeDecision, getAllContexts, getRuleById, getRulesForContext, mapConfidence, normalizeSignals, tierGt, tierGte, tierLt, tierLte, validateDecideRequest };

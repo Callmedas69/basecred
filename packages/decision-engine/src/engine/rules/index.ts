@@ -32,6 +32,17 @@ export const ALL_RULES: Rule[] = [
 ]
 
 /**
+ * Check if a given rule ID belongs to the hard-deny rule set.
+ *
+ * This is useful for interpretation layers (e.g., progression) that need to
+ * distinguish between fixable denials and hard blocks without changing the
+ * core Decision type.
+ */
+export function isHardDenyRule(id: string): boolean {
+    return HARD_DENY_RULES.some((rule) => rule.id === id)
+}
+
+/**
  * Get all rules for a specific context.
  */
 export function getRulesForContext(context: string): Rule[] {

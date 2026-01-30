@@ -28,17 +28,17 @@ export const TIER_ORDER: Record<Tier, number> = {
 // Capability Types (for builder/creator skills)
 // ============================================================================
 
-export type Capability = "NONE" | "INTERMEDIATE" | "ADVANCED" | "EXPERT"
+export type Capability = "EXPLORER" | "BUILDER" | "EXPERT" | "ELITE"
 
 /**
  * Explicit ordering for Capability comparisons (ascending)
- * NONE (0) < INTERMEDIATE (1) < ADVANCED (2) < EXPERT (3)
+ * EXPLORER (0) < BUILDER (1) < EXPERT (2) < ELITE (3)
  */
 export const CAPABILITY_ORDER: Record<Capability, number> = {
-  NONE: 0,
-  INTERMEDIATE: 1,
-  ADVANCED: 2,
-  EXPERT: 3,
+  EXPLORER: 0,
+  BUILDER: 1,
+  EXPERT: 2,
+  ELITE: 3,
 }
 
 // ============================================================================

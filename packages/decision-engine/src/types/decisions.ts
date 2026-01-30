@@ -17,6 +17,18 @@ import type { Decision } from "./rules"
  */
 export type ConfidenceTier = "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH"
 
+/**
+ * Retail-facing access status derived from the authoritative decision.
+ *
+ * This is a global, non-decisional interpretation layer and MUST NOT
+ * be used to change engine behavior or thresholds.
+ */
+export type AccessStatus =
+    | "eligible"   // ALLOW
+    | "limited"    // ALLOW_WITH_LIMITS
+    | "not_ready"  // DENY but fixable
+    | "blocked"    // Hard deny / irrecoverable
+
 // ============================================================================
 // Decision Output
 // ============================================================================
@@ -52,6 +64,22 @@ export interface DecisionOutput {
 
     /** Human-readable explanation of the decision */
     explain: string[]
+
+    /**
+     * Derived, retail-facing access status.
+     *
+     * This field is OPTIONAL and is populated by the progression layer.
+     * It does not affect enforcement or core decision semantics.
+     */
+    accessStatus?: AccessStatus
+
+    /**
+     * Context-aware factors currently blocking access.
+     *
+     * This is a high-level, fixable guidance list and MUST NOT expose
+     * raw scores or implementation details.
+     */
+    blockingFactors?: string[]
 }
 
 /**
@@ -98,6 +126,32 @@ export interface DecisionLog {
 }
 
 // ============================================================================
+// Context Types
+// ============================================================================
+
+/**
+ * All valid contexts where the decision engine can be invoked.
+ * Centralizing this ensures we don't have "magic strings" scattered around.
+ */
+export type DecisionContext = 
+    | "allowlist.general" // Main allowlist check
+    | "apply"             // Job/Grant applications
+    | "comment"           // Commenting permissions
+    | "publish"           // Publishing content
+    | "governance.vote"   // Voting rights
+
+/**
+ * Helper to check if a string is a valid context at runtime
+ */
+export const VALID_CONTEXTS: DecisionContext[] = [
+    "allowlist.general",
+    "apply",
+    "comment",
+    "publish",
+    "governance.vote"
+]
+
+// ============================================================================
 // API Request/Response Types
 // ============================================================================
 
@@ -109,7 +163,7 @@ export interface DecideRequest {
     subject: string
 
     /** Decision context (e.g., "allowlist.general") */
-    context: string
+    context: DecisionContext
 }
 
 /**

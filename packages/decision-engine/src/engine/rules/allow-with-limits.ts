@@ -33,11 +33,11 @@ export const ALLOW_WITH_LIMITS_RULES: Rule[] = [
         when: (s) =>
             tierGte(s.trust, "NEUTRAL") &&
             tierGte(s.socialTrust, "NEUTRAL") &&
-            s.builder === "NONE" &&
-            s.creator === "NONE",
+            s.builder === "EXPLORER" &&
+            s.creator === "EXPLORER",
         decision: "ALLOW_WITH_LIMITS",
-        reason: "New user with baseline trust - probationary access",
-        confidenceDelta: -15,
+        reason: "New user with baseline trust - starting at medium confidence",
+        confidenceDelta: 0,
     },
     {
         id: "probation_mixed_signals",

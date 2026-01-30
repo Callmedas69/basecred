@@ -23,8 +23,8 @@ export const ALLOW_RULES: Rule[] = [
         id: "allow_strong_builder",
         context: "allowlist.general",
         when: (s) =>
-            s.builder === "EXPERT" ||
-            (capabilityGte(s.builder, "ADVANCED") && tierGte(s.socialTrust, "HIGH")),
+            s.builder === "ELITE" ||
+            (capabilityGte(s.builder, "EXPERT") && tierGte(s.socialTrust, "HIGH")),
         decision: "ALLOW",
         reason: "Strong builder credibility with sufficient social trust",
         confidenceDelta: +30,
@@ -33,8 +33,8 @@ export const ALLOW_RULES: Rule[] = [
         id: "allow_strong_creator",
         context: "allowlist.general",
         when: (s) =>
-            s.creator === "EXPERT" ||
-            (capabilityGte(s.creator, "ADVANCED") && tierGte(s.socialTrust, "HIGH")),
+            s.creator === "ELITE" ||
+            (capabilityGte(s.creator, "EXPERT") && tierGte(s.socialTrust, "HIGH")),
         decision: "ALLOW",
         reason: "Strong creator credibility with sufficient social trust",
         confidenceDelta: +30,
@@ -71,7 +71,7 @@ export const ALLOW_RULES: Rule[] = [
         when: (s) =>
             tierGte(s.trust, "HIGH") &&
             tierGte(s.socialTrust, "HIGH") &&
-            (capabilityGte(s.builder, "INTERMEDIATE") || capabilityGte(s.creator, "INTERMEDIATE")),
+            (capabilityGte(s.builder, "BUILDER") || capabilityGte(s.creator, "BUILDER")),
         decision: "ALLOW",
         reason: "Verified publisher with demonstrated capability",
         confidenceDelta: +25,
@@ -85,7 +85,7 @@ export const ALLOW_RULES: Rule[] = [
         context: "apply",
         when: (s) =>
             tierGte(s.trust, "NEUTRAL") &&
-            (capabilityGte(s.builder, "ADVANCED") || capabilityGte(s.creator, "ADVANCED")),
+            (capabilityGte(s.builder, "EXPERT") || capabilityGte(s.creator, "EXPERT")),
         decision: "ALLOW",
         reason: "Qualified applicant with demonstrated skills",
         confidenceDelta: +20,

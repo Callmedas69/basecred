@@ -79,31 +79,31 @@ describe("tierLte", () => {
 
 describe("Capability Order", () => {
     it("should have correct ordering values", () => {
-        expect(CAPABILITY_ORDER.NONE).toBe(0)
-        expect(CAPABILITY_ORDER.INTERMEDIATE).toBe(1)
-        expect(CAPABILITY_ORDER.ADVANCED).toBe(2)
-        expect(CAPABILITY_ORDER.EXPERT).toBe(3)
+        expect(CAPABILITY_ORDER.EXPLORER).toBe(0)
+        expect(CAPABILITY_ORDER.BUILDER).toBe(1)
+        expect(CAPABILITY_ORDER.EXPERT).toBe(2)
+        expect(CAPABILITY_ORDER.ELITE).toBe(3)
     })
 })
 
 describe("capabilityGte", () => {
     it("should return true when first capability is greater or equal", () => {
-        expect(capabilityGte("EXPERT", "ADVANCED")).toBe(true)
-        expect(capabilityGte("ADVANCED", "ADVANCED")).toBe(true)
+        expect(capabilityGte("EXPERT", "BUILDER")).toBe(true)
+        expect(capabilityGte("BUILDER", "BUILDER")).toBe(true)
     })
 
     it("should return false when first capability is lower", () => {
-        expect(capabilityGte("NONE", "INTERMEDIATE")).toBe(false)
+        expect(capabilityGte("EXPLORER", "BUILDER")).toBe(false)
     })
 })
 
 describe("capabilityLt", () => {
     it("should return true when first capability is lower", () => {
-        expect(capabilityLt("NONE", "EXPERT")).toBe(true)
+        expect(capabilityLt("EXPLORER", "EXPERT")).toBe(true)
     })
 
     it("should return false when first capability is higher or equal", () => {
-        expect(capabilityLt("EXPERT", "NONE")).toBe(false)
-        expect(capabilityLt("ADVANCED", "ADVANCED")).toBe(false)
+        expect(capabilityLt("EXPERT", "EXPLORER")).toBe(false)
+        expect(capabilityLt("BUILDER", "BUILDER")).toBe(false)
     })
 })

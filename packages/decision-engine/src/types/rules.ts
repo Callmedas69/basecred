@@ -6,6 +6,7 @@
  */
 
 import type { NormalizedSignals } from "./signals"
+import type { DecisionContext } from "./decisions"
 
 // ============================================================================
 // Decision Types
@@ -34,7 +35,7 @@ export interface Rule {
      * Context where this rule applies.
      * Use "*" for global rules (apply to all contexts)
      */
-    context: string | "*"
+    context: string | "*" | DecisionContext
 
     /** 
      * Condition function that determines if this rule matches.
@@ -92,7 +93,7 @@ export interface DSLRule {
     version: string
 
     /** Context where this rule applies */
-    context: string
+    context: string | DecisionContext
 
     /** 
      * Conditions to evaluate (implicit AND)

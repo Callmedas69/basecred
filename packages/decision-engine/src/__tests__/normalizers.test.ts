@@ -24,11 +24,11 @@ describe("normalizeEthosTrust", () => {
     })
 
     it("should map scores to correct tiers", () => {
-        expect(normalizeEthosTrust({ availability: "available", credibility_score: 90 })).toBe("VERY_HIGH")
-        expect(normalizeEthosTrust({ availability: "available", credibility_score: 70 })).toBe("HIGH")
-        expect(normalizeEthosTrust({ availability: "available", credibility_score: 50 })).toBe("NEUTRAL")
-        expect(normalizeEthosTrust({ availability: "available", credibility_score: 30 })).toBe("LOW")
-        expect(normalizeEthosTrust({ availability: "available", credibility_score: 10 })).toBe("VERY_LOW")
+        expect(normalizeEthosTrust({ availability: "available", credibility_score: 2300 })).toBe("VERY_HIGH")
+        expect(normalizeEthosTrust({ availability: "available", credibility_score: 1700 })).toBe("HIGH")
+        expect(normalizeEthosTrust({ availability: "available", credibility_score: 1300 })).toBe("NEUTRAL")
+        expect(normalizeEthosTrust({ availability: "available", credibility_score: 900 })).toBe("LOW")
+        expect(normalizeEthosTrust({ availability: "available", credibility_score: 100 })).toBe("VERY_LOW")
     })
 })
 
@@ -55,49 +55,49 @@ describe("normalizeNeynarSpamRisk", () => {
 })
 
 describe("normalizeTalentBuilder", () => {
-    it("should return NONE for null profile", () => {
-        expect(normalizeTalentBuilder(null)).toBe("NONE")
+    it("should return EXPLORER for null profile", () => {
+        expect(normalizeTalentBuilder(null)).toBe("EXPLORER")
     })
 
-    it("should return NONE for unavailable builder", () => {
+    it("should return EXPLORER for unavailable builder", () => {
         expect(normalizeTalentBuilder({
             builder: { availability: "not_found" },
             creator: { availability: "available" }
-        })).toBe("NONE")
+        })).toBe("EXPLORER")
     })
 
     it("should map scores to correct capabilities", () => {
         expect(normalizeTalentBuilder({
-            builder: { availability: "available", score: 90 },
+            builder: { availability: "available", score: 260 },
+            creator: { availability: "available" }
+        })).toBe("ELITE")
+
+        expect(normalizeTalentBuilder({
+            builder: { availability: "available", score: 180 },
             creator: { availability: "available" }
         })).toBe("EXPERT")
 
         expect(normalizeTalentBuilder({
-            builder: { availability: "available", score: 60 },
+            builder: { availability: "available", score: 90 },
             creator: { availability: "available" }
-        })).toBe("ADVANCED")
-
-        expect(normalizeTalentBuilder({
-            builder: { availability: "available", score: 30 },
-            creator: { availability: "available" }
-        })).toBe("INTERMEDIATE")
+        })).toBe("BUILDER")
 
         expect(normalizeTalentBuilder({
             builder: { availability: "available", score: 10 },
             creator: { availability: "available" }
-        })).toBe("NONE")
+        })).toBe("EXPLORER")
     })
 })
 
 describe("normalizeTalentCreator", () => {
-    it("should return NONE for null profile", () => {
-        expect(normalizeTalentCreator(null)).toBe("NONE")
+    it("should return EXPLORER for null profile", () => {
+        expect(normalizeTalentCreator(null)).toBe("EXPLORER")
     })
 
     it("should map scores to correct capabilities", () => {
         expect(normalizeTalentCreator({
             builder: { availability: "available" },
-            creator: { availability: "available", score: 85 }
+            creator: { availability: "available", score: 180 }
         })).toBe("EXPERT")
     })
 })
@@ -114,11 +114,11 @@ describe("calculateSignalCoverage", () => {
 
     it("should return 1 when all providers are available", () => {
         const coverage = calculateSignalCoverage({
-            ethos: { availability: "available", credibility_score: 50 },
+            ethos: { availability: "available", credibility_score: 1300 },
             neynar: { farcaster_user_score: 0.5 },
             talent: {
-                builder: { availability: "available", score: 50 },
-                creator: { availability: "available", score: 50 }
+                builder: { availability: "available", score: 90 },
+                creator: { availability: "available", score: 90 }
             }
         })
         expect(coverage).toBe(1)
@@ -126,7 +126,7 @@ describe("calculateSignalCoverage", () => {
 
     it("should return partial coverage for partial data", () => {
         const coverage = calculateSignalCoverage({
-            ethos: { availability: "available", credibility_score: 50 },
+            ethos: { availability: "available", credibility_score: 1300 },
             neynar: null,
             talent: null
         })
@@ -159,18 +159,18 @@ describe("calculateRecencyDays", () => {
 describe("normalizeSignals", () => {
     it("should produce complete NormalizedSignals object", () => {
         const signals = normalizeSignals({
-            ethos: { availability: "available", credibility_score: 75 },
-            neynar: { farcaster_user_score: 0.8 },
+            ethos: { availability: "available", credibility_score: 1700 }, // HIGH (1600+)
+            neynar: { farcaster_user_score: 0.8 }, // HIGH
             talent: {
-                builder: { availability: "available", score: 60 },
-                creator: { availability: "available", score: 40 }
+                builder: { availability: "available", score: 180 }, // EXPERT (170+)
+                creator: { availability: "available", score: 90 }  // BUILDER (80+)
             }
         })
 
         expect(signals.trust).toBe("HIGH")
         expect(signals.socialTrust).toBe("HIGH")
-        expect(signals.builder).toBe("ADVANCED")
-        expect(signals.creator).toBe("INTERMEDIATE")
+        expect(signals.builder).toBe("EXPERT")
+        expect(signals.creator).toBe("BUILDER")
         expect(signals.spamRisk).toBe("VERY_LOW")
         expect(signals.signalCoverage).toBe(1)
     })
@@ -182,10 +182,10 @@ describe("normalizeSignals", () => {
             talent: null
         })
 
-        expect(signals.trust).toBe("NEUTRAL")
-        expect(signals.socialTrust).toBe("NEUTRAL")
-        expect(signals.builder).toBe("NONE")
-        expect(signals.creator).toBe("NONE")
+        expect(signals.trust).toBe("NEUTRAL") // fallback
+        expect(signals.socialTrust).toBe("NEUTRAL") // fallback
+        expect(signals.builder).toBe("EXPLORER") // NEW DEFAULT
+        expect(signals.creator).toBe("EXPLORER") // NEW DEFAULT
         expect(signals.signalCoverage).toBe(0)
     })
 })
