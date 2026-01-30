@@ -55,8 +55,8 @@ export type PartialSignals = Partial<NormalizedSignals> & {
 export const DEFAULT_SIGNALS: NormalizedSignals = {
     trust: "NEUTRAL",
     socialTrust: "NEUTRAL",
-    builder: "NONE",
-    creator: "NONE",
+    builder: "EXPLORER",
+    creator: "EXPLORER",
     recencyDays: 0,
     spamRisk: "NEUTRAL",
     signalCoverage: 0,

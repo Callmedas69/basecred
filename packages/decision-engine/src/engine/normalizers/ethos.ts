@@ -30,11 +30,11 @@ export interface EthosProfile {
  * Thresholds lowered by 40 for more accessible tiers.
  */
 const ETHOS_THRESHOLDS = {
-    VERY_HIGH: 40,  // was 80
-    HIGH: 20,       // was 60
-    NEUTRAL: 0,     // was 40
-    LOW: -20,       // was 20 (effectively unused since scores are 0+)
-    // Below LOW → VERY_LOW
+    VERY_HIGH: 2200, // Distinguished+
+    HIGH: 1600,      // Established - Exemplary
+    NEUTRAL: 1200,   // Neutral - Known
+    LOW: 800,        // Questionable
+    // Below LOW → VERY_LOW (Untrusted)
 } as const
 
 // ============================================================================

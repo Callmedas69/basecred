@@ -11,8 +11,8 @@ function createSignals(overrides: Partial<NormalizedSignals> = {}): NormalizedSi
     return {
         trust: "NEUTRAL",
         socialTrust: "NEUTRAL",
-        builder: "NONE",
-        creator: "NONE",
+        builder: "EXPLORER",
+        creator: "EXPLORER",
         recencyDays: 0,
         spamRisk: "NEUTRAL",
         signalCoverage: 1.0,
@@ -74,7 +74,18 @@ describe("decide", () => {
     })
 
     describe("Allow Rules", () => {
-        it("should ALLOW expert builders", () => {
+        it("should ALLOW elite builders", () => {
+            const signals = createSignals({
+                builder: "ELITE",
+                socialTrust: "HIGH",
+            })
+            const result = decide(signals, "allowlist.general")
+
+            expect(result.decision).toBe("ALLOW")
+            expect(result.ruleIds).toContain("allow_strong_builder")
+        })
+
+        it("should ALLOW expert builders with high social trust", () => {
             const signals = createSignals({
                 builder: "EXPERT",
                 socialTrust: "HIGH",
@@ -85,20 +96,9 @@ describe("decide", () => {
             expect(result.ruleIds).toContain("allow_strong_builder")
         })
 
-        it("should ALLOW advanced builders with high social trust", () => {
+        it("should ALLOW elite creators", () => {
             const signals = createSignals({
-                builder: "ADVANCED",
-                socialTrust: "HIGH",
-            })
-            const result = decide(signals, "allowlist.general")
-
-            expect(result.decision).toBe("ALLOW")
-            expect(result.ruleIds).toContain("allow_strong_builder")
-        })
-
-        it("should ALLOW expert creators", () => {
-            const signals = createSignals({
-                creator: "EXPERT",
+                creator: "ELITE",
                 socialTrust: "HIGH",
             })
             const result = decide(signals, "allowlist.general")
@@ -136,8 +136,8 @@ describe("decide", () => {
             const signals = createSignals({
                 trust: "NEUTRAL",
                 socialTrust: "NEUTRAL",
-                builder: "NONE",
-                creator: "NONE",
+                builder: "EXPLORER",
+                creator: "EXPLORER",
                 recencyDays: 0,
             })
             const result = decide(signals, "allowlist.general")

@@ -7,10 +7,10 @@ var TIER_ORDER = {
   VERY_HIGH: 4
 };
 var CAPABILITY_ORDER = {
-  NONE: 0,
-  INTERMEDIATE: 1,
-  ADVANCED: 2,
-  EXPERT: 3
+  EXPLORER: 0,
+  BUILDER: 1,
+  EXPERT: 2,
+  ELITE: 3
 };
 function tierGte(a, b) {
   return TIER_ORDER[a] >= TIER_ORDER[b];
@@ -41,8 +41,8 @@ function capabilityLte(a, b) {
 var DEFAULT_SIGNALS = {
   trust: "NEUTRAL",
   socialTrust: "NEUTRAL",
-  builder: "NONE",
-  creator: "NONE",
+  builder: "EXPLORER",
+  creator: "EXPLORER",
   recencyDays: 0,
   spamRisk: "NEUTRAL",
   signalCoverage: 0
@@ -104,7 +104,7 @@ var ALLOW_RULES = [
   {
     id: "allow_strong_builder",
     context: "allowlist.general",
-    when: (s) => s.builder === "EXPERT" || capabilityGte(s.builder, "ADVANCED") && tierGte(s.socialTrust, "HIGH"),
+    when: (s) => s.builder === "ELITE" || capabilityGte(s.builder, "EXPERT") && tierGte(s.socialTrust, "HIGH"),
     decision: "ALLOW",
     reason: "Strong builder credibility with sufficient social trust",
     confidenceDelta: 30
@@ -112,7 +112,7 @@ var ALLOW_RULES = [
   {
     id: "allow_strong_creator",
     context: "allowlist.general",
-    when: (s) => s.creator === "EXPERT" || capabilityGte(s.creator, "ADVANCED") && tierGte(s.socialTrust, "HIGH"),
+    when: (s) => s.creator === "ELITE" || capabilityGte(s.creator, "EXPERT") && tierGte(s.socialTrust, "HIGH"),
     decision: "ALLOW",
     reason: "Strong creator credibility with sufficient social trust",
     confidenceDelta: 30
@@ -142,7 +142,7 @@ var ALLOW_RULES = [
   {
     id: "allow_publish_verified",
     context: "publish",
-    when: (s) => tierGte(s.trust, "HIGH") && tierGte(s.socialTrust, "HIGH") && (capabilityGte(s.builder, "INTERMEDIATE") || capabilityGte(s.creator, "INTERMEDIATE")),
+    when: (s) => tierGte(s.trust, "HIGH") && tierGte(s.socialTrust, "HIGH") && (capabilityGte(s.builder, "BUILDER") || capabilityGte(s.creator, "BUILDER")),
     decision: "ALLOW",
     reason: "Verified publisher with demonstrated capability",
     confidenceDelta: 25
@@ -153,7 +153,7 @@ var ALLOW_RULES = [
   {
     id: "allow_apply_qualified",
     context: "apply",
-    when: (s) => tierGte(s.trust, "NEUTRAL") && (capabilityGte(s.builder, "ADVANCED") || capabilityGte(s.creator, "ADVANCED")),
+    when: (s) => tierGte(s.trust, "NEUTRAL") && (capabilityGte(s.builder, "EXPERT") || capabilityGte(s.creator, "EXPERT")),
     decision: "ALLOW",
     reason: "Qualified applicant with demonstrated skills",
     confidenceDelta: 20
@@ -187,10 +187,10 @@ var ALLOW_WITH_LIMITS_RULES = [
   {
     id: "probation_new_user",
     context: "allowlist.general",
-    when: (s) => tierGte(s.trust, "NEUTRAL") && tierGte(s.socialTrust, "NEUTRAL") && s.builder === "NONE" && s.creator === "NONE",
+    when: (s) => tierGte(s.trust, "NEUTRAL") && tierGte(s.socialTrust, "NEUTRAL") && s.builder === "EXPLORER" && s.creator === "EXPLORER",
     decision: "ALLOW_WITH_LIMITS",
-    reason: "New user with baseline trust - probationary access",
-    confidenceDelta: -15
+    reason: "New user with baseline trust - starting at medium confidence",
+    confidenceDelta: 0
   },
   {
     id: "probation_mixed_signals",
@@ -242,6 +242,9 @@ var ALL_RULES = [
   ...ALLOW_RULES,
   ...ALLOW_WITH_LIMITS_RULES
 ];
+function isHardDenyRule(id) {
+  return HARD_DENY_RULES.some((rule) => rule.id === id);
+}
 function getRulesForContext(context) {
   return ALL_RULES.filter(
     (rule) => rule.context === "*" || rule.context === context
@@ -340,15 +343,15 @@ function getConstraintsForRule(rule) {
 
 // src/engine/normalizers/ethos.ts
 var ETHOS_THRESHOLDS = {
-  VERY_HIGH: 40,
-  // was 80
-  HIGH: 20,
-  // was 60
-  NEUTRAL: 0,
-  // was 40
-  LOW: -20
-  // was 20 (effectively unused since scores are 0+)
-  // Below LOW → VERY_LOW
+  VERY_HIGH: 2200,
+  // Distinguished+
+  HIGH: 1600,
+  // Established - Exemplary
+  NEUTRAL: 1200,
+  // Neutral - Known
+  LOW: 800
+  // Questionable
+  // Below LOW → VERY_LOW (Untrusted)
 };
 function normalizeEthosTrust(profile) {
   if (!profile) return null;
@@ -425,48 +428,51 @@ function isNeynarAvailable(user) {
 
 // src/engine/normalizers/talent.ts
 var TALENT_THRESHOLDS = {
-  EXPERT: 80,
-  ADVANCED: 50,
-  INTERMEDIATE: 20
-  // Below INTERMEDIATE → NONE
+  BUILDER: 80,
+  EXPERT: 170,
+  ELITE: 250
 };
+function normalizeScoreToCapability(score) {
+  if (score >= TALENT_THRESHOLDS.ELITE) return "ELITE";
+  if (score >= TALENT_THRESHOLDS.EXPERT) return "EXPERT";
+  if (score >= TALENT_THRESHOLDS.BUILDER) return "BUILDER";
+  return "EXPLORER";
+}
 function normalizeTalentBuilder(profile) {
-  if (!profile) return "NONE";
+  if (!profile) return "EXPLORER";
   let score;
   if (profile.data && typeof profile.data.builderScore === "number") {
     score = profile.data.builderScore;
   } else if (profile.builder && profile.builder.availability === "available" && typeof profile.builder.score === "number") {
     score = profile.builder.score;
   }
-  if (score === void 0) return "NONE";
-  if (score >= TALENT_THRESHOLDS.EXPERT) return "EXPERT";
-  if (score >= TALENT_THRESHOLDS.ADVANCED) return "ADVANCED";
-  if (score >= TALENT_THRESHOLDS.INTERMEDIATE) return "INTERMEDIATE";
-  return "NONE";
+  if (score === void 0) return "EXPLORER";
+  return normalizeScoreToCapability(score);
 }
 function normalizeTalentCreator(profile) {
-  if (!profile) return "NONE";
+  if (!profile) return "EXPLORER";
   let score;
   if (profile.data && typeof profile.data.creatorScore === "number") {
     score = profile.data.creatorScore;
   } else if (profile.creator && profile.creator.availability === "available" && typeof profile.creator.score === "number") {
     score = profile.creator.score;
   }
-  if (score === void 0) return "NONE";
-  if (score >= TALENT_THRESHOLDS.EXPERT) return "EXPERT";
-  if (score >= TALENT_THRESHOLDS.ADVANCED) return "ADVANCED";
-  if (score >= TALENT_THRESHOLDS.INTERMEDIATE) return "INTERMEDIATE";
-  return "NONE";
+  if (score === void 0) return "EXPLORER";
+  return normalizeScoreToCapability(score);
 }
 function isTalentBuilderAvailable(profile) {
   if (!profile) return false;
-  if (profile.data && typeof profile.data.builderScore === "number") return true;
-  return profile.builder && profile.builder.availability === "available";
+  if (profile.data && typeof profile.data.builderScore === "number") {
+    return true;
+  }
+  return !!profile.builder && profile.builder.availability === "available" && typeof profile.builder.score === "number";
 }
 function isTalentCreatorAvailable(profile) {
   if (!profile) return false;
-  if (profile.data && typeof profile.data.creatorScore === "number") return true;
-  return profile.creator && profile.creator.availability === "available";
+  if (profile.data && typeof profile.data.creatorScore === "number") {
+    return true;
+  }
+  return !!profile.creator && profile.creator.availability === "available" && typeof profile.creator.score === "number";
 }
 
 // src/engine/normalizers/index.ts
@@ -518,14 +524,78 @@ function calculateRecencyDays(lastActivityAt) {
   return Math.floor(diffMs / (1e3 * 60 * 60 * 24));
 }
 
+// src/types/decisions.ts
+var VALID_CONTEXTS = [
+  "allowlist.general",
+  "apply",
+  "comment",
+  "publish",
+  "governance.vote"
+];
+
+// src/engine/progression.ts
+function deriveAccessStatus(decision, options = {}) {
+  if (decision === "ALLOW") {
+    return "eligible";
+  }
+  if (decision === "ALLOW_WITH_LIMITS") {
+    return "limited";
+  }
+  if (options.isHardDeny) {
+    return "blocked";
+  }
+  return "not_ready";
+}
+function resolveBlockingFactors(signals) {
+  return {
+    // Trust is considered ready when not at the very bottom tier
+    trust: signals.trust !== "VERY_LOW",
+    // Social trust is ready when not below NEUTRAL
+    socialTrust: signals.socialTrust !== "VERY_LOW",
+    // Builder/creator considered ready from mid-tier upwards
+    builder: signals.builder !== "EXPLORER",
+    creator: signals.creator !== "EXPLORER",
+    // Spam risk is acceptable when not in the top risk tiers
+    spamRisk: signals.spamRisk !== "VERY_HIGH" && signals.spamRisk !== "HIGH",
+    // Signal coverage is considered ready when we have most signals
+    signalCoverage: signals.signalCoverage >= 0.8
+  };
+}
+var CONTEXT_REQUIREMENTS = {
+  "allowlist.general": ["trust", "builder", "creator"],
+  apply: ["trust"],
+  comment: ["spamRisk", "socialTrust"],
+  publish: ["creator", "spamRisk"],
+  "governance.vote": ["trust", "socialTrust"]
+};
+function deriveBlockingFactorsForContext(context, snapshot) {
+  const requiredFactors = CONTEXT_REQUIREMENTS[context] ?? [];
+  const blocking = [];
+  for (const factor of requiredFactors) {
+    if (!snapshot[factor]) {
+      blocking.push(factor);
+    }
+  }
+  return blocking;
+}
+
 // src/use-cases/decide.ts
 async function executeDecision(input, profileFetcher) {
   const profileData = await profileFetcher(input.subject);
   const signals = normalizeSignals(profileData);
   const decision = decide(signals, input.context);
+  const isHardDeny = decision.ruleIds.some((id) => isHardDenyRule(id));
+  const accessStatus = deriveAccessStatus(decision.decision, { isHardDeny });
+  const blockingSnapshot = resolveBlockingFactors(signals);
+  const blockingFactors = deriveBlockingFactorsForContext(
+    input.context,
+    blockingSnapshot
+  );
   const subjectHash = hashSubject(input.subject);
   return {
     ...decision,
+    accessStatus,
+    blockingFactors,
     subjectHash
   };
 }
@@ -549,11 +619,18 @@ function validateDecideRequest(request) {
   if (!req.context || typeof req.context !== "string") {
     return { valid: false, error: "Missing or invalid 'context' field" };
   }
+  const context = req.context;
+  if (!VALID_CONTEXTS.includes(context)) {
+    return {
+      valid: false,
+      error: `Invalid context. Must be one of: ${VALID_CONTEXTS.map((c) => `'${c}'`).join(", ")}`
+    };
+  }
   return {
     valid: true,
     data: {
       subject: req.subject,
-      context: req.context
+      context
     }
   };
 }

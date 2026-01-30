@@ -11,9 +11,12 @@
  * know about HTTP or infrastructure details.
  */
 
-import type { DecisionOutput, DecideRequest } from "../types/decisions"
+import type { DecisionOutput, DecideRequest, DecisionContext } from "../types/decisions"
 import { decide } from "../engine/decide"
 import { normalizeSignals, type UnifiedProfileData } from "../engine/normalizers"
+import { VALID_CONTEXTS } from "../types/decisions"
+import { deriveAccessStatus, resolveBlockingFactors, deriveBlockingFactorsForContext } from "../engine/progression"
+import { isHardDenyRule } from "../engine/rules"
 
 // ============================================================================
 // Use Case Input/Output
@@ -23,7 +26,7 @@ export interface DecideUseCaseInput {
     /** Wallet address or Farcaster FID */
     subject: string
     /** Decision context */
-    context: string
+    context: DecisionContext
 }
 
 export interface DecideUseCaseOutput extends DecisionOutput {
@@ -61,11 +64,22 @@ export async function executeDecision(
     // Step 3: Evaluate rules and get decision
     const decision = decide(signals, input.context)
 
+    // Step 3b: Derive progression/explainability fields (non-authoritative)
+    const isHardDeny = decision.ruleIds.some((id) => isHardDenyRule(id))
+    const accessStatus = deriveAccessStatus(decision.decision, { isHardDeny })
+    const blockingSnapshot = resolveBlockingFactors(signals)
+    const blockingFactors = deriveBlockingFactorsForContext(
+        input.context,
+        blockingSnapshot
+    )
+
     // Step 4: Hash subject for privacy-preserving logging
     const subjectHash = hashSubject(input.subject)
 
     return {
         ...decision,
+        accessStatus,
+        blockingFactors,
         subjectHash,
     }
 }
@@ -109,11 +123,20 @@ export function validateDecideRequest(
         return { valid: false, error: "Missing or invalid 'context' field" }
     }
 
+    // Validate that context is a valid DecisionContext
+    const context = req.context as DecisionContext
+    if (!VALID_CONTEXTS.includes(context)) {
+        return { 
+            valid: false, 
+            error: `Invalid context. Must be one of: ${VALID_CONTEXTS.map(c => `'${c}'`).join(", ")}` 
+        }
+    }
+
     return {
         valid: true,
         data: {
             subject: req.subject,
-            context: req.context,
+            context: context,
         },
     }
 }

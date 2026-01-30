@@ -13,7 +13,7 @@
 
 import type { NormalizedSignals } from "../types/signals"
 import type { Rule } from "../types/rules"
-import type { DecisionOutput } from "../types/decisions"
+import type { DecisionOutput, DecisionContext } from "../types/decisions"
 import {
     FALLBACK_RULES,
     HARD_DENY_RULES,
@@ -55,7 +55,7 @@ export const ENGINE_VERSION = "v1"
  */
 export function decide(
     signals: NormalizedSignals,
-    context: string
+    context: DecisionContext
 ): DecisionOutput {
     // Phase 1: Fallback rules (signal coverage)
     for (const rule of FALLBACK_RULES) {
@@ -105,7 +105,7 @@ export function decide(
  * Check if a rule applies to the given context.
  * Rules with context "*" apply to all contexts.
  */
-function matchesContext(rule: Rule, context: string): boolean {
+function matchesContext(rule: Rule, context: string | DecisionContext): boolean {
     return rule.context === "*" || rule.context === context
 }
 

@@ -37,6 +37,7 @@ export type {
 // Decision types
 export type {
     ConfidenceTier,
+    AccessStatus,
     DecisionOutput,
     DecisionExplanation,
     DecisionLog,
