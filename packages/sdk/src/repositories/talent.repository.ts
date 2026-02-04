@@ -6,15 +6,15 @@ import type { TalentConfig } from '../types/config.js';
 import type { TalentFacet, TalentData, TalentSignals } from '../types/talent.js';
 import type { AvailabilityState } from '../types/availability.js';
 
-const BUILDER_SCORE_SLUG = 'builder_score';
-const CREATOR_SCORE_SLUG = 'creator_score';
+const BUILDER_SCORE_SLUGS = ['builder_score_2025', 'builder_score'];
+const CREATOR_SCORE_SLUGS = ['creator_score_2025', 'creator_score'];
 
 // Raw API response type (internal only)
 interface TalentScoreItem {
   slug: string;
   points: number;
   last_calculated_at: string | null;
-  // FORBIDDEN: rank_position - do not map
+  rank_position: number | null;
 }
 
 interface TalentScoresResponse {
@@ -25,6 +25,35 @@ interface TalentScoresResponse {
 export interface TalentRepositoryResult {
   availability: AvailabilityState;
   facet?: TalentFacet;
+}
+
+function pickPreferredScore(
+  scores: TalentScoreItem[],
+  slugs: string[]
+): TalentScoreItem | undefined {
+  for (const slug of slugs) {
+    const item = scores.find(score => score.slug === slug);
+    if (item) return item;
+  }
+  return undefined;
+}
+
+function mostRecentTimestamp(items: TalentScoreItem[]): string | null {
+  let latestMs = Number.NEGATIVE_INFINITY;
+  let latestIso: string | null = null;
+
+  for (const item of items) {
+    const timestamp = item.last_calculated_at;
+    if (!timestamp) continue;
+    const ms = Date.parse(timestamp);
+    if (Number.isNaN(ms)) continue;
+    if (ms > latestMs) {
+      latestMs = ms;
+      latestIso = timestamp;
+    }
+  }
+
+  return latestIso;
 }
 
 export async function fetchTalentScore(
@@ -55,9 +84,12 @@ export async function fetchTalentScore(
       return { availability: 'not_found' };
     }
 
-    // Filter and map known scores only
-    const builderScoreItem = data.scores.find(s => s.slug === BUILDER_SCORE_SLUG);
-    const creatorScoreItem = data.scores.find(s => s.slug === CREATOR_SCORE_SLUG);
+    // Filter and map known scores only (versioned slugs supported)
+    const builderScoreItems = data.scores.filter(s => BUILDER_SCORE_SLUGS.includes(s.slug));
+    const creatorScoreItems = data.scores.filter(s => CREATOR_SCORE_SLUGS.includes(s.slug));
+
+    const builderScoreItem = pickPreferredScore(data.scores, BUILDER_SCORE_SLUGS);
+    const creatorScoreItem = pickPreferredScore(data.scores, CREATOR_SCORE_SLUGS);
 
     // If neither known score exists, treat as not found
     if (!builderScoreItem && !creatorScoreItem) {
@@ -67,7 +99,9 @@ export async function fetchTalentScore(
     // Build data object with available scores
     const talentData: TalentData = {
       builderScore: builderScoreItem?.points ?? 0,
+      builderRankPosition: builderScoreItem?.rank_position ?? null,
       ...(creatorScoreItem ? { creatorScore: creatorScoreItem.points } : {}),
+      ...(creatorScoreItem ? { creatorRankPosition: creatorScoreItem.rank_position ?? null } : {}),
     };
 
     // Build signals object
@@ -77,9 +111,7 @@ export async function fetchTalentScore(
     };
 
     // Use most recent last_calculated_at from available scores
-    const lastUpdatedAt = builderScoreItem?.last_calculated_at
-      ?? creatorScoreItem?.last_calculated_at
-      ?? null;
+    const lastUpdatedAt = mostRecentTimestamp([...builderScoreItems, ...creatorScoreItems]);
 
     const facet: TalentFacet = {
       data: talentData,

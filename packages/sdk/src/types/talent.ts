@@ -6,8 +6,10 @@ import type { BaseCredLevel } from './level.js';
 
 export interface TalentData {
   builderScore: number;
+  builderRankPosition?: number | null;
   builderLevel?: BaseCredLevel;   // Optional: derived when levels.enabled
   creatorScore?: number;          // Optional: present when creator_score exists
+  creatorRankPosition?: number | null;
   creatorLevel?: BaseCredLevel;   // Optional: derived when levels.enabled
 }
 

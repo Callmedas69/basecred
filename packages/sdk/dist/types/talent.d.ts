@@ -4,8 +4,10 @@
 import type { BaseCredLevel } from './level.js';
 export interface TalentData {
     builderScore: number;
+    builderRankPosition?: number | null;
     builderLevel?: BaseCredLevel;
     creatorScore?: number;
+    creatorRankPosition?: number | null;
     creatorLevel?: BaseCredLevel;
 }
 export interface TalentSignals {
