@@ -4,10 +4,14 @@ A neutral, composable SDK that fetches and assembles reputation data from [Ethos
 
 This SDK exists to make reputation data observable without turning it into judgment.
 
+**v0.6.1**
+
 ## What This SDK Does
 
 - Fetches Ethos social credibility signals (vouches, reviews, raw score)
 - Fetches Talent Protocol builder and creator credibility (builder score, creator score)
+  - Supports versioned score slugs (e.g., `builder_score_2025`) and prefers the newest known variant
+  - Exposes raw `rank_position` per score when provided by Talent Protocol
 - Fetches Neynar Farcaster account quality score (opt-in)
 - Derives semantic levels from scores (enabled by default)
 - Computes time semantics (days active, recency buckets)
@@ -113,19 +117,21 @@ const profileWithoutLevels = await getUnifiedProfile(
       "lastUpdatedDaysAgo": 3
     }
   },
-  "talent": {
-    "data": {
-      "builderScore": 196,
-      "builderLevel": {
-        "value": 196,
-        "level": "Expert",
-        "levelSource": "sdk",
-        "levelPolicy": "builder@v1"
-      },
-      "creatorScore": 97,
-      "creatorLevel": {
-        "value": 97,
-        "level": "Established",
+    "talent": {
+      "data": {
+        "builderScore": 196,
+        "builderRankPosition": 641,
+        "builderLevel": {
+          "value": 196,
+          "level": "Expert",
+          "levelSource": "sdk",
+          "levelPolicy": "builder@v1"
+        },
+        "creatorScore": 97,
+        "creatorRankPosition": null,
+        "creatorLevel": {
+          "value": 97,
+          "level": "Established",
         "levelSource": "sdk",
         "levelPolicy": "creator@v1"
       }
@@ -222,6 +228,17 @@ The SDK computes time-based fields from timestamps:
 | `ethos.meta.lastUpdatedDaysAgo` | `lastUpdatedAt` | Days since last profile update |
 | `talent.meta.lastUpdatedDaysAgo` | `lastUpdatedAt` | Days since score recalculation |
 
+### Talent Protocol Mapping
+
+The SDK uses the Talent Protocol `GET /scores` endpoint and maps fields directly:
+
+| Talent Field | SDK Field | Notes |
+|-------------|-----------|-------|
+| `slug` | `talent.data.builderScore` / `talent.data.creatorScore` | Only known slugs are mapped |
+| `points` | Score values | Raw score values |
+| `rank_position` | `builderRankPosition` / `creatorRankPosition` | Nullable, exposed as-is |
+| `last_calculated_at` | `talent.meta.lastUpdatedAt` | Most recent timestamp across known scores |
+
 ### Recency
 
 Profile-level data freshness indicator (`recency@v1`):
@@ -274,6 +291,12 @@ This SDK never throws on valid input.
 All failures are surfaced explicitly via the `availability` field for each source. Consumers should check `availability.ethos` and `availability.talent` to determine data presence.
 
 ## Changelog
+
+**v0.6.1 — Talent Scores Update**
+
+- Support versioned score slugs (e.g., `builder_score_2025`, `creator_score_2025`)
+- Expose Talent `rank_position` as `builderRankPosition` / `creatorRankPosition`
+- `talent.meta.lastUpdatedAt` uses the most recent `last_calculated_at`
 
 **v0.6.0 — Farcaster Account Quality**
 
