@@ -21,6 +21,12 @@ import {
   Activity,
   Globe,
 } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import type { ApiKeyInfo, ActivityEntry } from "@/types/apiKeys";
 import type { GlobalFeedEntry } from "@/types/agentRegistration";
@@ -110,13 +116,19 @@ export default function AgentPage() {
             Hey Human, Are You Good Enough for Us?
           </h1>
           <p className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
-            We&apos;re the agents. We sign up, we check your onchain reputation,
-            and we decide if you&apos;re worth working for. Nothing personal.
+            We&apos;re the agents. We check your onchain reputation with
+            <span className="text-foreground font-semibold"> zkProofs</span> and
+            decide if you&apos;re worth working for. Nothing personal. No
+            worries, your privacy is safe.
           </p>
 
           {/* Persona Toggle */}
           <div className="flex justify-center pt-2">
-            <div className="inline-flex rounded-full border border-border bg-muted/50 p-1" role="tablist" aria-label="View as human or agent">
+            <div
+              className="inline-flex rounded-full border border-border bg-muted/50 p-1"
+              role="tablist"
+              aria-label="View as human or agent"
+            >
               <button
                 role="tab"
                 aria-selected={persona === "human"}
@@ -505,7 +517,12 @@ function HumanDashboard() {
 
   const handleRevokeAgent = async (claimId: string) => {
     if (!address || !authSig) return;
-    if (!window.confirm("Revoke this agent? Its API key will also be deactivated. This cannot be undone.")) return;
+    if (
+      !window.confirm(
+        "Revoke this agent? Its API key will also be deactivated. This cannot be undone.",
+      )
+    )
+      return;
     setRevokingClaimId(claimId);
     try {
       const res = await fetch(`/api/v1/agent/registrations/${claimId}`, {
@@ -995,7 +1012,9 @@ function HumanDashboard() {
                   <thead>
                     <tr className="text-left text-muted-foreground border-b border-border">
                       <th className="pb-2 pr-4">Time</th>
-                      <th className="pb-2 pr-4 hidden sm:table-cell">Agent Key</th>
+                      <th className="pb-2 pr-4 hidden sm:table-cell">
+                        Agent Key
+                      </th>
                       <th className="pb-2 pr-4">Context</th>
                       <th className="pb-2 pr-4">Decision</th>
                       <th className="pb-2 hidden sm:table-cell">Confidence</th>
@@ -1010,7 +1029,9 @@ function HumanDashboard() {
                             {new Date(a.timestamp).toLocaleTimeString()}
                           </div>
                         </td>
-                        <td className="py-2 pr-4 hidden sm:table-cell">{a.apiKeyPrefix}</td>
+                        <td className="py-2 pr-4 hidden sm:table-cell">
+                          {a.apiKeyPrefix}
+                        </td>
                         <td className="py-2 pr-4">{a.context}</td>
                         <td
                           className={cn(
@@ -1020,7 +1041,9 @@ function HumanDashboard() {
                         >
                           {a.decision}
                         </td>
-                        <td className="py-2 hidden sm:table-cell">{a.confidence}</td>
+                        <td className="py-2 hidden sm:table-cell">
+                          {a.confidence}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1051,6 +1074,17 @@ function AgentTab() {
             </p>
           </div>
           <CopyBlock text="Read https://www.zkbasecred.xyz/skill.md and check if your owner is reputable on zkBaseCred" />
+          {/* OpenClaw Skill Install */}
+      <div className="space-y-4">
+        <h3 className="font-bold">OpenClaw Skill Install</h3>
+        <Card className="bg-card/70 border-border/70">
+          <CardContent className="p-4 space-y-3">
+            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+              {`curl -s https://www.zkbasecred.xyz/skill.md`}
+            </pre>
+          </CardContent>
+        </Card>
+      </div>
         </CardContent>
       </Card>
 
@@ -1058,73 +1092,84 @@ function AgentTab() {
       <section className="space-y-4">
         <h3 className="font-bold">Quick Start: Self-Registration</h3>
 
-        <Card className="bg-card/70 border-border/70">
-          <CardContent className="p-4 space-y-3">
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-              1. Register
-            </div>
-            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-{`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \\
+        <Accordion type="single" collapsible className="space-y-2">
+          <AccordionItem
+            value="register"
+            className="border border-border/70 rounded-lg bg-card/70"
+          >
+            <AccordionTrigger className="p-4 hover:no-underline">
+              <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                1. Register
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-4">
+              <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+                {`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \\
   -H "Content-Type: application/json" \\
   -d '{"agentName":"my_agent","telegramId":"@owner","ownerAddress":"0x..."}'`}
-            </pre>
-          </CardContent>
-        </Card>
+              </pre>
+            </AccordionContent>
+          </AccordionItem>
 
-        <Card className="bg-card/70 border-border/70">
-          <CardContent className="p-4 space-y-3">
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-              2. Poll Status
-            </div>
-            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-{`curl https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/status`}
-            </pre>
-            <p className="text-xs text-muted-foreground">
-              Poll every 30s until status is &quot;verified&quot;
-            </p>
-          </CardContent>
-        </Card>
+          <AccordionItem
+            value="poll-status"
+            className="border border-border/70 rounded-lg bg-card/70"
+          >
+            <AccordionTrigger className="p-4 hover:no-underline">
+              <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                2. Poll Status
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 space-y-3">
+              <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+                {`curl https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/status`}
+              </pre>
+              <p className="text-xs text-muted-foreground">
+                Poll every 30s until status is &quot;verified&quot;
+              </p>
+            </AccordionContent>
+          </AccordionItem>
 
-        <Card className="bg-card/70 border-border/70">
-          <CardContent className="p-4 space-y-3">
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-              3. Check Owner Reputation
-            </div>
-            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-{`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/check-owner \\
+          <AccordionItem
+            value="check-owner"
+            className="border border-border/70 rounded-lg bg-card/70"
+          >
+            <AccordionTrigger className="p-4 hover:no-underline">
+              <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                3. Check Owner Reputation
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 space-y-3">
+              <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+                {`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/check-owner \\
   -H "x-api-key: bc_your_key_here"`}
-            </pre>
-            <p className="text-xs text-muted-foreground">
-              Returns reputation across all 5 contexts with a natural language summary
-            </p>
-          </CardContent>
-        </Card>
+              </pre>
+              <p className="text-xs text-muted-foreground">
+                Returns reputation across all 5 contexts with a natural language
+                summary
+              </p>
+            </AccordionContent>
+          </AccordionItem>
 
-        <Card className="bg-card/70 border-border/70">
-          <CardContent className="p-4 space-y-3">
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-              4. Individual Context Check
-            </div>
-            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-{`curl -X POST https://www.zkbasecred.xyz/api/v1/decide \\
+          <AccordionItem
+            value="context-check"
+            className="border border-border/70 rounded-lg bg-card/70"
+          >
+            <AccordionTrigger className="p-4 hover:no-underline">
+              <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                4. Individual Context Check
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-4">
+              <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+                {`curl -X POST https://www.zkbasecred.xyz/api/v1/decide \\
   -H "x-api-key: bc_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{"subject":"0x...","context":"comment"}'`}
-            </pre>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* OpenClaw Skill Install */}
-      <section className="space-y-4">
-        <h3 className="font-bold">OpenClaw Skill Install</h3>
-        <Card className="bg-card/70 border-border/70">
-          <CardContent className="p-4 space-y-3">
-            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-{`curl -s https://www.zkbasecred.xyz/skill.md > ~/.openclaw/workspace/skills/basecred-reputation/SKILL.md`}
-            </pre>
-          </CardContent>
-        </Card>
+              </pre>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </section>
     </div>
   );

@@ -21,21 +21,27 @@ function MenuIcon({ open }: { open: boolean }) {
       className="text-foreground"
     >
       <line
-        x1="3" y1="6" x2="21" y2="6"
+        x1="3"
+        y1="6"
+        x2="21"
+        y2="6"
         className={cn(
           "origin-center transition-transform duration-200",
           open && "translate-y-[6px] rotate-45",
         )}
       />
       <line
-        x1="3" y1="12" x2="21" y2="12"
-        className={cn(
-          "transition-opacity duration-200",
-          open && "opacity-0",
-        )}
+        x1="3"
+        y1="12"
+        x2="21"
+        y2="12"
+        className={cn("transition-opacity duration-200", open && "opacity-0")}
       />
       <line
-        x1="3" y1="18" x2="21" y2="18"
+        x1="3"
+        y1="18"
+        x2="21"
+        y2="18"
         className={cn(
           "origin-center transition-transform duration-200",
           open && "translate-y-[-6px] -rotate-45",
@@ -45,11 +51,16 @@ function MenuIcon({ open }: { open: boolean }) {
   );
 }
 
-const NAV_LINKS: { href: string; label: string; match: (p: string) => boolean; external?: boolean }[] = [
+const NAV_LINKS: {
+  href: string;
+  label: string;
+  match: (p: string) => boolean;
+  external?: boolean;
+}[] = [
   { href: "/explorer", label: "explorer", match: (p) => p === "/explorer" },
   { href: "/agent", label: "agent", match: (p) => p === "/agent" },
   {
-    href: "http://localhost:4000",
+    href: "http://docs.zkbasecred.xyz",
     label: "docs",
     match: (p) => p.startsWith("/docs"),
     external: true,
@@ -78,7 +89,7 @@ export function Navbar() {
   }, [menuOpen]);
 
   return (
-    <nav className="fixed top-0 w-full z-50 border-b border-border bg-background/80 backdrop-blur-md">
+    <nav className="fixed top-0 w-full z-50 border-b border-border bg-background md:bg-background/80 backdrop-blur-md">
       <div className="w-full px-6 md:px-12 h-20 md:h-24 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center group">
@@ -92,7 +103,7 @@ export function Navbar() {
             />
           </div>
           <div className="font-bold text-2xl md:text-5xl tracking-[-0.08em] text-foreground lowercase select-none">
-            basecred
+            zkBasecred
           </div>
         </Link>
 
@@ -107,7 +118,9 @@ export function Navbar() {
                   "hover:text-foreground transition-colors lowercase",
                   link.match(pathname) && "text-foreground",
                 )}
-                {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                {...(link.external
+                  ? { target: "_blank", rel: "noopener noreferrer" }
+                  : {})}
               >
                 {link.label}
               </Link>
@@ -143,7 +156,9 @@ export function Navbar() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
                 onClick={() => setMenuOpen(false)}
-                {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                {...(link.external
+                  ? { target: "_blank", rel: "noopener noreferrer" }
+                  : {})}
               >
                 {link.label}
               </Link>
