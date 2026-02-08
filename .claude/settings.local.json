@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude mcp add:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx next build:*)",
+      "Bash(timeout 15 pnpm dev:*)",
+      "Bash(pnpm --filter interface build:*)",
+      "Bash(pnpm --filter interface dev:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(dir:*)",
+      "Bash(node -e:*)",
+      "Bash(find:*)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(pnpm --filter docs build:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.openclaw.ai)",
+      "WebFetch(domain:zenvanriel.nl)",
+      "WebFetch(domain:openclaw.dog)",
+      "WebFetch(domain:deepwiki.com)",
+      "Bash(xargs:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(pnpm dev:all:*)",
+      "Bash(findstr:*)",
+      "Bash(netstat:*)",
+      "WebFetch(domain:molten.gg)",
+      "Bash(pnpm --filter interface exec tsc:*)",
+      "Bash(pnpm --filter interface test:*)",
+      "Bash(ping:*)",
+      "Bash(pnpm list:*)",
+      "Bash(pnpm --filter interface list:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "context7"
+  ]
+}

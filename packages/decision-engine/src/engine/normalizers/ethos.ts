@@ -1,6 +1,6 @@
 /**
- * Ethos Signal Normalizer
- * 
+ * Ethos Signal Normalizer (SDK schema)
+ *
  * Maps Ethos credibility scores to trust Tier.
  * Ethos is the source of truth for long-term trust/credibility.
  */
@@ -11,13 +11,20 @@ import type { Tier } from "../../types/tiers"
 // Ethos Response Types
 // ============================================================================
 
-export type EthosAvailability = "available" | "not_found" | "unlinked" | "error"
-
 export interface EthosProfile {
-    availability: EthosAvailability
-    credibility_score?: number
-    review_count?: number
-    vouch_count?: number
+    data?: {
+        score?: number
+    }
+    signals?: {
+        hasNegativeReviews?: boolean
+        hasVouches?: boolean
+    }
+    meta?: {
+        firstSeenAt?: string | null
+        lastUpdatedAt?: string | null
+        activeSinceDays?: number | null
+        lastUpdatedDaysAgo?: number | null
+    }
 }
 
 // ============================================================================
@@ -48,7 +55,7 @@ const ETHOS_THRESHOLDS = {
  * @returns Trust Tier, or null if data is unavailable
  * 
  * @example
- * normalizeEthosTrust({ availability: "available", credibility_score: 75 })
+ * normalizeEthosTrust({ data: { score: 75 } })
  * // Returns "HIGH"
  * 
  * @example
@@ -61,13 +68,8 @@ export function normalizeEthosTrust(profile: EthosProfile | any | null): Tier | 
 
     let score: number | undefined
 
-    // Check for SDK format first (nested data.score)
     if (profile.data && typeof profile.data.score === 'number') {
         score = profile.data.score
-    } 
-    // Check for legacy/raw format
-    else if (profile.availability === "available" && typeof profile.credibility_score === 'number') {
-        score = profile.credibility_score
     }
 
     if (score === undefined) return null
@@ -85,10 +87,6 @@ export function normalizeEthosTrust(profile: EthosProfile | any | null): Tier | 
  */
 export function isEthosAvailable(profile: EthosProfile | any | null): boolean {
     if (!profile) return false
-    
-    // SDK format (implicit availability via existence of data)
-    if (profile.data && typeof profile.data.score === 'number') return true
-    
-    // Legacy format
-    return profile.availability === "available"
+
+    return !!(profile.data && typeof profile.data.score === 'number')
 }

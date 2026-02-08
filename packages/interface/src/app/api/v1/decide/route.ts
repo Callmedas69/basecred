@@ -1,13 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { 
-    executeDecision, 
-    validateDecideRequest, 
-    normalizeSignals
+import {
+    executeDecision,
+    validateDecideRequest,
+    normalizeSignals,
+    InMemoryPolicyRepository,
+    listPolicies
 } from "basecred-decision-engine";
 import { getUnifiedProfile } from "basecred-sdk";
+import { checkRateLimit } from "@/lib/rateLimit";
+import { createActivityRepository } from "@/repositories/activityRepository";
+import type { ActivityEntry } from "@/types/apiKeys";
+
+const policyRepository = new InMemoryPolicyRepository();
 
 export async function POST(req: NextRequest) {
     try {
+        // Rate limit check for API key requests
+        const apiKeyId = req.headers.get("x-basecred-key-id");
+        if (apiKeyId) {
+            const rateCheck = checkRateLimit(apiKeyId);
+            if (!rateCheck.allowed) {
+                return NextResponse.json(
+                    { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
+                    {
+                        status: 429,
+                        headers: { "Retry-After": String(rateCheck.retryAfter ?? 60) },
+                    }
+                );
+            }
+        }
+
         const body = await req.json();
 
         // 1. Validate Input
@@ -57,16 +79,57 @@ export async function POST(req: NextRequest) {
         // Since the engine doesn't return them, we reconstruct them here.
         const signals = capturedProfile ? normalizeSignals(capturedProfile) : null;
 
-        return NextResponse.json({
+        const policies = await listPolicies({ policyRepository });
+        const policy = policies.find((entry) => entry.context === context);
+
+        const responseBody = {
             ...decision,
             profile: capturedProfile,
-            signals
-        });
+            signals,
+            policyHash: policy?.policyHash
+        };
 
-    } catch (error: any) {
+        // Log activity for API key requests (fire-and-forget)
+        if (apiKeyId) {
+            const activityRepo = createActivityRepository();
+            const { createApiKeyRepository } = await import("@/repositories/apiKeyRepository");
+            const keyRepo = createApiKeyRepository();
+
+            const keyRecord = await keyRepo.validateKey(apiKeyId);
+            const entry: ActivityEntry = {
+                timestamp: Date.now(),
+                apiKeyPrefix: keyRecord?.keyPrefix ?? apiKeyId.slice(0, 8) + "...",
+                subject,
+                context,
+                decision: decision.decision,
+                confidence: decision.confidence ?? "MEDIUM",
+            };
+
+            // Fire-and-forget: log activity, record usage, and push to global feed
+            Promise.all([
+                activityRepo.logActivity(entry),
+                keyRepo.recordUsage(apiKeyId),
+                activityRepo.logGlobalFeedEntry({
+                    agentName: keyRecord?.label ?? "unknown",
+                    ownerAddress: subject.slice(0, 6) + "..." + subject.slice(-4),
+                    context,
+                    decision: decision.decision,
+                    confidence: decision.confidence ?? "MEDIUM",
+                    timestamp: Date.now(),
+                }),
+            ]).catch((err) => console.error("Activity logging failed:", err));
+        }
+
+        const response = NextResponse.json(responseBody);
+        if (policy?.policyHash) {
+            response.headers.set("x-policy-hash", policy.policyHash);
+        }
+        return response;
+
+    } catch (error: unknown) {
         console.error("Decision API Error:", error);
         return NextResponse.json(
-            { code: "INTERNAL_ERROR", message: error.message || "Unknown error" },
+            { code: "INTERNAL_ERROR", message: "An unexpected error occurred" },
             { status: 500 }
         );
     }

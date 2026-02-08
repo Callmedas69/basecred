@@ -1,0 +1,16 @@
+{
+  "name": "@basecred/contracts",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Basecred smart contracts and ZK circuits",
+  "scripts": {
+    "circuit:build": "circom circuits/DecisionCircuit.circom --r1cs --wasm --sym -o circuits/build",
+    "circuit:setup": "snarkjs groth16 setup circuits/build/DecisionCircuit.r1cs circuits/pot14_final.ptau circuits/circuit_0000.zkey",
+    "circuit:contribute": "snarkjs zkey contribute circuits/circuit_0000.zkey circuits/circuit_final.zkey --name=\"Contributor 1\" -v",
+    "circuit:verifier": "snarkjs zkey export solidityverifier circuits/circuit_final.zkey contracts/Verifier.sol"
+  },
+  "devDependencies": {
+    "circomlib": "^2.0.5",
+    "snarkjs": "^0.7.4"
+  }
+}

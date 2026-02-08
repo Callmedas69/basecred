@@ -6,23 +6,32 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@basecred/contracts": "workspace:*",
     "@radix-ui/react-scroll-area": "^1.2.10",
-    "basecred-decision-engine": "workspace:*",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
+    "@rainbow-me/rainbowkit": "^2.2.10",
+    "@tanstack/react-query": "^5.90.20",
+    "@upstash/redis": "^1.36.2",
+    "basecred-decision-engine": "workspace:*",
     "basecred-sdk": "^0.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.29.2",
     "lucide-react": "^0.563.0",
-    "next": "16.1.5",
+    "next": "15.5.12",
     "next-themes": "^0.4.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "tailwind-merge": "^3.4.0"
+    "snarkjs": "^0.7.4",
+    "tailwind-merge": "^3.4.0",
+    "viem": "^2.21.0",
+    "wagmi": "^3.4.2",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -30,9 +39,10 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.5",
+    "eslint-config-next": "15.5.12",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.4.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^1.6.1"
   }
 }

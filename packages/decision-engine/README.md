@@ -25,18 +25,12 @@ npm install basecred-decision-engine
 ```typescript
 import { decide, normalizeSignals } from 'basecred-decision-engine'
 
-// Normalize signals from your reputation providers
+// Normalize signals directly from the SDK output schema (no mapping required)
 const signals = normalizeSignals({
-  ethos: { availability: "available", credibility_score: 75 },
-  neynar: { 
-    farcaster_user_score: 0.8,
-    pfp_url: "https://example.com/pfp.jpg"
-  },
-  talent: { 
-    builder: { availability: "available", score: 60 },
-    creator: { availability: "available", score: 40 }
-  },
-  lastActivityAt: new Date() // recent activity
+  ethos: { data: { score: 75 } },
+  farcaster: { data: { userScore: 0.8 } },
+  talent: { data: { builderScore: 60, creatorScore: 40 } },
+  recency: { lastUpdatedDaysAgo: 2 }
 })
 
 // Make a decision
@@ -57,7 +51,7 @@ console.log(decision)
 | Provider | Signal | Meaning |
 |----------|--------|---------|
 | Ethos | `trust` | Long-term credibility |
-| Neynar | `socialTrust`, `spamRisk` | Farcaster social behavior |
+| Farcaster | `socialTrust`, `spamRisk` | Social trust and spam risk |
 | Talent Protocol | `builder`, `creator` | Skills and abilities |
 
 ## Decision Contexts

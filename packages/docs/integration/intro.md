@@ -34,6 +34,8 @@ You can integrate BaseCred via the SDK or public API. The response schema is **v
 
 See [Context vs Decision](./context-vs-decision.md) to understand where BaseCred stops and your application begins.
 
+If you are integrating a ZK agent flow, see the [ZK Agent Integration](./zk-agent.mdx) page for policy hashes and proof payload examples.
+
 :::tip Quick Start
-Check out the [Explorer](http://localhost:3000/explorer) to see live data.
+If running locally, visit `http://localhost:3000/explorer` to see live data.
 :::

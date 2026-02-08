@@ -22,7 +22,7 @@ const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? ""
 const TALENT_API_KEY = process.env.TALENT_API_KEY ?? ""
 
 console.log("API Keys loaded:", {
-    neynar: NEYNAR_API_KEY ? "✓" : "✗",
+    farcaster: NEYNAR_API_KEY ? "✓" : "✗",
     talent: TALENT_API_KEY ? "✓" : "✗",
 })
 
@@ -51,7 +51,7 @@ async function fetchEthosProfile(address: string) {
         if (!response.ok) {
             const text = await response.text()
             console.log("  Ethos: error (status:", response.status, ")", text)
-            return { availability: "not_found" as const }
+            return null
         }
 
         const data = await response.json()
@@ -60,27 +60,25 @@ async function fetchEthosProfile(address: string) {
         // Check if we got results
         if (!data.values || data.values.length === 0) {
             console.log("  Ethos: no profile found for address")
-            return { availability: "not_found" as const }
+            return null
         }
 
         const profile = data.values[0]
         const user = profile.user
 
-        // Ethos score is 0-2800, normalize to 0-100
+        // Ethos score is 0-2800; keep raw score for SDK schema
         const rawScore = user?.score ?? 1200
-        const normalizedScore = Math.round((rawScore / 2800) * 100)
 
         return {
-            availability: "available" as const,
-            credibility_score: normalizedScore,
+            data: { score: rawScore },
         }
     } catch (error) {
         console.log("  Ethos: error fetching", error)
-        return { availability: "error" as const }
+        return null
     }
 }
 
-async function fetchNeynarUser(address: string) {
+async function fetchFarcasterProfile(address: string) {
     try {
         // Neynar API v2 - bulk by address endpoint
         const response = await fetch(
@@ -95,30 +93,28 @@ async function fetchNeynarUser(address: string) {
 
         if (!response.ok) {
             const text = await response.text()
-            console.log("  Neynar: error (status:", response.status, ")", text)
+            console.log("  Farcaster: error (status:", response.status, ")", text)
             return null
         }
 
         const data = await response.json()
-        console.log("  Neynar raw:", JSON.stringify(data, null, 2))
+        console.log("  Farcaster raw:", JSON.stringify(data, null, 2))
 
         // Response is { [address]: [users] }
         const users = data[address.toLowerCase()] || data[address] || []
         if (users.length > 0) {
             const user = users[0]
             return {
-                fid: user.fid,
-                username: user.username,
-                display_name: user.display_name,
-                farcaster_user_score: user.experimental?.neynar_user_score ?? 0.5,
-                follower_count: user.follower_count,
+                data: {
+                    userScore: user.experimental?.neynar_user_score ?? 0.5,
+                },
             }
         }
 
-        console.log("  Neynar: no users found for address")
+        console.log("  Farcaster: no users found for address")
         return null
     } catch (error) {
-        console.log("  Neynar: error fetching", error)
+        console.log("  Farcaster: error fetching", error)
         return null
     }
 }
@@ -151,14 +147,10 @@ async function fetchTalentProfile(address: string) {
         const creatorScore = scores.find((s: { slug: string }) => s.slug === "creator_score")
 
         return {
-            builder: {
-                availability: builderScore ? "available" as const : "not_found" as const,
-                score: builderScore?.points ?? 0,
+            data: {
+                builderScore: builderScore?.points ?? 0,
+                creatorScore: creatorScore?.points ?? 0,
             },
-            creator: {
-                availability: creatorScore ? "available" as const : "not_found" as const,
-                score: creatorScore?.points ?? 0,
-            }
         }
     } catch (error) {
         console.log("  Talent: error fetching", error)
@@ -185,14 +177,19 @@ async function main() {
     console.log("→ Fetching Ethos profile...")
     const ethos = await fetchEthosProfile(WALLET)
 
-    console.log("\n→ Fetching Neynar user...")
-    const neynar = await fetchNeynarUser(WALLET)
+    console.log("\n→ Fetching Farcaster profile...")
+    const farcaster = await fetchFarcasterProfile(WALLET)
 
     console.log("\n→ Fetching Talent profile...")
     const talent = await fetchTalentProfile(WALLET)
 
     // Combine into unified profile
-    const profile: UnifiedProfileData = { ethos, neynar, talent }
+    const profile: UnifiedProfileData = {
+        ethos,
+        farcaster,
+        talent,
+        recency: { lastUpdatedDaysAgo: 0 },
+    }
 
     console.log("\n" + "=".repeat(60))
     console.log("UNIFIED PROFILE DATA")

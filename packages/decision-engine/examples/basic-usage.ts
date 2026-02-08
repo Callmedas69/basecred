@@ -15,15 +15,13 @@ console.log("\n=== Example 1: High-reputation user ===\n")
 
 const highRepSignals = normalizeSignals({
     ethos: {
-        availability: "available",
-        credibility_score: 85  // High trust
+        data: { score: 1700 }  // High trust
     },
-    neynar: {
-        farcaster_user_score: 0.9  // Very high social trust
+    farcaster: {
+        data: { userScore: 0.9 }  // Very high social trust
     },
     talent: {
-        builder: { availability: "available", score: 75 },  // Advanced builder
-        creator: { availability: "available", score: 50 }   // Advanced creator
+        data: { builderScore: 120, creatorScore: 90 }  // Strong builder/creator
     }
 })
 
@@ -39,7 +37,7 @@ console.log("\n=== Example 2: New user (no history) ===\n")
 
 const newUserSignals = normalizeSignals({
     ethos: null,  // No Ethos profile
-    neynar: { farcaster_user_score: 0.5 },  // Neutral social
+    farcaster: { data: { userScore: 0.5 } },  // Neutral social
     talent: null  // No Talent profile
 })
 
@@ -54,8 +52,8 @@ console.log("Decision:", JSON.stringify(decision2, null, 2))
 console.log("\n=== Example 3: Spam account ===\n")
 
 const spamSignals = normalizeSignals({
-    ethos: { availability: "available", credibility_score: 20 },
-    neynar: { farcaster_user_score: 0.1 },  // Very low = high spam risk
+    ethos: { data: { score: 900 } },
+    farcaster: { data: { userScore: 0.1 } },  // Very low = high spam risk
     talent: null
 })
 
@@ -70,11 +68,10 @@ console.log("Decision:", JSON.stringify(decision3, null, 2))
 console.log("\n=== Example 4: Expert builder ===\n")
 
 const expertBuilderSignals = normalizeSignals({
-    ethos: { availability: "available", credibility_score: 60 },
-    neynar: { farcaster_user_score: 0.7 },
+    ethos: { data: { score: 1600 } },
+    farcaster: { data: { userScore: 0.7 } },
     talent: {
-        builder: { availability: "available", score: 90 },  // Expert!
-        creator: { availability: "not_found" }
+        data: { builderScore: 180, creatorScore: 0 }  // Expert builder
     }
 })
 
@@ -89,11 +86,10 @@ console.log("Decision:", JSON.stringify(decision4, null, 2))
 console.log("\n=== Example 5: Context-specific decisions ===\n")
 
 const moderateSignals = normalizeSignals({
-    ethos: { availability: "available", credibility_score: 50 },
-    neynar: { farcaster_user_score: 0.55 },
+    ethos: { data: { score: 1300 } },
+    farcaster: { data: { userScore: 0.55 } },
     talent: {
-        builder: { availability: "available", score: 30 },
-        creator: { availability: "available", score: 25 }
+        data: { builderScore: 30, creatorScore: 25 }
     }
 })
 
@@ -119,8 +115,8 @@ console.log("\n=== Example 6: Inactive trusted user ===\n")
 const inactiveSignals: NormalizedSignals = {
     trust: "NEUTRAL",
     socialTrust: "NEUTRAL",
-    builder: "NONE",
-    creator: "NONE",
+    builder: "EXPLORER",
+    creator: "EXPLORER",
     recencyDays: 30,  // 30 days inactive
     spamRisk: "NEUTRAL",
     signalCoverage: 1.0

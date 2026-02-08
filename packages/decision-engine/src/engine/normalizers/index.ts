@@ -7,7 +7,7 @@
 
 import type { NormalizedSignals } from "../../types/signals"
 import type { EthosProfile } from "./ethos"
-import type { NeynarUser } from "./neynar"
+import type { FarcasterProfile } from "./neynar"
 import type { TalentProfile } from "./talent"
 
 import { normalizeEthosTrust, isEthosAvailable } from "./ethos"
@@ -31,11 +31,20 @@ import {
  * Combined profile data from all providers.
  */
 export interface UnifiedProfileData {
-    ethos: EthosProfile | any | null
-    neynar: NeynarUser | any | null
-    talent: TalentProfile | any | null
-    /** Timestamp of last activity (for recency calculation) */
-    lastActivityAt?: Date | null
+    identity?: {
+        address?: string
+    }
+    availability?: {
+        ethos?: "available" | "not_found" | "unlinked" | "error"
+        talent?: "available" | "not_found" | "unlinked" | "error"
+        farcaster?: "available" | "not_found" | "unlinked" | "error"
+    }
+    ethos?: EthosProfile | null
+    talent?: TalentProfile | null
+    farcaster?: FarcasterProfile | null
+    recency?: {
+        lastUpdatedDaysAgo?: number | null
+    }
 }
 
 // ============================================================================
@@ -50,9 +59,9 @@ export interface UnifiedProfileData {
  * 
  * @example
  * const signals = normalizeSignals({
- *   ethos: { availability: "available", credibility_score: 75 },
- *   neynar: { farcaster_user_score: 0.8 },
- *   talent: { builder: { availability: "available", score: 60 } }
+ *   ethos: { data: { score: 75 } },
+ *   farcaster: { data: { userScore: 0.8 } },
+ *   talent: { data: { builderScore: 60 } }
  * })
  */
 export function normalizeSignals(profile: UnifiedProfileData): NormalizedSignals {
@@ -61,13 +70,13 @@ export function normalizeSignals(profile: UnifiedProfileData): NormalizedSignals
 
     // Normalize each signal with fallbacks
     const trust = normalizeEthosTrust(profile.ethos) ?? "NEUTRAL"
-    const socialTrust = normalizeNeynarSocialTrust(profile.neynar) ?? "NEUTRAL"
-    const spamRisk = normalizeNeynarSpamRisk(profile.neynar) ?? "NEUTRAL"
-    const builder = normalizeTalentBuilder(profile.talent)
-    const creator = normalizeTalentCreator(profile.talent)
+    const socialTrust = normalizeNeynarSocialTrust(profile.farcaster) ?? "NEUTRAL"
+    const spamRisk = normalizeNeynarSpamRisk(profile.farcaster) ?? "NEUTRAL"
+    const builder = normalizeTalentBuilder(profile.talent ?? null)
+    const creator = normalizeTalentCreator(profile.talent ?? null)
 
-    // Calculate recency
-    const recencyDays = calculateRecencyDays(profile.lastActivityAt)
+    // Calculate recency (SDK schema)
+    const recencyDays = calculateRecencyDays(profile)
 
     return {
         trust,
@@ -97,7 +106,7 @@ export function normalizeSignals(profile: UnifiedProfileData): NormalizedSignals
 export function calculateSignalCoverage(profile: UnifiedProfileData): number {
     const weights = {
         ethos: 0.3,
-        neynar: 0.3,
+        farcaster: 0.3,
         talentBuilder: 0.2,
         talentCreator: 0.2,
     }
@@ -108,15 +117,15 @@ export function calculateSignalCoverage(profile: UnifiedProfileData): number {
         coverage += weights.ethos
     }
 
-    if (isNeynarAvailable(profile.neynar)) {
-        coverage += weights.neynar
+    if (isNeynarAvailable(profile.farcaster ?? null)) {
+        coverage += weights.farcaster
     }
 
-    if (isTalentBuilderAvailable(profile.talent)) {
+    if (isTalentBuilderAvailable(profile.talent ?? null)) {
         coverage += weights.talentBuilder
     }
 
-    if (isTalentCreatorAvailable(profile.talent)) {
+    if (isTalentCreatorAvailable(profile.talent ?? null)) {
         coverage += weights.talentCreator
     }
 
@@ -130,20 +139,16 @@ export function calculateSignalCoverage(profile: UnifiedProfileData): number {
 /**
  * Calculate days since last activity.
  * 
- * @param lastActivityAt - Timestamp of last activity
- * @returns Number of days (0 if future or missing)
+ * @param profile - SDK-shaped unified profile
+ * @returns Number of days (0 if missing or invalid)
  */
-export function calculateRecencyDays(lastActivityAt: Date | null | undefined): number {
-    if (!lastActivityAt) return 0
+export function calculateRecencyDays(profile: UnifiedProfileData): number {
+    const daysAgo = profile.recency?.lastUpdatedDaysAgo
+    if (typeof daysAgo === "number") {
+        return daysAgo < 0 ? 0 : Math.floor(daysAgo)
+    }
 
-    const now = new Date()
-    const diffMs = now.getTime() - lastActivityAt.getTime()
-
-    // Future timestamps return 0
-    if (diffMs < 0) return 0
-
-    // Convert to days (floor)
-    return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    return 0
 }
 
 // ============================================================================
@@ -151,14 +156,14 @@ export function calculateRecencyDays(lastActivityAt: Date | null | undefined): n
 // ============================================================================
 
 export { normalizeEthosTrust, isEthosAvailable } from "./ethos"
-export type { EthosProfile, EthosAvailability } from "./ethos"
+export type { EthosProfile } from "./ethos"
 
 export {
     normalizeNeynarSocialTrust,
     normalizeNeynarSpamRisk,
     isNeynarAvailable,
 } from "./neynar"
-export type { NeynarUser } from "./neynar"
+export type { FarcasterProfile } from "./neynar"
 
 export {
     normalizeTalentBuilder,
@@ -166,4 +171,4 @@ export {
     isTalentBuilderAvailable,
     isTalentCreatorAvailable,
 } from "./talent"
-export type { TalentProfile, TalentFacet, TalentAvailability } from "./talent"
+export type { TalentProfile } from "./talent"

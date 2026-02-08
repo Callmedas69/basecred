@@ -8,17 +8,19 @@ The **BaseCred Decision Engine** determines _if_ an identity should be allowed t
 
 Raw data from providers (like Farcaster, Ethos, Talent Protocol) is normalized into a standard format before reaching the engine. The engine _only_ understands these normalized signals.
 
+The normalizers now expect **SDK output schema** directly (see `workingfolder/sdk_output_schema.json`), so no bridge/mapping layer is required.
+
 #### Normalization Logic & Thresholds
 
 Determined by `src/engine/normalizers/`.
 
-| Signal        | Source          | Logic / Thresholds                                                                                                                                    |
-| :------------ | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `trust`       | Ethos           | Based on `credibility_score`:<br>• `VERY_HIGH` ≥ 40<br>• `HIGH` ≥ 20<br>• `NEUTRAL` ≥ 0<br>• `LOW` ≥ -20<br>• Else `VERY_LOW`                         |
-| `socialTrust` | Neynar          | Based on `farcaster_user_score` (0-1):<br>• `VERY_HIGH` ≥ 0.9<br>• `HIGH` ≥ 0.7<br>• `NEUTRAL` ≥ 0.4<br>• `LOW` ≥ 0.2<br>• Else `VERY_LOW`            |
-| `spamRisk`    | Neynar          | Inverse of `farcaster_user_score`:<br>• `VERY_LOW` (Safe) ≥ 0.8<br>• `LOW` ≥ 0.6<br>• `NEUTRAL` ≥ 0.4<br>• `HIGH` ≥ 0.2<br>• Else `VERY_HIGH` (Risky) |
-| `builder`     | Talent Protocol | Based on `builder.score`:<br>• `EXPERT` ≥ 80<br>• `ADVANCED` ≥ 50<br>• `INTERMEDIATE` ≥ 20<br>• Else `NONE`                                           |
-| `creator`     | Talent Protocol | Based on `creator.score`:<br>• `EXPERT` ≥ 80<br>• `ADVANCED` ≥ 50<br>• `INTERMEDIATE` ≥ 20<br>• Else `NONE`                                           |
+| Signal        | Source          | Logic / Thresholds                                                                                                                                             |
+| :------------ | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trust`       | Ethos           | Based on `ethos.data.score`:<br>• `VERY_HIGH` ≥ 2200<br>• `HIGH` ≥ 1600<br>• `NEUTRAL` ≥ 1200<br>• `LOW` ≥ 800<br>• Else `VERY_LOW`                         |
+| `socialTrust` | Farcaster       | Based on `farcaster.data.userScore` (0-1):<br>• `VERY_HIGH` ≥ 0.9<br>• `HIGH` ≥ 0.7<br>• `NEUTRAL` ≥ 0.4<br>• `LOW` ≥ 0.2<br>• Else `VERY_LOW`             |
+| `spamRisk`    | Farcaster       | Inverse of `farcaster.data.userScore`:<br>• `VERY_LOW` (Safe) ≥ 0.8<br>• `LOW` ≥ 0.6<br>• `NEUTRAL` ≥ 0.4<br>• `HIGH` ≥ 0.2<br>• Else `VERY_HIGH` (Risky) |
+| `builder`     | Talent Protocol | Based on `talent.data.builderScore`:<br>• `ELITE` ≥ 250<br>• `EXPERT` ≥ 170<br>• `BUILDER` ≥ 80<br>• Else `EXPLORER`                                           |
+| `creator`     | Talent Protocol | Based on `talent.data.creatorScore`:<br>• `ELITE` ≥ 250<br>• `EXPERT` ≥ 170<br>• `BUILDER` ≥ 80<br>• Else `EXPLORER`                                           |
 
 ### 2. Contexts
 

@@ -22,22 +22,51 @@ var index_exports = {};
 __export(index_exports, {
   ALL_RULES: () => ALL_RULES,
   BASE_CONFIDENCE: () => BASE_CONFIDENCE,
+  BN254_FIELD_ORDER: () => BN254_FIELD_ORDER,
   CAPABILITY_ORDER: () => CAPABILITY_ORDER,
+  CONTEXT_ID_MAP: () => CONTEXT_ID_MAP,
+  DECISION_VALUE_MAP: () => DECISION_VALUE_MAP,
   DEFAULT_SIGNALS: () => DEFAULT_SIGNALS,
   ENGINE_VERSION: () => ENGINE_VERSION,
+  InMemoryPolicyRepository: () => InMemoryPolicyRepository,
   TIER_ORDER: () => TIER_ORDER,
+  VALID_CONTEXTS: () => VALID_CONTEXTS,
+  bpsToSignalCoverage: () => bpsToSignalCoverage,
   calculateSignalCoverage: () => calculateSignalCoverage,
   capabilityGt: () => capabilityGt,
   capabilityGte: () => capabilityGte,
   capabilityLt: () => capabilityLt,
   capabilityLte: () => capabilityLte,
+  contextToBytes32: () => contextToBytes32,
+  contractProofToStrings: () => contractProofToStrings,
   decide: () => decide,
+  decodeCapability: () => decodeCapability,
+  decodeContextId: () => decodeContextId,
+  decodeDecision: () => decodeDecision,
+  decodeTier: () => decodeTier,
+  encodeCapability: () => encodeCapability,
+  encodeContextId: () => encodeContextId,
+  encodeDecision: () => encodeDecision,
+  encodeSignalsForCircuit: () => encodeSignalsForCircuit,
+  encodeTier: () => encodeTier,
   executeDecision: () => executeDecision,
+  executeDecisionWithProof: () => executeDecisionWithProof,
   getAllContexts: () => getAllContexts,
   getRuleById: () => getRuleById,
   getRulesForContext: () => getRulesForContext,
+  isPolicyHashValidFieldElement: () => isPolicyHashValidFieldElement,
+  isValidBytes32: () => isValidBytes32,
+  listPolicies: () => listPolicies,
   mapConfidence: () => mapConfidence,
   normalizeSignals: () => normalizeSignals,
+  policyHashToBytes32: () => policyHashToBytes32,
+  policyHashToFieldElement: () => policyHashToFieldElement,
+  signalCoverageToBps: () => signalCoverageToBps,
+  snarkjsProofToContract: () => snarkjsProofToContract,
+  snarkjsSignalsToContract: () => snarkjsSignalsToContract,
+  stringProofToContract: () => stringProofToContract,
+  stripPolicyHashPrefix: () => stripPolicyHashPrefix,
+  subjectToBytes32: () => subjectToBytes32,
   tierGt: () => tierGt,
   tierGte: () => tierGte,
   tierLt: () => tierLt,
@@ -95,6 +124,200 @@ var DEFAULT_SIGNALS = {
   spamRisk: "NEUTRAL",
   signalCoverage: 0
 };
+
+// src/types/decisions.ts
+var VALID_CONTEXTS = [
+  "allowlist.general",
+  "apply",
+  "comment",
+  "publish",
+  "governance.vote"
+];
+
+// src/encoding/context.ts
+var CONTEXT_ID_MAP = {
+  "allowlist.general": 0,
+  "comment": 1,
+  "publish": 2,
+  "apply": 3,
+  "governance.vote": 4
+};
+var ID_TO_CONTEXT = {
+  0: "allowlist.general",
+  1: "comment",
+  2: "publish",
+  3: "apply",
+  4: "governance.vote"
+};
+function encodeContextId(context) {
+  const id = CONTEXT_ID_MAP[context];
+  if (id === void 0) {
+    throw new Error(`Unknown context: ${context}`);
+  }
+  return id;
+}
+function decodeContextId(id) {
+  const context = ID_TO_CONTEXT[id];
+  if (context === void 0) {
+    throw new Error(`Unknown context ID: ${id}`);
+  }
+  return context;
+}
+function contextToBytes32(context) {
+  const id = encodeContextId(context);
+  return `0x${id.toString(16).padStart(64, "0")}`;
+}
+
+// src/encoding/decision.ts
+var DECISION_VALUE_MAP = {
+  DENY: 0,
+  ALLOW_WITH_LIMITS: 1,
+  ALLOW: 2
+};
+var VALUE_TO_DECISION = {
+  0: "DENY",
+  1: "ALLOW_WITH_LIMITS",
+  2: "ALLOW"
+};
+function encodeDecision(decision) {
+  const value = DECISION_VALUE_MAP[decision];
+  if (value === void 0) {
+    throw new Error(`Unknown decision: ${decision}`);
+  }
+  return value;
+}
+function decodeDecision(value) {
+  const decision = VALUE_TO_DECISION[value];
+  if (decision === void 0) {
+    throw new Error(`Unknown decision value: ${value}`);
+  }
+  return decision;
+}
+
+// src/encoding/signals.ts
+function encodeTier(tier) {
+  return TIER_ORDER[tier];
+}
+function decodeTier(value) {
+  const entries = Object.entries(TIER_ORDER);
+  const entry = entries.find(([, v]) => v === value);
+  if (!entry) {
+    throw new Error(`Unknown tier value: ${value}`);
+  }
+  return entry[0];
+}
+function encodeCapability(capability) {
+  return CAPABILITY_ORDER[capability];
+}
+function decodeCapability(value) {
+  const entries = Object.entries(CAPABILITY_ORDER);
+  const entry = entries.find(([, v]) => v === value);
+  if (!entry) {
+    throw new Error(`Unknown capability value: ${value}`);
+  }
+  return entry[0];
+}
+function signalCoverageToBps(coverage) {
+  if (coverage < 0 || coverage > 1) {
+    throw new Error(`Signal coverage must be between 0 and 1, got: ${coverage}`);
+  }
+  return Math.round(coverage * 1e4);
+}
+function bpsToSignalCoverage(bps) {
+  if (bps < 0 || bps > 1e4) {
+    throw new Error(`Basis points must be between 0 and 10000, got: ${bps}`);
+  }
+  return bps / 1e4;
+}
+function encodeSignalsForCircuit(signals) {
+  return {
+    trust: encodeTier(signals.trust),
+    socialTrust: encodeTier(signals.socialTrust),
+    builder: encodeCapability(signals.builder),
+    creator: encodeCapability(signals.creator),
+    recencyDays: signals.recencyDays,
+    spamRisk: encodeTier(signals.spamRisk),
+    signalCoverageBps: signalCoverageToBps(signals.signalCoverage)
+  };
+}
+
+// src/encoding/policyHash.ts
+var BN254_FIELD_ORDER = BigInt(
+  "21888242871839275222246405745257275088548364400416034343698204186575808495617"
+);
+function stripPolicyHashPrefix(hash) {
+  if (hash.startsWith("sha256:")) {
+    return hash.slice(7);
+  }
+  return hash;
+}
+function policyHashToFieldElement(hash) {
+  const hexHash = stripPolicyHashPrefix(hash);
+  if (!/^[0-9a-fA-F]+$/.test(hexHash)) {
+    throw new Error(`Invalid hex in policy hash: ${hexHash}`);
+  }
+  const value = BigInt("0x" + hexHash);
+  return value % BN254_FIELD_ORDER;
+}
+function policyHashToBytes32(hash) {
+  const fieldElement = policyHashToFieldElement(hash);
+  return `0x${fieldElement.toString(16).padStart(64, "0")}`;
+}
+function isPolicyHashValidFieldElement(hash) {
+  const hexHash = stripPolicyHashPrefix(hash);
+  if (!/^[0-9a-fA-F]+$/.test(hexHash)) {
+    return false;
+  }
+  const value = BigInt("0x" + hexHash);
+  return value < BN254_FIELD_ORDER;
+}
+
+// src/encoding/proof.ts
+function snarkjsProofToContract(proof) {
+  return {
+    a: [BigInt(proof.pi_a[0]), BigInt(proof.pi_a[1])],
+    // B point coordinates are reversed in snarkjs output
+    b: [
+      [BigInt(proof.pi_b[0][1]), BigInt(proof.pi_b[0][0])],
+      [BigInt(proof.pi_b[1][1]), BigInt(proof.pi_b[1][0])]
+    ],
+    c: [BigInt(proof.pi_c[0]), BigInt(proof.pi_c[1])]
+  };
+}
+function snarkjsSignalsToContract(signals) {
+  return signals.map((s) => BigInt(s));
+}
+function contractProofToStrings(proof) {
+  return {
+    a: [proof.a[0].toString(), proof.a[1].toString()],
+    b: [
+      [proof.b[0][0].toString(), proof.b[0][1].toString()],
+      [proof.b[1][0].toString(), proof.b[1][1].toString()]
+    ],
+    c: [proof.c[0].toString(), proof.c[1].toString()]
+  };
+}
+function stringProofToContract(proof) {
+  return {
+    a: [BigInt(proof.a[0]), BigInt(proof.a[1])],
+    b: [
+      [BigInt(proof.b[0][0]), BigInt(proof.b[0][1])],
+      [BigInt(proof.b[1][0]), BigInt(proof.b[1][1])]
+    ],
+    c: [BigInt(proof.c[0]), BigInt(proof.c[1])]
+  };
+}
+
+// src/encoding/subject.ts
+var import_crypto = require("crypto");
+function subjectToBytes32(subject) {
+  const normalized = subject.toLowerCase().trim();
+  const hash = (0, import_crypto.createHash)("sha256").update(normalized).digest("hex");
+  return `0x${hash}`;
+}
+function isValidBytes32(value) {
+  return /^0x[0-9a-fA-F]{64}$/.test(value);
+}
 
 // src/engine/rules/fallback.ts
 var FALLBACK_RULES = [
@@ -406,8 +629,6 @@ function normalizeEthosTrust(profile) {
   let score;
   if (profile.data && typeof profile.data.score === "number") {
     score = profile.data.score;
-  } else if (profile.availability === "available" && typeof profile.credibility_score === "number") {
-    score = profile.credibility_score;
   }
   if (score === void 0) return null;
   if (score >= ETHOS_THRESHOLDS.VERY_HIGH) return "VERY_HIGH";
@@ -418,8 +639,7 @@ function normalizeEthosTrust(profile) {
 }
 function isEthosAvailable(profile) {
   if (!profile) return false;
-  if (profile.data && typeof profile.data.score === "number") return true;
-  return profile.availability === "available";
+  return !!(profile.data && typeof profile.data.score === "number");
 }
 
 // src/engine/normalizers/neynar.ts
@@ -438,13 +658,11 @@ var SPAM_RISK_THRESHOLDS = {
   HIGH: 0.2
   // Below HIGH → VERY_HIGH spam risk
 };
-function normalizeNeynarSocialTrust(user) {
-  if (!user) return null;
+function normalizeNeynarSocialTrust(profile) {
+  if (!profile) return null;
   let score;
-  if (user.data && typeof user.data.userScore === "number") {
-    score = user.data.userScore;
-  } else if (user.farcaster_user_score !== void 0) {
-    score = user.farcaster_user_score;
+  if (profile.data && typeof profile.data.userScore === "number") {
+    score = profile.data.userScore;
   }
   if (score === void 0) return null;
   if (score >= SOCIAL_TRUST_THRESHOLDS.VERY_HIGH) return "VERY_HIGH";
@@ -453,13 +671,11 @@ function normalizeNeynarSocialTrust(user) {
   if (score >= SOCIAL_TRUST_THRESHOLDS.LOW) return "LOW";
   return "VERY_LOW";
 }
-function normalizeNeynarSpamRisk(user) {
-  if (!user) return null;
+function normalizeNeynarSpamRisk(profile) {
+  if (!profile) return null;
   let score;
-  if (user.data && typeof user.data.userScore === "number") {
-    score = user.data.userScore;
-  } else if (user.farcaster_user_score !== void 0) {
-    score = user.farcaster_user_score;
+  if (profile.data && typeof profile.data.userScore === "number") {
+    score = profile.data.userScore;
   }
   if (score === void 0) return null;
   if (score >= SPAM_RISK_THRESHOLDS.VERY_LOW) return "VERY_LOW";
@@ -468,10 +684,9 @@ function normalizeNeynarSpamRisk(user) {
   if (score >= SPAM_RISK_THRESHOLDS.HIGH) return "HIGH";
   return "VERY_HIGH";
 }
-function isNeynarAvailable(user) {
-  if (!user) return false;
-  if (user.data && typeof user.data.userScore === "number") return true;
-  return user.farcaster_user_score !== void 0;
+function isNeynarAvailable(profile) {
+  if (!profile) return false;
+  return !!(profile.data && typeof profile.data.userScore === "number");
 }
 
 // src/engine/normalizers/talent.ts
@@ -491,8 +706,6 @@ function normalizeTalentBuilder(profile) {
   let score;
   if (profile.data && typeof profile.data.builderScore === "number") {
     score = profile.data.builderScore;
-  } else if (profile.builder && profile.builder.availability === "available" && typeof profile.builder.score === "number") {
-    score = profile.builder.score;
   }
   if (score === void 0) return "EXPLORER";
   return normalizeScoreToCapability(score);
@@ -502,36 +715,28 @@ function normalizeTalentCreator(profile) {
   let score;
   if (profile.data && typeof profile.data.creatorScore === "number") {
     score = profile.data.creatorScore;
-  } else if (profile.creator && profile.creator.availability === "available" && typeof profile.creator.score === "number") {
-    score = profile.creator.score;
   }
   if (score === void 0) return "EXPLORER";
   return normalizeScoreToCapability(score);
 }
 function isTalentBuilderAvailable(profile) {
   if (!profile) return false;
-  if (profile.data && typeof profile.data.builderScore === "number") {
-    return true;
-  }
-  return !!profile.builder && profile.builder.availability === "available" && typeof profile.builder.score === "number";
+  return !!(profile.data && typeof profile.data.builderScore === "number");
 }
 function isTalentCreatorAvailable(profile) {
   if (!profile) return false;
-  if (profile.data && typeof profile.data.creatorScore === "number") {
-    return true;
-  }
-  return !!profile.creator && profile.creator.availability === "available" && typeof profile.creator.score === "number";
+  return !!(profile.data && typeof profile.data.creatorScore === "number");
 }
 
 // src/engine/normalizers/index.ts
 function normalizeSignals(profile) {
   const coverage = calculateSignalCoverage(profile);
   const trust = normalizeEthosTrust(profile.ethos) ?? "NEUTRAL";
-  const socialTrust = normalizeNeynarSocialTrust(profile.neynar) ?? "NEUTRAL";
-  const spamRisk = normalizeNeynarSpamRisk(profile.neynar) ?? "NEUTRAL";
-  const builder = normalizeTalentBuilder(profile.talent);
-  const creator = normalizeTalentCreator(profile.talent);
-  const recencyDays = calculateRecencyDays(profile.lastActivityAt);
+  const socialTrust = normalizeNeynarSocialTrust(profile.farcaster) ?? "NEUTRAL";
+  const spamRisk = normalizeNeynarSpamRisk(profile.farcaster) ?? "NEUTRAL";
+  const builder = normalizeTalentBuilder(profile.talent ?? null);
+  const creator = normalizeTalentCreator(profile.talent ?? null);
+  const recencyDays = calculateRecencyDays(profile);
   return {
     trust,
     socialTrust,
@@ -545,7 +750,7 @@ function normalizeSignals(profile) {
 function calculateSignalCoverage(profile) {
   const weights = {
     ethos: 0.3,
-    neynar: 0.3,
+    farcaster: 0.3,
     talentBuilder: 0.2,
     talentCreator: 0.2
   };
@@ -553,33 +758,123 @@ function calculateSignalCoverage(profile) {
   if (isEthosAvailable(profile.ethos)) {
     coverage += weights.ethos;
   }
-  if (isNeynarAvailable(profile.neynar)) {
-    coverage += weights.neynar;
+  if (isNeynarAvailable(profile.farcaster ?? null)) {
+    coverage += weights.farcaster;
   }
-  if (isTalentBuilderAvailable(profile.talent)) {
+  if (isTalentBuilderAvailable(profile.talent ?? null)) {
     coverage += weights.talentBuilder;
   }
-  if (isTalentCreatorAvailable(profile.talent)) {
+  if (isTalentCreatorAvailable(profile.talent ?? null)) {
     coverage += weights.talentCreator;
   }
   return coverage;
 }
-function calculateRecencyDays(lastActivityAt) {
-  if (!lastActivityAt) return 0;
-  const now = /* @__PURE__ */ new Date();
-  const diffMs = now.getTime() - lastActivityAt.getTime();
-  if (diffMs < 0) return 0;
-  return Math.floor(diffMs / (1e3 * 60 * 60 * 24));
+function calculateRecencyDays(profile) {
+  const daysAgo = profile.recency?.lastUpdatedDaysAgo;
+  if (typeof daysAgo === "number") {
+    return daysAgo < 0 ? 0 : Math.floor(daysAgo);
+  }
+  return 0;
 }
 
-// src/types/decisions.ts
-var VALID_CONTEXTS = [
-  "allowlist.general",
-  "apply",
-  "comment",
-  "publish",
-  "governance.vote"
+// src/policies/hash.ts
+var import_crypto2 = require("crypto");
+function computePolicyHash(input) {
+  const payload = {
+    context: input.context,
+    normalizationVersion: input.normalizationVersion,
+    thresholds: sortObject(input.thresholds)
+  };
+  const serialized = stableStringify(payload);
+  const hash = (0, import_crypto2.createHash)("sha256").update(serialized).digest("hex");
+  return `sha256:${hash}`;
+}
+function stableStringify(value) {
+  return JSON.stringify(sortObject(value));
+}
+function sortObject(value) {
+  if (Array.isArray(value)) {
+    return value.map(sortObject);
+  }
+  if (value && typeof value === "object") {
+    const record = value;
+    return Object.keys(record).sort().reduce((acc, key) => {
+      acc[key] = sortObject(record[key]);
+      return acc;
+    }, {});
+  }
+  return value;
+}
+
+// src/policies/v1.ts
+var POLICY_INPUTS_V1 = [
+  {
+    context: "allowlist.general",
+    normalizationVersion: "v1",
+    thresholds: {
+      trustMin: "HIGH",
+      socialTrustMin: "HIGH",
+      builderMin: "EXPERT",
+      creatorMin: "EXPERT",
+      spamRiskMax: "HIGH"
+    }
+  },
+  {
+    context: "comment",
+    normalizationVersion: "v1",
+    thresholds: {
+      trustMin: "NEUTRAL",
+      socialTrustMin: "NEUTRAL",
+      spamRiskMax: "HIGH"
+    }
+  },
+  {
+    context: "publish",
+    normalizationVersion: "v1",
+    thresholds: {
+      trustMin: "HIGH",
+      socialTrustMin: "HIGH",
+      builderMin: "BUILDER",
+      creatorMin: "BUILDER",
+      spamRiskMax: "HIGH"
+    }
+  },
+  {
+    context: "apply",
+    normalizationVersion: "v1",
+    thresholds: {
+      trustMin: "NEUTRAL",
+      builderMin: "EXPERT",
+      creatorMin: "EXPERT",
+      spamRiskMax: "HIGH"
+    }
+  },
+  {
+    context: "governance.vote",
+    normalizationVersion: "v1",
+    thresholds: {
+      trustMin: "HIGH",
+      socialTrustMin: "NEUTRAL",
+      recencyDaysMax: 30,
+      spamRiskMax: "HIGH"
+    }
+  }
 ];
+var POLICIES_V1 = POLICY_INPUTS_V1.map((policy) => ({
+  ...policy,
+  policyHash: computePolicyHash(policy)
+}));
+
+// src/repositories/inMemoryPolicyRepository.ts
+var InMemoryPolicyRepository = class {
+  policies;
+  constructor(policies = POLICIES_V1) {
+    this.policies = new Map(policies.map((policy) => [policy.context, policy]));
+  }
+  async getPolicyByContext(context) {
+    return this.policies.get(context) ?? null;
+  }
+};
 
 // src/engine/progression.ts
 function deriveAccessStatus(decision, options = {}) {
@@ -682,26 +977,112 @@ function validateDecideRequest(request) {
     }
   };
 }
+
+// src/use-cases/decide-with-proof.ts
+async function executeDecisionWithProof(input, deps) {
+  if (!VALID_CONTEXTS.includes(input.context)) {
+    throw new Error(
+      `Invalid context. Must be one of: ${VALID_CONTEXTS.map((c) => `'${c}'`).join(", ")}`
+    );
+  }
+  const policy = await deps.policyRepository.getPolicyByContext(input.context);
+  if (!policy) {
+    throw new Error(`Policy not found for context '${input.context}'`);
+  }
+  if (input.publicInputs.policyHash !== policy.policyHash) {
+    throw new Error("Policy hash mismatch");
+  }
+  const verified = await deps.proofVerifier.verify(input.proof, input.publicInputs);
+  if (!verified.valid || !verified.signals) {
+    throw new Error(verified.error || "Invalid proof");
+  }
+  const decision = decide(verified.signals, input.context);
+  const isHardDeny = decision.ruleIds.some((id) => isHardDenyRule(id));
+  const accessStatus = deriveAccessStatus(decision.decision, { isHardDeny });
+  const blockingSnapshot = resolveBlockingFactors(verified.signals);
+  const blockingFactors = deriveBlockingFactorsForContext(input.context, blockingSnapshot);
+  const subjectHash = input.subject ? hashSubject2(input.subject) : void 0;
+  return {
+    ...decision,
+    accessStatus,
+    blockingFactors,
+    subjectHash,
+    policyHash: policy.policyHash
+  };
+}
+function hashSubject2(subject) {
+  let hash = 0;
+  for (let i = 0; i < subject.length; i++) {
+    const char = subject.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return `subj_${Math.abs(hash).toString(16)}`;
+}
+
+// src/use-cases/list-policies.ts
+async function listPolicies(deps) {
+  const contexts = [
+    "allowlist.general",
+    "apply",
+    "comment",
+    "publish",
+    "governance.vote"
+  ];
+  const policies = await Promise.all(
+    contexts.map((context) => deps.policyRepository.getPolicyByContext(context))
+  );
+  return policies.filter((policy) => Boolean(policy));
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ALL_RULES,
   BASE_CONFIDENCE,
+  BN254_FIELD_ORDER,
   CAPABILITY_ORDER,
+  CONTEXT_ID_MAP,
+  DECISION_VALUE_MAP,
   DEFAULT_SIGNALS,
   ENGINE_VERSION,
+  InMemoryPolicyRepository,
   TIER_ORDER,
+  VALID_CONTEXTS,
+  bpsToSignalCoverage,
   calculateSignalCoverage,
   capabilityGt,
   capabilityGte,
   capabilityLt,
   capabilityLte,
+  contextToBytes32,
+  contractProofToStrings,
   decide,
+  decodeCapability,
+  decodeContextId,
+  decodeDecision,
+  decodeTier,
+  encodeCapability,
+  encodeContextId,
+  encodeDecision,
+  encodeSignalsForCircuit,
+  encodeTier,
   executeDecision,
+  executeDecisionWithProof,
   getAllContexts,
   getRuleById,
   getRulesForContext,
+  isPolicyHashValidFieldElement,
+  isValidBytes32,
+  listPolicies,
   mapConfidence,
   normalizeSignals,
+  policyHashToBytes32,
+  policyHashToFieldElement,
+  signalCoverageToBps,
+  snarkjsProofToContract,
+  snarkjsSignalsToContract,
+  stringProofToContract,
+  stripPolicyHashPrefix,
+  subjectToBytes32,
   tierGt,
   tierGte,
   tierLt,

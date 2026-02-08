@@ -20,15 +20,15 @@ describe("normalizeEthosTrust", () => {
     })
 
     it("should return null for unavailable profile", () => {
-        expect(normalizeEthosTrust({ availability: "not_found" })).toBeNull()
+        expect(normalizeEthosTrust({})).toBeNull()
     })
 
     it("should map scores to correct tiers", () => {
-        expect(normalizeEthosTrust({ availability: "available", credibility_score: 2300 })).toBe("VERY_HIGH")
-        expect(normalizeEthosTrust({ availability: "available", credibility_score: 1700 })).toBe("HIGH")
-        expect(normalizeEthosTrust({ availability: "available", credibility_score: 1300 })).toBe("NEUTRAL")
-        expect(normalizeEthosTrust({ availability: "available", credibility_score: 900 })).toBe("LOW")
-        expect(normalizeEthosTrust({ availability: "available", credibility_score: 100 })).toBe("VERY_LOW")
+        expect(normalizeEthosTrust({ data: { score: 2300 } })).toBe("VERY_HIGH")
+        expect(normalizeEthosTrust({ data: { score: 1700 } })).toBe("HIGH")
+        expect(normalizeEthosTrust({ data: { score: 1300 } })).toBe("NEUTRAL")
+        expect(normalizeEthosTrust({ data: { score: 900 } })).toBe("LOW")
+        expect(normalizeEthosTrust({ data: { score: 100 } })).toBe("VERY_LOW")
     })
 })
 
@@ -38,19 +38,19 @@ describe("normalizeNeynarSocialTrust", () => {
     })
 
     it("should map scores to correct tiers", () => {
-        expect(normalizeNeynarSocialTrust({ farcaster_user_score: 0.95 })).toBe("VERY_HIGH")
-        expect(normalizeNeynarSocialTrust({ farcaster_user_score: 0.8 })).toBe("HIGH")
-        expect(normalizeNeynarSocialTrust({ farcaster_user_score: 0.5 })).toBe("NEUTRAL")
-        expect(normalizeNeynarSocialTrust({ farcaster_user_score: 0.25 })).toBe("LOW")
-        expect(normalizeNeynarSocialTrust({ farcaster_user_score: 0.1 })).toBe("VERY_LOW")
+        expect(normalizeNeynarSocialTrust({ data: { userScore: 0.95 } })).toBe("VERY_HIGH")
+        expect(normalizeNeynarSocialTrust({ data: { userScore: 0.8 } })).toBe("HIGH")
+        expect(normalizeNeynarSocialTrust({ data: { userScore: 0.5 } })).toBe("NEUTRAL")
+        expect(normalizeNeynarSocialTrust({ data: { userScore: 0.25 } })).toBe("LOW")
+        expect(normalizeNeynarSocialTrust({ data: { userScore: 0.1 } })).toBe("VERY_LOW")
     })
 })
 
 describe("normalizeNeynarSpamRisk", () => {
     it("should return inverse of quality score", () => {
         // High quality = low spam risk
-        expect(normalizeNeynarSpamRisk({ farcaster_user_score: 0.9 })).toBe("VERY_LOW")
-        expect(normalizeNeynarSpamRisk({ farcaster_user_score: 0.1 })).toBe("VERY_HIGH")
+        expect(normalizeNeynarSpamRisk({ data: { userScore: 0.9 } })).toBe("VERY_LOW")
+        expect(normalizeNeynarSpamRisk({ data: { userScore: 0.1 } })).toBe("VERY_HIGH")
     })
 })
 
@@ -61,30 +61,25 @@ describe("normalizeTalentBuilder", () => {
 
     it("should return EXPLORER for unavailable builder", () => {
         expect(normalizeTalentBuilder({
-            builder: { availability: "not_found" },
-            creator: { availability: "available" }
+            data: { creatorScore: 120 }
         })).toBe("EXPLORER")
     })
 
     it("should map scores to correct capabilities", () => {
         expect(normalizeTalentBuilder({
-            builder: { availability: "available", score: 260 },
-            creator: { availability: "available" }
+            data: { builderScore: 260, creatorScore: 120 }
         })).toBe("ELITE")
 
         expect(normalizeTalentBuilder({
-            builder: { availability: "available", score: 180 },
-            creator: { availability: "available" }
+            data: { builderScore: 180, creatorScore: 120 }
         })).toBe("EXPERT")
 
         expect(normalizeTalentBuilder({
-            builder: { availability: "available", score: 90 },
-            creator: { availability: "available" }
+            data: { builderScore: 90, creatorScore: 120 }
         })).toBe("BUILDER")
 
         expect(normalizeTalentBuilder({
-            builder: { availability: "available", score: 10 },
-            creator: { availability: "available" }
+            data: { builderScore: 10, creatorScore: 120 }
         })).toBe("EXPLORER")
     })
 })
@@ -96,8 +91,7 @@ describe("normalizeTalentCreator", () => {
 
     it("should map scores to correct capabilities", () => {
         expect(normalizeTalentCreator({
-            builder: { availability: "available" },
-            creator: { availability: "available", score: 180 }
+            data: { builderScore: 120, creatorScore: 180 }
         })).toBe("EXPERT")
     })
 })
@@ -106,7 +100,7 @@ describe("calculateSignalCoverage", () => {
     it("should return 0 when all providers are null", () => {
         const coverage = calculateSignalCoverage({
             ethos: null,
-            neynar: null,
+            farcaster: null,
             talent: null
         })
         expect(coverage).toBe(0)
@@ -114,20 +108,17 @@ describe("calculateSignalCoverage", () => {
 
     it("should return 1 when all providers are available", () => {
         const coverage = calculateSignalCoverage({
-            ethos: { availability: "available", credibility_score: 1300 },
-            neynar: { farcaster_user_score: 0.5 },
-            talent: {
-                builder: { availability: "available", score: 90 },
-                creator: { availability: "available", score: 90 }
-            }
+            ethos: { data: { score: 1300 } },
+            farcaster: { data: { userScore: 0.5 } },
+            talent: { data: { builderScore: 90, creatorScore: 90 } }
         })
         expect(coverage).toBe(1)
     })
 
     it("should return partial coverage for partial data", () => {
         const coverage = calculateSignalCoverage({
-            ethos: { availability: "available", credibility_score: 1300 },
-            neynar: null,
+            ethos: { data: { score: 1300 } },
+            farcaster: null,
             talent: null
         })
         expect(coverage).toBe(0.3) // Ethos is 30%
@@ -136,35 +127,28 @@ describe("calculateSignalCoverage", () => {
 
 describe("calculateRecencyDays", () => {
     it("should return 0 for null date", () => {
-        expect(calculateRecencyDays(null)).toBe(0)
+        expect(calculateRecencyDays({ recency: { lastUpdatedDaysAgo: null } })).toBe(0)
     })
 
     it("should return 0 for undefined date", () => {
-        expect(calculateRecencyDays(undefined)).toBe(0)
+        expect(calculateRecencyDays({})).toBe(0)
     })
 
     it("should return 0 for future date", () => {
-        const futureDate = new Date()
-        futureDate.setDate(futureDate.getDate() + 10)
-        expect(calculateRecencyDays(futureDate)).toBe(0)
+        expect(calculateRecencyDays({ recency: { lastUpdatedDaysAgo: -5 } })).toBe(0)
     })
 
     it("should calculate days correctly for past date", () => {
-        const pastDate = new Date()
-        pastDate.setDate(pastDate.getDate() - 5)
-        expect(calculateRecencyDays(pastDate)).toBe(5)
+        expect(calculateRecencyDays({ recency: { lastUpdatedDaysAgo: 5 } })).toBe(5)
     })
 })
 
 describe("normalizeSignals", () => {
     it("should produce complete NormalizedSignals object", () => {
         const signals = normalizeSignals({
-            ethos: { availability: "available", credibility_score: 1700 }, // HIGH (1600+)
-            neynar: { farcaster_user_score: 0.8 }, // HIGH
-            talent: {
-                builder: { availability: "available", score: 180 }, // EXPERT (170+)
-                creator: { availability: "available", score: 90 }  // BUILDER (80+)
-            }
+            ethos: { data: { score: 1700 } }, // HIGH (1600+)
+            farcaster: { data: { userScore: 0.8 } }, // HIGH
+            talent: { data: { builderScore: 180, creatorScore: 90 } }
         })
 
         expect(signals.trust).toBe("HIGH")
@@ -178,7 +162,7 @@ describe("normalizeSignals", () => {
     it("should use defaults when providers are unavailable", () => {
         const signals = normalizeSignals({
             ethos: null,
-            neynar: null,
+            farcaster: null,
             talent: null
         })
 

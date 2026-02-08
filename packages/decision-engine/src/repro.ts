@@ -18,17 +18,15 @@ async function main() {
         // Minimal high-signal profile to trigger ALLOW
         return {
             ethos: {
-                availability: "available",
-                credibility_score: 1700,
+                data: { score: 1700 },
             },
-            neynar: {
-                farcaster_user_score: 0.8,
+            farcaster: {
+                data: { userScore: 0.8 },
             },
             talent: {
-                builder: { availability: "available", score: 180 },
-                creator: { availability: "available", score: 120 },
+                data: { builderScore: 180, creatorScore: 120 },
             },
-            lastActivityAt: new Date(),
+            recency: { lastUpdatedDaysAgo: 0 },
         } as any
     }
 

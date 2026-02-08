@@ -1,6 +1,6 @@
 /**
  * Type Re-exports
- * 
+ *
  * Central export point for all Decision Engine types.
  */
 
@@ -43,4 +43,14 @@ export type {
     DecisionLog,
     DecideRequest,
     DecisionError,
+    DecisionContext,
 } from "./decisions"
+export { VALID_CONTEXTS } from "./decisions"
+
+// Proof types
+export type {
+    ProofPayload,
+    ProofPublicInputs,
+    ProofVerifier,
+    VerifiedProof,
+} from "./proofs"

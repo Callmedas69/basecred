@@ -1,8 +1,8 @@
 /**
- * Neynar Signal Normalizer
- * 
- * Maps Neynar user quality to socialTrust and spamRisk Tiers.
- * Neynar is the source of truth for Farcaster social behavior.
+ * Farcaster Signal Normalizer (SDK schema)
+ *
+ * Maps Farcaster user quality to socialTrust and spamRisk Tiers.
+ * Farcaster quality is sourced from the SDK `farcaster.data.userScore`.
  */
 
 import type { Tier } from "../../types/tiers"
@@ -11,26 +11,22 @@ import type { Tier } from "../../types/tiers"
 // Neynar Response Types
 // ============================================================================
 
-export interface NeynarUser {
-    fid?: number
-    username?: string
-    display_name?: string
-    pfp_url?: string
-
-    /** Farcaster user quality score (0-1) */
-    farcaster_user_score?: number
-
-    /** Follower count */
-    follower_count?: number
-
-    /** Following count */
-    following_count?: number
-
-    /** Whether the account is verified */
-    verified?: boolean
-
-    /** Account creation timestamp */
-    registered_at?: string
+export interface FarcasterProfile {
+    data?: {
+        /** Farcaster user quality score (0-1) */
+        userScore?: number
+    }
+    signals?: {
+        passesQualityThreshold?: boolean
+    }
+    meta?: {
+        source?: string
+        scope?: string
+        lastUpdatedAt?: string | null
+        lastUpdatedDaysAgo?: number | null
+        updateCadence?: string
+        timeMeaning?: string
+    }
 }
 
 // ============================================================================
@@ -38,8 +34,8 @@ export interface NeynarUser {
 // ============================================================================
 
 /**
- * Threshold configuration for Neynar → socialTrust mapping.
- * Based on farcaster_user_score (0-1 scale).
+ * Threshold configuration for Farcaster → socialTrust mapping.
+ * Based on `farcaster.data.userScore` (0-1 scale).
  */
 const SOCIAL_TRUST_THRESHOLDS = {
     VERY_HIGH: 0.9,
@@ -50,7 +46,7 @@ const SOCIAL_TRUST_THRESHOLDS = {
 } as const
 
 /**
- * Threshold configuration for Neynar → spamRisk mapping.
+ * Threshold configuration for Farcaster → spamRisk mapping.
  * Inverse of quality score (high quality = low spam risk).
  */
 const SPAM_RISK_THRESHOLDS = {
@@ -66,27 +62,22 @@ const SPAM_RISK_THRESHOLDS = {
 // ============================================================================
 
 /**
- * Normalize Neynar user quality to socialTrust Tier.
- * 
- * @param user - Neynar user data (may be null)
+ * Normalize Farcaster user quality to socialTrust Tier.
+ *
+ * @param profile - Farcaster profile data (may be null)
  * @returns socialTrust Tier, or null if data is unavailable
  * 
  * @example
- * normalizeNeynarSocialTrust({ farcaster_user_score: 0.85 })
+ * normalizeNeynarSocialTrust({ data: { userScore: 0.85 } })
  * // Returns "HIGH"
  */
-export function normalizeNeynarSocialTrust(user: NeynarUser | any | null): Tier | null {
-    if (!user) return null
+export function normalizeNeynarSocialTrust(profile: FarcasterProfile | any | null): Tier | null {
+    if (!profile) return null
 
     let score: number | undefined
 
-    // SDK format
-    if (user.data && typeof user.data.userScore === 'number') {
-        score = user.data.userScore
-    } 
-    // Legacy format
-    else if (user.farcaster_user_score !== undefined) {
-        score = user.farcaster_user_score
+    if (profile.data && typeof profile.data.userScore === 'number') {
+        score = profile.data.userScore
     }
 
     if (score === undefined) return null
@@ -99,28 +90,23 @@ export function normalizeNeynarSocialTrust(user: NeynarUser | any | null): Tier 
 }
 
 /**
- * Normalize Neynar user quality to spamRisk Tier.
+ * Normalize Farcaster user quality to spamRisk Tier.
  * Note: This is INVERSE of quality - high quality = low spam risk.
- * 
- * @param user - Neynar user data (may be null)
+ *
+ * @param profile - Farcaster profile data (may be null)
  * @returns spamRisk Tier, or null if data is unavailable
  * 
  * @example
- * normalizeNeynarSpamRisk({ farcaster_user_score: 0.85 })
+ * normalizeNeynarSpamRisk({ data: { userScore: 0.85 } })
  * // Returns "VERY_LOW" (high quality = low spam)
  */
-export function normalizeNeynarSpamRisk(user: NeynarUser | any | null): Tier | null {
-    if (!user) return null
+export function normalizeNeynarSpamRisk(profile: FarcasterProfile | any | null): Tier | null {
+    if (!profile) return null
 
     let score: number | undefined
 
-    // SDK format
-    if (user.data && typeof user.data.userScore === 'number') {
-        score = user.data.userScore
-    } 
-    // Legacy format
-    else if (user.farcaster_user_score !== undefined) {
-        score = user.farcaster_user_score
+    if (profile.data && typeof profile.data.userScore === 'number') {
+        score = profile.data.userScore
     }
 
     if (score === undefined) return null
@@ -134,14 +120,10 @@ export function normalizeNeynarSpamRisk(user: NeynarUser | any | null): Tier | n
 }
 
 /**
- * Check if a Neynar user is available for normalization.
+ * Check if a Farcaster profile is available for normalization.
  */
-export function isNeynarAvailable(user: NeynarUser | any | null): boolean {
-    if (!user) return false
-    
-    // SDK format
-    if (user.data && typeof user.data.userScore === 'number') return true
-    
-    // Legacy format
-    return user.farcaster_user_score !== undefined
+export function isNeynarAvailable(profile: FarcasterProfile | any | null): boolean {
+    if (!profile) return false
+
+    return !!(profile.data && typeof profile.data.userScore === 'number')
 }

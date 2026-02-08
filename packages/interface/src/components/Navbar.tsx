@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -25,27 +26,39 @@ export function Navbar() {
             basecred
           </div>
         </Link>
-        <div className="flex gap-4 md:gap-8 text-xl md:text-4xl font-normal tracking-tight text-muted-foreground">
-          <Link
-            href="/explorer"
-            className={cn(
-              "hover:text-foreground transition-colors lowercase",
-              pathname === "/explorer" ? "text-foreground" : "",
-            )}
-          >
-            explorer
-          </Link>
-          <Link
-            href="http://localhost:4000"
-            className={cn(
-              "hover:text-foreground transition-colors lowercase",
-              pathname.startsWith("/docs") ? "text-foreground" : "",
-            )}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            docs
-          </Link>
+        <div className="flex items-center gap-4 md:gap-8">
+          <div className="flex gap-4 md:gap-8 text-xl md:text-4xl font-normal tracking-tight text-muted-foreground">
+            <Link
+              href="/explorer"
+              className={cn(
+                "hover:text-foreground transition-colors lowercase",
+                pathname === "/explorer" ? "text-foreground" : "",
+              )}
+            >
+              explorer
+            </Link>
+            <Link
+              href="/agent"
+              className={cn(
+                "hover:text-foreground transition-colors lowercase",
+                pathname === "/agent" ? "text-foreground" : "",
+              )}
+            >
+              agent
+            </Link>
+            <Link
+              href="http://localhost:4000"
+              className={cn(
+                "hover:text-foreground transition-colors lowercase",
+                pathname.startsWith("/docs") ? "text-foreground" : "",
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              docs
+            </Link>
+          </div>
+          <ConnectButton />
         </div>
       </div>
     </nav>
