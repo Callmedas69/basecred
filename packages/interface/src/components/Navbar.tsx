@@ -102,7 +102,7 @@ export function Navbar() {
               priority
             />
           </div>
-          <div className="font-bold text-2xl md:text-5xl tracking-[-0.08em] text-foreground lowercase select-none">
+          <div className="font-bold text-2xl md:text-5xl tracking-[-0.08em] text-foreground select-none">
             zkBasecred
           </div>
         </Link>
@@ -143,7 +143,7 @@ export function Navbar() {
 
       {/* Mobile menu overlay */}
       {menuOpen && (
-        <div className="md:hidden fixed inset-0 top-20 z-40 bg-background/95 backdrop-blur-md border-t border-border">
+        <div className="md:hidden fixed inset-0 top-20 z-40 bg-white backdrop-blur-md border-t border-border">
           <div className="flex flex-col gap-6 px-6 pt-8">
             {NAV_LINKS.map((link) => (
               <Link
