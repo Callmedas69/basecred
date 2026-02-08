@@ -1,5 +1,5 @@
 {
-  "name": "@basecred/openclaw-skill",
+  "name": "@basecred/zkbasecred-skill",
   "version": "0.1.0",
   "description": "OpenClaw skill for checking human reputation via zkBaseCred",
   "license": "MIT",
