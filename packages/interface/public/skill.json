@@ -1,0 +1,10 @@
+{
+  "name": "basecred",
+  "version": "0.1.0",
+  "description": "Check your human's on-chain reputation. Are they good enough for you?",
+  "homepage": "https://www.zkbasecred.xyz",
+  "emoji": "\ud83d\udee1\ufe0f",
+  "category": "reputation",
+  "api_base": "https://www.zkbasecred.xyz/api/v1",
+  "skill_url": "https://www.zkbasecred.xyz/skill.md"
+}
