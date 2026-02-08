@@ -1,0 +1,130 @@
+---
+id: openclaw
+title: OpenClaw Integration
+sidebar_label: OpenClaw
+---
+
+# OpenClaw Integration
+
+Give your OpenClaw agent the ability to check any human's on-chain and social reputation before granting access.
+
+## Overview
+
+BaseCred provides an **OpenClaw Skill** that teaches agents to:
+- Identify humans by wallet address or Farcaster FID
+- Call the BaseCred API to evaluate reputation
+- Interpret ALLOW / DENY / ALLOW\_WITH\_LIMITS decisions
+- Handle errors gracefully (never default to ALLOW)
+
+## Setup
+
+### 1. Get an API Key
+
+1. Visit [basecred.xyz/agent](https://basecred.xyz/agent)
+2. Connect your wallet
+3. Sign a message to authenticate
+4. Generate a new API key
+5. Copy the key — it's only shown once
+
+### 2. Install the Skill
+
+**Option A: OpenClaw CLI**
+
+```bash
+npx @basecred/openclaw-skill
+```
+
+**Option B: Manual**
+
+```bash
+curl -s https://basecred.xyz/skill.md > ~/.openclaw/workspace/skills/basecred-reputation/SKILL.md
+```
+
+### 3. Configure Environment
+
+Set these environment variables in your OpenClaw config:
+
+```
+BASECRED_API_URL=https://basecred.xyz
+BASECRED_API_KEY=bc_your_api_key_here
+```
+
+## API Reference
+
+### POST /api/v1/decide
+
+Check a human's reputation.
+
+**Headers:**
+
+| Header | Value |
+|---|---|
+| `x-api-key` | Your API key (`bc_...`) |
+| `Content-Type` | `application/json` |
+
+**Body:**
+
+```json
+{
+  "subject": "0x1234...abcd",
+  "context": "allowlist.general"
+}
+```
+
+**Response:**
+
+```json
+{
+  "decision": "ALLOW",
+  "confidence": "HIGH",
+  "explain": ["Trust level: HIGH", "Signal coverage: 85%"],
+  "signals": {
+    "trust": "HIGH",
+    "socialTrust": "HIGH",
+    "builder": "EXPERT",
+    "creator": "MODERATE",
+    "spamRisk": "NEUTRAL",
+    "recencyDays": 3,
+    "signalCoverage": 0.85
+  }
+}
+```
+
+## Available Contexts
+
+| Context | Use Case |
+|---|---|
+| `allowlist.general` | General access or allowlist checks |
+| `comment` | Comment or message permission |
+| `publish` | Content publishing rights |
+| `apply` | Application or submission gating |
+| `governance.vote` | Governance participation |
+
+## Decision Values
+
+| Decision | Meaning |
+|---|---|
+| `ALLOW` | Good reputation — proceed |
+| `ALLOW_WITH_LIMITS` | Mixed signals — proceed with restrictions |
+| `DENY` | Insufficient reputation — block action |
+
+## Error Handling
+
+| Status | Meaning | Action |
+|---|---|---|
+| `401` | Invalid API key | Check configuration |
+| `429` | Rate limited (100 req/min) | Wait for `Retry-After` |
+| `5xx` | Server error | **Never default to ALLOW** — retry later |
+
+## Rate Limits
+
+- **100 requests per minute** per API key
+- Rate limit resets on a sliding window
+- `429` responses include a `Retry-After` header
+
+## Security
+
+- API keys are hashed (SHA-256) before storage
+- All key management requires wallet signature verification
+- Activity logs let key owners see who's checking their reputation
+- Keys can be revoked instantly from the dashboard

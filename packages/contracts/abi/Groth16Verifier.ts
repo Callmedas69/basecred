@@ -1,0 +1,37 @@
+export const VERIFIER_ABI = [
+  {
+    "type": "function",
+    "name": "verifyProof",
+    "inputs": [
+      {
+        "name": "_pA",
+        "type": "uint256[2]",
+        "internalType": "uint256[2]"
+      },
+      {
+        "name": "_pB",
+        "type": "uint256[2][2]",
+        "internalType": "uint256[2][2]"
+      },
+      {
+        "name": "_pC",
+        "type": "uint256[2]",
+        "internalType": "uint256[2]"
+      },
+      {
+        "name": "_pubSignals",
+        "type": "uint256[3]",
+        "internalType": "uint256[3]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  }
+] as const;
+export type Groth16VerifierAbi = typeof VERIFIER_ABI;

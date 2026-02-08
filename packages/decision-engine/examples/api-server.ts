@@ -17,7 +17,7 @@ const PORT = 3000
 
 // ============================================================================
 // Mock Profile Fetcher
-// In production, this would call Ethos, Neynar, and Talent APIs
+// In production, this would call the SDK and pass its output directly
 // ============================================================================
 
 async function fetchProfile(subject: string): Promise<UnifiedProfileData> {
@@ -27,31 +27,25 @@ async function fetchProfile(subject: string): Promise<UnifiedProfileData> {
     // Mock profiles based on subject
     if (subject.toLowerCase().includes("spam")) {
         return {
-            ethos: { availability: "available", credibility_score: 15 },
-            neynar: { farcaster_user_score: 0.1 },
+            ethos: { data: { score: 900 } },
+            farcaster: { data: { userScore: 0.1 } },
             talent: null
         }
     }
 
     if (subject.toLowerCase().includes("expert")) {
         return {
-            ethos: { availability: "available", credibility_score: 80 },
-            neynar: { farcaster_user_score: 0.85 },
-            talent: {
-                builder: { availability: "available", score: 90 },
-                creator: { availability: "available", score: 70 }
-            }
+            ethos: { data: { score: 1700 } },
+            farcaster: { data: { userScore: 0.85 } },
+            talent: { data: { builderScore: 180, creatorScore: 90 } }
         }
     }
 
     // Default: moderate user
     return {
-        ethos: { availability: "available", credibility_score: 55 },
-        neynar: { farcaster_user_score: 0.6 },
-        talent: {
-            builder: { availability: "available", score: 40 },
-            creator: { availability: "not_found" }
-        }
+        ethos: { data: { score: 1300 } },
+        farcaster: { data: { userScore: 0.6 } },
+        talent: { data: { builderScore: 40, creatorScore: 0 } }
     }
 }
 

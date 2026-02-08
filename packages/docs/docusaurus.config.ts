@@ -6,7 +6,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
   title: "BaseCred",
-  tagline: "Foundation · Integration · Decision Engine · SDK",
+  tagline: "Foundation · Decision Engine · Integration",
   favicon: "img/favicon.ico",
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
@@ -84,16 +84,6 @@ const config: Config = {
           label: "Integration",
         },
         {
-          to: "/sdk/intro",
-          label: "SDK",
-          position: "left",
-        },
-        {
-          to: "/user-integration/intro",
-          label: "User Integration",
-          position: "left",
-        },
-        {
           href: "https://github.com/GeoartStudio/basecred",
           label: "GitHub",
           position: "right",
@@ -152,35 +142,6 @@ const config: Config = {
         path: 'decision_engine',
         routeBasePath: 'decision-engine',
         sidebarPath: './sidebarsDecisionEngine.ts',
-      },
-    ],
-    [
-      '@docusaurus/plugin-content-docs',
-      {
-        id: 'sdk',
-        path: 'sdk',
-        routeBasePath: 'sdk',
-        sidebarPath: './sidebarsSDK.ts',
-      },
-    ],
-    [
-      '@docusaurus/plugin-content-docs',
-      {
-        id: 'user-integration',
-        path: 'user-integration',
-        routeBasePath: 'user-integration',
-        sidebarPath: './sidebarsUserIntegration.ts',
-      },
-    ],
-    [
-      "@docusaurus/plugin-client-redirects",
-      {
-        redirects: [
-          {
-            from: ["/"],
-            to: "/foundation/overview",
-          },
-        ],
       },
     ],
   ],

@@ -1,5 +1,5 @@
 .heroBanner {
-  padding: 4rem 0;
+  padding: 4rem 0 2rem;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -23,9 +23,52 @@
   opacity: 0.5;
 }
 
-.buttons {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  max-width: 960px;
+  width: 100%;
+  padding: 0 1.5rem 4rem;
+}
+
+.card {
+  display: block;
+  padding: 1.5rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  border-color: #25c2a0;
+  box-shadow: 0 2px 12px rgba(37, 194, 160, 0.15);
+  text-decoration: none;
+  color: inherit;
+}
+
+.card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.card p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.7;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .hero__title {
+    font-size: 5rem;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1,0 +1,290 @@
+/**
+ * Check Owner Reputation Use Case
+ *
+ * When an agent calls POST /api/v1/agent/check-owner, this use case:
+ * 1. Looks up the owner's wallet from the API key
+ * 2. Fetches the owner's profile once
+ * 3. Runs the decision engine for ALL 5 contexts in parallel
+ * 4. Builds a natural language summary
+ * 5. Logs activity + pushes to global feed (fire-and-forget)
+ */
+
+import {
+  executeDecision,
+  normalizeSignals,
+  VALID_CONTEXTS,
+  type DecisionContext,
+  type NormalizedSignals,
+  type DecisionOutput,
+} from "basecred-decision-engine"
+import { getUnifiedProfile, type SDKConfig } from "basecred-sdk"
+import { createApiKeyRepository } from "@/repositories/apiKeyRepository"
+import { createActivityRepository } from "@/repositories/activityRepository"
+import { createAgentRegistrationRepository } from "@/repositories/agentRegistrationRepository"
+import type { ActivityEntry } from "@/types/apiKeys"
+import type { GlobalFeedEntry } from "@/types/agentRegistration"
+import { getRedis } from "@/lib/redis"
+
+export class CheckOwnerReputationError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = "CheckOwnerReputationError"
+    this.status = status
+  }
+}
+
+interface ContextResult {
+  decision: string
+  confidence: string
+  constraints: string[]
+  blockingFactors?: string[]
+}
+
+export interface CheckOwnerReputationOutput {
+  ownerAddress: string
+  agentName: string
+  summary: string
+  results: Record<string, ContextResult>
+}
+
+export async function checkOwnerReputation(
+  apiKeyHash: string
+): Promise<CheckOwnerReputationOutput> {
+  // 1. Look up API key to get walletAddress
+  const keyRepo = createApiKeyRepository()
+  const keyRecord = await keyRepo.validateKey(apiKeyHash)
+  if (!keyRecord) {
+    throw new CheckOwnerReputationError("API key not found", 401)
+  }
+
+  const ownerAddress = keyRecord.walletAddress
+
+  // 2. Find the agent registration linked to this key
+  const regRepo = createAgentRegistrationRepository()
+  const registrations = await regRepo.listByOwner(ownerAddress)
+  const registration = registrations.find(
+    (r) => r.apiKeyHash === apiKeyHash && r.status === "verified"
+  )
+  const agentName = registration?.agentName || keyRecord.label || "unknown"
+
+  // 3. Fetch owner profile once
+  const config: SDKConfig = {
+    ethos: {
+      baseUrl: process.env.ETHOS_BASE_URL || "https://api.ethos.network",
+      clientId: process.env.ETHOS_CLIENT_ID || "",
+    },
+    talent: {
+      baseUrl: process.env.TALENT_BASE_URL || "https://api.talentprotocol.com",
+      apiKey: process.env.TALENT_API_KEY || "",
+    },
+    farcaster: {
+      enabled: true,
+      neynarApiKey: process.env.NEYNAR_API_KEY || "",
+    },
+  }
+
+  const rawProfile = await getUnifiedProfile(ownerAddress, config)
+  const profileData = {
+    ethos: (rawProfile.ethos as any) ?? null,
+    neynar: (rawProfile.farcaster as any) ?? null,
+    talent: (rawProfile.talent as any) ?? null,
+    lastActivityAt: null,
+  }
+
+  // 4. Normalize signals once
+  const signals = normalizeSignals(profileData)
+
+  // 5. Run decision engine for ALL contexts in parallel
+  const profileFetcher = async () => profileData
+
+  const contextResults = await Promise.all(
+    VALID_CONTEXTS.map(async (context) => {
+      const result = await executeDecision(
+        { subject: ownerAddress, context },
+        profileFetcher
+      )
+      return { context, result }
+    })
+  )
+
+  // 6. Build results map
+  const results: Record<string, ContextResult> = {}
+  for (const { context, result } of contextResults) {
+    results[context] = {
+      decision: result.decision,
+      confidence: result.confidence,
+      constraints: result.constraints || [],
+      blockingFactors: result.blockingFactors,
+    }
+  }
+
+  // 7. Build natural language summary
+  const summary = buildReputationSummary(signals, results)
+
+  // 8. Log activity + push to global feed (fire-and-forget)
+  logActivitiesAndFeed(apiKeyHash, ownerAddress, agentName, keyRecord.keyPrefix, results).catch(
+    (err) => console.error("Activity/feed logging failed:", err)
+  )
+
+  // Record usage
+  keyRepo.recordUsage(apiKeyHash).catch((err) =>
+    console.error("Usage recording failed:", err)
+  )
+
+  return { ownerAddress, agentName, summary, results }
+}
+
+async function logActivitiesAndFeed(
+  apiKeyHash: string,
+  ownerAddress: string,
+  agentName: string,
+  keyPrefix: string,
+  results: Record<string, ContextResult>
+): Promise<void> {
+  const activityRepo = createActivityRepository()
+  const redis = getRedis()
+  const now = Date.now()
+
+  const promises: Promise<void>[] = []
+
+  for (const [context, result] of Object.entries(results)) {
+    // Activity log per context
+    const entry: ActivityEntry = {
+      timestamp: now,
+      apiKeyPrefix: keyPrefix,
+      subject: ownerAddress,
+      context,
+      decision: result.decision,
+      confidence: result.confidence,
+    }
+    promises.push(activityRepo.logActivity(entry))
+
+    // Global feed per context
+    const feedEntry: GlobalFeedEntry = {
+      agentName,
+      ownerAddress: ownerAddress.slice(0, 6) + "..." + ownerAddress.slice(-4),
+      context,
+      decision: result.decision,
+      confidence: result.confidence,
+      timestamp: now,
+    }
+    promises.push(
+      redis.zadd("global:agent:feed", {
+        score: now,
+        member: JSON.stringify(feedEntry),
+      }).then(() =>
+        redis.zremrangebyrank("global:agent:feed", 0, -101)
+      ).then(() => undefined)
+    )
+  }
+
+  await Promise.all(promises)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Natural Language Summary Builder
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TRUST_LABELS: Record<string, string> = {
+  VERY_HIGH: "very high trust",
+  HIGH: "high trust",
+  MODERATE: "moderate trust",
+  NEUTRAL: "neutral trust",
+  LOW: "low trust",
+  VERY_LOW: "very low trust",
+}
+
+const CAPABILITY_LABELS: Record<string, string> = {
+  EXPERT: "strong builder credentials",
+  PROFICIENT: "solid builder credentials",
+  INTERMEDIATE: "growing builder credentials",
+  MODERATE: "emerging builder credentials",
+  EXPLORER: "early-stage builder credentials",
+}
+
+const CONTEXT_LABELS: Record<string, string> = {
+  "allowlist.general": "allowlist access",
+  comment: "commenting",
+  publish: "publishing",
+  apply: "applications",
+  "governance.vote": "governance voting",
+}
+
+function buildReputationSummary(
+  signals: NormalizedSignals,
+  results: Record<string, ContextResult>
+): string {
+  const parts: string[] = []
+
+  // Opening — reputation strength
+  const decisions = Object.values(results).map((r) => r.decision)
+  const allowCount = decisions.filter((d) => d === "ALLOW").length
+  const denyCount = decisions.filter((d) => d === "DENY").length
+
+  if (allowCount === decisions.length) {
+    parts.push("Your reputation is strong.")
+  } else if (denyCount === 0) {
+    parts.push("Your reputation is solid with some areas for improvement.")
+  } else if (denyCount <= 2) {
+    parts.push("Your reputation is mixed — some areas need attention.")
+  } else {
+    parts.push("Your reputation needs improvement across several areas.")
+  }
+
+  // Signal highlights
+  const highlights: string[] = []
+  const trustLabel = TRUST_LABELS[signals.trust] || signals.trust.toLowerCase()
+  const socialLabel = TRUST_LABELS[signals.socialTrust] || signals.socialTrust.toLowerCase()
+  const builderLabel = CAPABILITY_LABELS[signals.builder] || signals.builder.toLowerCase()
+
+  highlights.push(`You have ${trustLabel} on Ethos`)
+  if (signals.socialTrust !== signals.trust) {
+    highlights.push(`${socialLabel} on Farcaster`)
+  }
+  highlights.push(`${builderLabel} via Talent Protocol`)
+  parts.push(highlights.join(", ") + ".")
+
+  // Context breakdown
+  const approved: string[] = []
+  const limited: string[] = []
+  const denied: string[] = []
+
+  for (const [context, result] of Object.entries(results)) {
+    const label = CONTEXT_LABELS[context] || context
+    if (result.decision === "ALLOW") approved.push(label)
+    else if (result.decision === "ALLOW_WITH_LIMITS") limited.push(label)
+    else denied.push(label)
+  }
+
+  if (approved.length > 0) {
+    parts.push(`You're approved for ${approved.join(", ")}.`)
+  }
+  if (limited.length > 0) {
+    parts.push(`${limited.join(", ")} ${limited.length === 1 ? "has" : "have"} limited access.`)
+  }
+  if (denied.length > 0) {
+    parts.push(`${denied.join(", ")} ${denied.length === 1 ? "requires" : "require"} further reputation building.`)
+  }
+
+  // Actionable advice
+  const advice: string[] = []
+  if (signals.signalCoverage < 0.5) {
+    advice.push("connect more accounts to increase signal coverage")
+  }
+  if (signals.trust === "LOW" || signals.trust === "VERY_LOW") {
+    advice.push("build your Ethos trust score")
+  }
+  if (signals.socialTrust === "LOW" || signals.socialTrust === "VERY_LOW") {
+    advice.push("increase your Farcaster presence")
+  }
+  if (signals.recencyDays > 30) {
+    advice.push("increase your on-chain activity (last active " + signals.recencyDays + " days ago)")
+  }
+
+  if (advice.length > 0) {
+    parts.push("To improve: " + advice.join(", ") + ".")
+  }
+
+  return parts.join(" ")
+}

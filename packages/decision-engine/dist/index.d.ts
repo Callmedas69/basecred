@@ -197,6 +197,10 @@ interface DecisionLog {
  */
 type DecisionContext = "allowlist.general" | "apply" | "comment" | "publish" | "governance.vote";
 /**
+ * Helper to check if a string is a valid context at runtime
+ */
+declare const VALID_CONTEXTS: DecisionContext[];
+/**
  * Request body for POST /v1/decide
  */
 interface DecideRequest {
@@ -323,6 +327,302 @@ interface Ruleset {
     rules: DSLRule[];
 }
 
+interface ProofPublicInputs {
+    policyHash: string;
+    normalizationVersion?: string;
+    context?: DecisionContext | string;
+    thresholds?: Record<string, string | number>;
+    [key: string]: unknown;
+}
+interface ProofPayload {
+    proof: unknown;
+}
+interface VerifiedProof {
+    valid: boolean;
+    signals?: NormalizedSignals;
+    error?: string;
+}
+interface ProofVerifier {
+    verify: (proof: ProofPayload, publicInputs: ProofPublicInputs) => Promise<VerifiedProof>;
+}
+
+/**
+ * Context ID Encoding/Decoding
+ *
+ * Maps DecisionContext strings to numeric IDs for circuit/contract use.
+ * See: packages/contracts/circuits/CIRCUIT_SPEC.md
+ */
+
+/**
+ * Context ID mappings (matches CIRCUIT_SPEC.md)
+ */
+declare const CONTEXT_ID_MAP: Record<DecisionContext, number>;
+/**
+ * Encode a DecisionContext to its numeric ID for circuit/contract use.
+ *
+ * @param context The decision context string
+ * @returns The numeric context ID (0-4)
+ * @throws Error if context is not valid
+ */
+declare function encodeContextId(context: DecisionContext): number;
+/**
+ * Decode a numeric context ID back to DecisionContext string.
+ *
+ * @param id The numeric context ID
+ * @returns The DecisionContext string
+ * @throws Error if ID is not valid
+ */
+declare function decodeContextId(id: number): DecisionContext;
+/**
+ * Convert a context ID to bytes32 format for on-chain use.
+ * The contract expects context as bytes32(uint256(contextId)).
+ *
+ * @param context The decision context
+ * @returns The context as 0x-prefixed bytes32 hex string
+ */
+declare function contextToBytes32(context: DecisionContext): `0x${string}`;
+
+/**
+ * Decision Value Encoding/Decoding
+ *
+ * Maps Decision strings to numeric values for circuit/contract use.
+ * See: packages/contracts/circuits/CIRCUIT_SPEC.md
+ */
+
+/**
+ * Decision value mappings (matches CIRCUIT_SPEC.md)
+ */
+declare const DECISION_VALUE_MAP: Record<Decision, number>;
+/**
+ * Encode a Decision to its numeric value for circuit/contract use.
+ *
+ * @param decision The decision string
+ * @returns The numeric decision value (0-2)
+ * @throws Error if decision is not valid
+ */
+declare function encodeDecision(decision: Decision): number;
+/**
+ * Decode a numeric decision value back to Decision string.
+ *
+ * @param value The numeric decision value
+ * @returns The Decision string
+ * @throws Error if value is not valid
+ */
+declare function decodeDecision(value: number): Decision;
+
+/**
+ * Signal Encoding Utilities
+ *
+ * Converts NormalizedSignals to circuit-compatible numeric values.
+ * See: packages/contracts/circuits/CIRCUIT_SPEC.md
+ */
+
+/**
+ * Circuit-compatible signal representation.
+ * All values are numeric for ZK circuit consumption.
+ */
+interface CircuitSignals {
+    /** Tier encoded as 0-4 */
+    trust: number;
+    /** Tier encoded as 0-4 */
+    socialTrust: number;
+    /** Capability encoded as 0-3 */
+    builder: number;
+    /** Capability encoded as 0-3 */
+    creator: number;
+    /** Days since last activity (uint) */
+    recencyDays: number;
+    /** Tier encoded as 0-4 */
+    spamRisk: number;
+    /** Signal coverage in basis points (0-10000) */
+    signalCoverageBps: number;
+}
+/**
+ * Encode a Tier to its numeric value for circuit use.
+ * Uses the existing TIER_ORDER mapping.
+ *
+ * @param tier The tier string
+ * @returns The numeric tier value (0-4)
+ */
+declare function encodeTier(tier: Tier): number;
+/**
+ * Decode a numeric value back to Tier.
+ *
+ * @param value The numeric tier value (0-4)
+ * @returns The Tier string
+ * @throws Error if value is not valid
+ */
+declare function decodeTier(value: number): Tier;
+/**
+ * Encode a Capability to its numeric value for circuit use.
+ * Uses the existing CAPABILITY_ORDER mapping.
+ *
+ * @param capability The capability string
+ * @returns The numeric capability value (0-3)
+ */
+declare function encodeCapability(capability: Capability): number;
+/**
+ * Decode a numeric value back to Capability.
+ *
+ * @param value The numeric capability value (0-3)
+ * @returns The Capability string
+ * @throws Error if value is not valid
+ */
+declare function decodeCapability(value: number): Capability;
+/**
+ * Convert signal coverage (0-1 decimal) to basis points (0-10000).
+ *
+ * @param coverage Signal coverage as decimal (0-1)
+ * @returns Signal coverage in basis points (0-10000)
+ */
+declare function signalCoverageToBps(coverage: number): number;
+/**
+ * Convert basis points (0-10000) back to decimal coverage (0-1).
+ *
+ * @param bps Signal coverage in basis points (0-10000)
+ * @returns Signal coverage as decimal (0-1)
+ */
+declare function bpsToSignalCoverage(bps: number): number;
+/**
+ * Encode all NormalizedSignals to circuit-compatible format.
+ *
+ * @param signals The normalized signals from the decision engine
+ * @returns Circuit-compatible signal values
+ */
+declare function encodeSignalsForCircuit(signals: NormalizedSignals): CircuitSignals;
+
+/**
+ * Policy Hash Encoding Utilities
+ *
+ * Converts policy hash strings to circuit/contract-compatible field elements.
+ * See: packages/contracts/circuits/CIRCUIT_SPEC.md
+ */
+/**
+ * BN254 scalar field order (r).
+ * Policy hashes must be reduced mod r to be valid field elements.
+ * This is the same as the Groth16 scalar field.
+ */
+declare const BN254_FIELD_ORDER: bigint;
+/**
+ * Strip the "sha256:" prefix from a policy hash.
+ *
+ * @param hash Policy hash with or without prefix
+ * @returns The raw hex hash without prefix
+ */
+declare function stripPolicyHashPrefix(hash: string): string;
+/**
+ * Convert a policy hash to a field element (bigint < BN254 field order).
+ * The hash is interpreted as a big-endian unsigned integer and reduced mod r.
+ *
+ * @param hash Policy hash string (with or without sha256: prefix)
+ * @returns The field element as bigint
+ */
+declare function policyHashToFieldElement(hash: string): bigint;
+/**
+ * Convert a policy hash to bytes32 format for on-chain use.
+ * The field element is left-padded to 32 bytes.
+ *
+ * @param hash Policy hash string (with or without sha256: prefix)
+ * @returns The policy hash as 0x-prefixed bytes32 hex string
+ */
+declare function policyHashToBytes32(hash: string): `0x${string}`;
+/**
+ * Check if a policy hash would fit in the BN254 field without reduction.
+ * Useful for validation and debugging.
+ *
+ * @param hash Policy hash string (with or without sha256: prefix)
+ * @returns true if the hash is already a valid field element
+ */
+declare function isPolicyHashValidFieldElement(hash: string): boolean;
+
+/**
+ * Proof Format Conversion Utilities
+ *
+ * Converts between snarkjs proof format and contract-compatible format.
+ */
+/**
+ * snarkjs proof format (as returned by groth16.prove)
+ */
+interface SnarkjsProof {
+    pi_a: [string, string, string];
+    pi_b: [[string, string], [string, string], [string, string]];
+    pi_c: [string, string, string];
+    protocol: string;
+    curve: string;
+}
+/**
+ * Contract-compatible proof format
+ */
+interface ContractProof {
+    a: [bigint, bigint];
+    b: [[bigint, bigint], [bigint, bigint]];
+    c: [bigint, bigint];
+}
+/**
+ * Convert snarkjs proof to contract-compatible format.
+ * Handles the coordinate transformations required by the Groth16 verifier.
+ *
+ * Note: snarkjs outputs affine coordinates with a third element (1).
+ * The contract expects only the x,y coordinates.
+ * Also, the B point coordinates are swapped in the snarkjs output.
+ *
+ * @param proof The snarkjs proof object
+ * @returns Contract-compatible proof with bigint values
+ */
+declare function snarkjsProofToContract(proof: SnarkjsProof): ContractProof;
+/**
+ * Convert public signals from snarkjs format to contract format.
+ * snarkjs returns strings, contract expects bigints.
+ *
+ * @param signals Array of public signal strings
+ * @returns Array of public signals as bigints
+ */
+declare function snarkjsSignalsToContract(signals: string[]): bigint[];
+/**
+ * Format proof for contract call (converts bigints to strings for JSON).
+ * This is useful when sending proofs via API.
+ */
+interface ContractProofStrings {
+    a: [string, string];
+    b: [[string, string], [string, string]];
+    c: [string, string];
+}
+/**
+ * Convert contract proof to string format for JSON serialization.
+ *
+ * @param proof The contract proof with bigint values
+ * @returns Contract proof with string values
+ */
+declare function contractProofToStrings(proof: ContractProof): ContractProofStrings;
+/**
+ * Parse string proof back to contract format with bigints.
+ *
+ * @param proof The contract proof with string values
+ * @returns Contract proof with bigint values
+ */
+declare function stringProofToContract(proof: ContractProofStrings): ContractProof;
+
+/**
+ * Subject Hash Encoding Utilities
+ *
+ * Converts subject identifiers to bytes32 format for on-chain use.
+ */
+/**
+ * Hash a subject identifier (wallet address or FID) to bytes32.
+ * Uses SHA-256 for consistent, collision-resistant hashing.
+ *
+ * @param subject The subject identifier (wallet address or FID)
+ * @returns The subject as 0x-prefixed bytes32 hex string
+ */
+declare function subjectToBytes32(subject: string): `0x${string}`;
+/**
+ * Validate that a string is a valid bytes32 hex string.
+ *
+ * @param value The value to validate
+ * @returns true if valid bytes32 format
+ */
+declare function isValidBytes32(value: string): value is `0x${string}`;
+
 /**
  * Confidence Mapping
  *
@@ -384,46 +684,55 @@ declare const ENGINE_VERSION = "v1";
 declare function decide(signals: NormalizedSignals, context: DecisionContext): DecisionOutput;
 
 /**
- * Ethos Signal Normalizer
+ * Ethos Signal Normalizer (SDK schema)
  *
  * Maps Ethos credibility scores to trust Tier.
  * Ethos is the source of truth for long-term trust/credibility.
  */
 
-type EthosAvailability = "available" | "not_found" | "unlinked" | "error";
 interface EthosProfile {
-    availability: EthosAvailability;
-    credibility_score?: number;
-    review_count?: number;
-    vouch_count?: number;
+    data?: {
+        score?: number;
+    };
+    signals?: {
+        hasNegativeReviews?: boolean;
+        hasVouches?: boolean;
+    };
+    meta?: {
+        firstSeenAt?: string | null;
+        lastUpdatedAt?: string | null;
+        activeSinceDays?: number | null;
+        lastUpdatedDaysAgo?: number | null;
+    };
 }
 
 /**
- * Neynar Signal Normalizer
+ * Farcaster Signal Normalizer (SDK schema)
  *
- * Maps Neynar user quality to socialTrust and spamRisk Tiers.
- * Neynar is the source of truth for Farcaster social behavior.
+ * Maps Farcaster user quality to socialTrust and spamRisk Tiers.
+ * Farcaster quality is sourced from the SDK `farcaster.data.userScore`.
  */
 
-interface NeynarUser {
-    fid?: number;
-    username?: string;
-    display_name?: string;
-    pfp_url?: string;
-    /** Farcaster user quality score (0-1) */
-    farcaster_user_score?: number;
-    /** Follower count */
-    follower_count?: number;
-    /** Following count */
-    following_count?: number;
-    /** Whether the account is verified */
-    verified?: boolean;
-    /** Account creation timestamp */
-    registered_at?: string;
+interface FarcasterProfile {
+    data?: {
+        /** Farcaster user quality score (0-1) */
+        userScore?: number;
+    };
+    signals?: {
+        passesQualityThreshold?: boolean;
+    };
+    meta?: {
+        source?: string;
+        scope?: string;
+        lastUpdatedAt?: string | null;
+        lastUpdatedDaysAgo?: number | null;
+        updateCadence?: string;
+        timeMeaning?: string;
+    };
 }
 
 /**
- * Talent Protocol Signal Normalizer
+ * Talent Protocol Signal Normalizer (SDK schema)
  *
  * Maps Talent Protocol builder / creator scores
  * into normalized Capability levels.
@@ -431,19 +740,20 @@ interface NeynarUser {
  * Talent is treated as the source of truth.
  */
 
-type TalentAvailability = "available" | "not_found" | "unlinked" | "error";
-interface TalentFacet {
-    availability: TalentAvailability;
-    score?: number;
-    level?: string;
-    last_updated_at?: string;
-}
 interface TalentProfile {
-    builder?: TalentFacet;
-    creator?: TalentFacet;
     data?: {
         builderScore?: number;
+        builderRankPosition?: number | null;
         creatorScore?: number;
+        creatorRankPosition?: number | null;
+    };
+    signals?: {
+        verifiedBuilder?: boolean;
+        verifiedCreator?: boolean;
+    };
+    meta?: {
+        lastUpdatedAt?: string | null;
+        lastUpdatedDaysAgo?: number | null;
     };
 }
 
@@ -458,11 +768,20 @@ interface TalentProfile {
  * Combined profile data from all providers.
  */
 interface UnifiedProfileData {
-    ethos: EthosProfile | any | null;
-    neynar: NeynarUser | any | null;
-    talent: TalentProfile | any | null;
-    /** Timestamp of last activity (for recency calculation) */
-    lastActivityAt?: Date | null;
+    identity?: {
+        address?: string;
+    };
+    availability?: {
+        ethos?: "available" | "not_found" | "unlinked" | "error";
+        talent?: "available" | "not_found" | "unlinked" | "error";
+        farcaster?: "available" | "not_found" | "unlinked" | "error";
+    };
+    ethos?: EthosProfile | null;
+    talent?: TalentProfile | null;
+    farcaster?: FarcasterProfile | null;
+    recency?: {
+        lastUpdatedDaysAgo?: number | null;
+    };
 }
 /**
  * Normalize all signals from a unified profile.
@@ -472,9 +791,9 @@ interface UnifiedProfileData {
  *
  * @example
  * const signals = normalizeSignals({
- *   ethos: { availability: "available", credibility_score: 75 },
- *   neynar: { farcaster_user_score: 0.8 },
- *   talent: { builder: { availability: "available", score: 60 } }
+ *   ethos: { data: { score: 75 } },
+ *   farcaster: { data: { userScore: 0.8 } },
+ *   talent: { data: { builderScore: 60 } }
  * })
  */
 declare function normalizeSignals(profile: UnifiedProfileData): NormalizedSignals;
@@ -514,6 +833,22 @@ declare function getRuleById(id: string): Rule | undefined;
  * Get all unique contexts.
  */
 declare function getAllContexts(): string[];
+
+interface PolicyDefinition {
+    context: DecisionContext;
+    policyHash: string;
+    normalizationVersion: string;
+    thresholds: Record<string, string | number>;
+}
+interface PolicyRepository {
+    getPolicyByContext(context: DecisionContext): Promise<PolicyDefinition | null>;
+}
+
+declare class InMemoryPolicyRepository implements PolicyRepository {
+    private readonly policies;
+    constructor(policies?: PolicyDefinition[]);
+    getPolicyByContext(context: DecisionContext): Promise<PolicyDefinition | null>;
+}
 
 /**
  * Decision Use Case
@@ -563,4 +898,35 @@ declare function validateDecideRequest(request: unknown): {
     error: string;
 };
 
-export { ALL_RULES, type AccessStatus, BASE_CONFIDENCE, CAPABILITY_ORDER, type Capability, type ConfidenceTier, DEFAULT_SIGNALS, type DSLCondition, type DSLOperator, type DSLRule, type DecideRequest, type DecideUseCaseInput, type DecideUseCaseOutput, type Decision, type DecisionError, type DecisionExplanation, type DecisionLog, type DecisionOutput, ENGINE_VERSION, type NormalizedSignals, type PartialSignals, type Rule, type Ruleset, type RulesetMetadata, TIER_ORDER, type Tier, type UnifiedProfileData, calculateSignalCoverage, capabilityGt, capabilityGte, capabilityLt, capabilityLte, decide, executeDecision, getAllContexts, getRuleById, getRulesForContext, mapConfidence, normalizeSignals, tierGt, tierGte, tierLt, tierLte, validateDecideRequest };
+/**
+ * ZK Decision Use Case
+ *
+ * Orchestrates proof-based decisions:
+ * 1. Fetch policy by context
+ * 2. Verify proof against public inputs
+ * 3. Evaluate rules using verified signals
+ * 4. Return decision output
+ */
+
+interface DecideWithProofUseCaseInput {
+    subject?: string;
+    context: DecisionContext;
+    proof: ProofPayload;
+    publicInputs: ProofPublicInputs;
+}
+interface DecideWithProofUseCaseDependencies {
+    policyRepository: PolicyRepository;
+    proofVerifier: ProofVerifier;
+}
+interface DecideWithProofUseCaseOutput extends DecisionOutput {
+    subjectHash?: string;
+    policyHash: string;
+}
+declare function executeDecisionWithProof(input: DecideWithProofUseCaseInput, deps: DecideWithProofUseCaseDependencies): Promise<DecideWithProofUseCaseOutput>;
+
+interface ListPoliciesUseCaseDependencies {
+    policyRepository: PolicyRepository;
+}
+declare function listPolicies(deps: ListPoliciesUseCaseDependencies): Promise<PolicyDefinition[]>;
+
+export { ALL_RULES, type AccessStatus, BASE_CONFIDENCE, BN254_FIELD_ORDER, CAPABILITY_ORDER, CONTEXT_ID_MAP, type Capability, type CircuitSignals, type ConfidenceTier, type ContractProof, type ContractProofStrings, DECISION_VALUE_MAP, DEFAULT_SIGNALS, type DSLCondition, type DSLOperator, type DSLRule, type DecideRequest, type DecideUseCaseInput, type DecideUseCaseOutput, type DecideWithProofUseCaseDependencies, type DecideWithProofUseCaseInput, type DecideWithProofUseCaseOutput, type Decision, type DecisionContext, type DecisionError, type DecisionExplanation, type DecisionLog, type DecisionOutput, ENGINE_VERSION, InMemoryPolicyRepository, type ListPoliciesUseCaseDependencies, type NormalizedSignals, type PartialSignals, type PolicyDefinition, type PolicyRepository, type ProofPayload, type ProofPublicInputs, type ProofVerifier, type Rule, type Ruleset, type RulesetMetadata, type SnarkjsProof, TIER_ORDER, type Tier, type UnifiedProfileData, VALID_CONTEXTS, type VerifiedProof, bpsToSignalCoverage, calculateSignalCoverage, capabilityGt, capabilityGte, capabilityLt, capabilityLte, contextToBytes32, contractProofToStrings, decide, decodeCapability, decodeContextId, decodeDecision, decodeTier, encodeCapability, encodeContextId, encodeDecision, encodeSignalsForCircuit, encodeTier, executeDecision, executeDecisionWithProof, getAllContexts, getRuleById, getRulesForContext, isPolicyHashValidFieldElement, isValidBytes32, listPolicies, mapConfidence, normalizeSignals, policyHashToBytes32, policyHashToFieldElement, signalCoverageToBps, snarkjsProofToContract, snarkjsSignalsToContract, stringProofToContract, stripPolicyHashPrefix, subjectToBytes32, tierGt, tierGte, tierLt, tierLte, validateDecideRequest };

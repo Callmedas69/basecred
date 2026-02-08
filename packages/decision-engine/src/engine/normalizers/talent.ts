@@ -1,5 +1,5 @@
 /**
- * Talent Protocol Signal Normalizer
+ * Talent Protocol Signal Normalizer (SDK schema)
  *
  * Maps Talent Protocol builder / creator scores
  * into normalized Capability levels.
@@ -13,25 +13,20 @@ import type { Capability } from "../../types/tiers"
 // Talent Response Types
 // ============================================================================
 
-export type TalentAvailability =
-    | "available"
-    | "not_found"
-    | "unlinked"
-    | "error"
-
-export interface TalentFacet {
-    availability: TalentAvailability
-    score?: number
-    level?: string
-    last_updated_at?: string
-}
-
 export interface TalentProfile {
-    builder?: TalentFacet
-    creator?: TalentFacet
     data?: {
         builderScore?: number
+        builderRankPosition?: number | null
         creatorScore?: number
+        creatorRankPosition?: number | null
+    }
+    signals?: {
+        verifiedBuilder?: boolean
+        verifiedCreator?: boolean
+    }
+    meta?: {
+        lastUpdatedAt?: string | null
+        lastUpdatedDaysAgo?: number | null
     }
 }
 
@@ -78,17 +73,8 @@ export function normalizeTalentBuilder(
 
     let score: number | undefined
 
-    // SDK format
     if (profile.data && typeof profile.data.builderScore === "number") {
         score = profile.data.builderScore
-    }
-    // Legacy format
-    else if (
-        profile.builder &&
-        profile.builder.availability === "available" &&
-        typeof profile.builder.score === "number"
-    ) {
-        score = profile.builder.score
     }
 
     if (score === undefined) return "EXPLORER"
@@ -106,17 +92,8 @@ export function normalizeTalentCreator(
 
     let score: number | undefined
 
-    // SDK format
     if (profile.data && typeof profile.data.creatorScore === "number") {
         score = profile.data.creatorScore
-    }
-    // Legacy format
-    else if (
-        profile.creator &&
-        profile.creator.availability === "available" &&
-        typeof profile.creator.score === "number"
-    ) {
-        score = profile.creator.score
     }
 
     if (score === undefined) return "EXPLORER"
@@ -136,17 +113,7 @@ export function isTalentBuilderAvailable(
 ): boolean {
     if (!profile) return false
 
-    // SDK format
-    if (profile.data && typeof profile.data.builderScore === "number") {
-        return true
-    }
-
-    // Legacy format
-    return (
-        !!profile.builder &&
-        profile.builder.availability === "available" &&
-        typeof profile.builder.score === "number"
-    )
+    return !!(profile.data && typeof profile.data.builderScore === "number")
 }
 
 /**
@@ -157,15 +124,5 @@ export function isTalentCreatorAvailable(
 ): boolean {
     if (!profile) return false
 
-    // SDK format
-    if (profile.data && typeof profile.data.creatorScore === "number") {
-        return true
-    }
-
-    // Legacy format
-    return (
-        !!profile.creator &&
-        profile.creator.availability === "available" &&
-        typeof profile.creator.score === "number"
-    )
+    return !!(profile.data && typeof profile.data.creatorScore === "number")
 }

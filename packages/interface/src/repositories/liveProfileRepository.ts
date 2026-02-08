@@ -1,6 +1,5 @@
 import { UnifiedProfileData } from "basecred-decision-engine";
-import { getUnifiedProfile, SDKConfig, UnifiedProfile } from "basecred-sdk";
-import { adaptSdkToEngine } from "@/lib/adapter";
+import { getUnifiedProfile, SDKConfig } from "basecred-sdk";
 
 export async function fetchLiveProfile(address: string): Promise<UnifiedProfileData> {
     const config: SDKConfig = {
@@ -19,10 +18,11 @@ export async function fetchLiveProfile(address: string): Promise<UnifiedProfileD
     };
 
     try {
+        // SDK output matches UnifiedProfileData directly - no adapter needed
         const profile = await getUnifiedProfile(address, config);
-        return adaptSdkToEngine(profile);
+        return profile as UnifiedProfileData;
     } catch (error) {
         console.error("SDK Fetch Error:", error);
-        throw error; // Re-throw to let API return the error message
+        throw error;
     }
 }
