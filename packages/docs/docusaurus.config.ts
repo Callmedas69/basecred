@@ -101,6 +101,10 @@ const config: Config = {
               to: "/integration/intro",
             },
             {
+              label: "Agent API",
+              to: "/integration/agent-api",
+            },
+            {
               label: "Foundation",
               to: "/foundation/overview",
             },

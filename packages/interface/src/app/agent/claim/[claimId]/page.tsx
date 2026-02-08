@@ -111,7 +111,7 @@ export default function ClaimPage() {
   };
 
   const verificationCode = fullDetails?.verificationCode || "";
-  const tweetTemplate = `I'm verifying my BaseCred agent. Code: ${verificationCode} @basecredxyz`;
+  const tweetTemplate = `I'm verifying my BaseCred agent. Code: ${verificationCode}`;
 
   const copyTweet = () => {
     navigator.clipboard?.writeText(tweetTemplate);
@@ -157,7 +157,8 @@ export default function ClaimPage() {
               <AlertCircle className="w-12 h-12 mx-auto text-red-400" />
               <h2 className="text-xl font-bold">Claim Expired or Not Found</h2>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                This claim link has expired or doesn't exist. Ask your agent to register again.
+                This claim link has expired or doesn't exist. Ask your agent to
+                register again.
               </p>
               <Button asChild variant="outline">
                 <a href="/agent">Go to Agent Page</a>
@@ -187,12 +188,17 @@ export default function ClaimPage() {
           <Card className="bg-emerald-500/10 border-emerald-500/30">
             <CardContent className="p-8 text-center space-y-4">
               <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-400" />
-              <h2 className="text-xl font-bold text-emerald-400">Agent Verified</h2>
+              <h2 className="text-xl font-bold text-emerald-400">
+                Agent Verified
+              </h2>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 {claim?.agentName && (
-                  <span className="font-mono text-foreground">{claim.agentName}</span>
+                  <span className="font-mono text-foreground">
+                    {claim.agentName}
+                  </span>
                 )}{" "}
-                has been verified and activated. The agent can now check your reputation.
+                has been verified and activated. The agent can now check your
+                reputation.
               </p>
               <Button asChild variant="outline">
                 <a href="/agent">View Dashboard</a>
@@ -218,12 +224,15 @@ export default function ClaimPage() {
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Agent</span>
-                    <span className="font-mono font-medium">{fullDetails.agentName}</span>
+                    <span className="font-mono font-medium">
+                      {fullDetails.agentName}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Owner</span>
                     <span className="font-mono text-xs">
-                      {fullDetails.ownerAddress.slice(0, 6)}...{fullDetails.ownerAddress.slice(-4)}
+                      {fullDetails.ownerAddress.slice(0, 6)}...
+                      {fullDetails.ownerAddress.slice(-4)}
                     </span>
                   </div>
                   {timeLeft && (
@@ -251,7 +260,9 @@ export default function ClaimPage() {
 
                 <div className="relative">
                   <div className="bg-black/90 rounded-lg p-4 pr-12 text-sm font-mono text-zinc-200 break-all">
-                    {verificationCode ? tweetTemplate : "Loading verification code..."}
+                    {verificationCode
+                      ? tweetTemplate
+                      : "Loading verification code..."}
                   </div>
                   <button
                     className="absolute top-3 right-3 p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"

@@ -9,6 +9,14 @@ const sidebars: SidebarsConfig = {
     'schema',
     {
       type: 'category',
+      label: 'AI Agents',
+      items: [
+        'openclaw',
+        'agent-api',
+      ],
+    },
+    {
+      type: 'category',
       label: 'ZK Integration',
       items: [
         'zk-agent',
@@ -16,7 +24,6 @@ const sidebars: SidebarsConfig = {
         'encoding',
       ],
     },
-    'openclaw',
     'availability',
     'time-and-recency',
     'anti-patterns',

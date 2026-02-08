@@ -11,7 +11,7 @@ import type { AgentRegistration } from "@/types/agentRegistration"
 const TTL_24H = 60 * 60 * 24
 
 export interface IAgentRegistrationRepository {
-  create(registration: AgentRegistration): Promise<void>
+  create(registration: AgentRegistration): Promise<boolean>
   getByClaimId(claimId: string): Promise<AgentRegistration | null>
   getByVerificationCode(code: string): Promise<string | null>
   getByAgentName(agentName: string): Promise<string | null>
@@ -24,16 +24,25 @@ export function createAgentRegistrationRepository(): IAgentRegistrationRepositor
   const redis = getRedis()
 
   return {
-    async create(registration: AgentRegistration): Promise<void> {
+    async create(registration: AgentRegistration): Promise<boolean> {
       const { claimId, verificationCode, agentName, ownerAddress } = registration
+
+      // Atomically claim the agent name (SETNX prevents race conditions)
+      const nameKey = `agent:name:${agentName.toLowerCase()}`
+      const claimed = await redis.setnx(nameKey, claimId)
+      if (!claimed) return false
+
+      // Set TTL on the name key
+      await redis.expire(nameKey, TTL_24H)
 
       // Store the main record with 24h TTL
       await redis.set(`agent:reg:${claimId}`, JSON.stringify(registration), { ex: TTL_24H })
 
       // Indexes (also 24h TTL while pending)
       await redis.set(`agent:code:${verificationCode}`, claimId, { ex: TTL_24H })
-      await redis.set(`agent:name:${agentName.toLowerCase()}`, claimId, { ex: TTL_24H })
       await redis.sadd(`agent:owner:${ownerAddress.toLowerCase()}`, claimId)
+
+      return true
     },
 
     async getByClaimId(claimId: string): Promise<AgentRegistration | null> {

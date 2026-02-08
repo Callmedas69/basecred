@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { isAddress } from "viem"
 import { revokeAgent, RevokeAgentError } from "@/use-cases/revoke-agent"
 
+const CLAIM_ID_REGEX = /^[a-f0-9]{64}$/
+
 /**
  * DELETE /api/v1/agent/registrations/[claimId] — Owner revokes agent (wallet-auth)
  * Body: { address, signature, message }
@@ -12,6 +14,14 @@ export async function DELETE(
 ) {
   try {
     const { claimId } = await params
+
+    if (!CLAIM_ID_REGEX.test(claimId)) {
+      return NextResponse.json(
+        { code: "INVALID_REQUEST", message: "Invalid claim ID format" },
+        { status: 400 }
+      )
+    }
+
     const body = await req.json()
     const { address, signature, message } = body
 

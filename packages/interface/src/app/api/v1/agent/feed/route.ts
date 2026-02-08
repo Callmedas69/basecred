@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createActivityRepository } from "@/repositories/activityRepository"
+import { getGlobalFeed } from "@/use-cases/get-global-feed"
 
 /**
  * GET /api/v1/agent/feed — Public global activity feed (no auth)
@@ -7,8 +7,7 @@ import { createActivityRepository } from "@/repositories/activityRepository"
  */
 export async function GET() {
   try {
-    const repo = createActivityRepository()
-    const entries = await repo.getGlobalFeed(20)
+    const entries = await getGlobalFeed(20)
     return NextResponse.json({ entries })
   } catch (error: unknown) {
     console.error("Get global feed error:", error)

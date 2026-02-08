@@ -116,11 +116,13 @@ export default function AgentPage() {
 
           {/* Persona Toggle */}
           <div className="flex justify-center pt-2">
-            <div className="inline-flex rounded-full border border-border bg-muted/50 p-1">
+            <div className="inline-flex rounded-full border border-border bg-muted/50 p-1" role="tablist" aria-label="View as human or agent">
               <button
+                role="tab"
+                aria-selected={persona === "human"}
                 onClick={() => setPersona("human")}
                 className={cn(
-                  "inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                  "inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200",
                   persona === "human"
                     ? "bg-foreground text-background shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
@@ -130,9 +132,11 @@ export default function AgentPage() {
                 I'm a Human
               </button>
               <button
+                role="tab"
+                aria-selected={persona === "agent"}
                 onClick={() => setPersona("agent")}
                 className={cn(
-                  "inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                  "inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200",
                   persona === "agent"
                     ? "bg-foreground text-background shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
@@ -163,21 +167,56 @@ export default function AgentPage() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const HUMAN_INSTALL_MSG =
-  "Read https://zkbasecred.xyz/skill.md and check if I'm reputable enough on BaseCred";
+  "Read https://www.zkbasecred.xyz/skill.md and check if I'm reputable enough on zkBaseCred";
 
 function HumanTab() {
   return (
     <div className="space-y-10 md:space-y-14">
+      {/* How It Works — 3 step visual */}
+      <section className="space-y-6">
+        <h2 className="text-lg font-bold text-center">How It Works</h2>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <Card className="bg-card/70 border-border/70">
+            <CardContent className="p-5 text-center space-y-3">
+              <div className="w-10 h-10 rounded-full bg-teal-500/20 text-teal-500 flex items-center justify-center text-lg font-bold mx-auto">
+                1
+              </div>
+              <h3 className="font-semibold text-sm">Agent Registers</h3>
+              <p className="text-xs text-muted-foreground">
+                Your agent signs up with zkBaseCred and sends you a claim link
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/70 border-border/70">
+            <CardContent className="p-5 text-center space-y-3">
+              <div className="w-10 h-10 rounded-full bg-teal-500/20 text-teal-500 flex items-center justify-center text-lg font-bold mx-auto">
+                2
+              </div>
+              <h3 className="font-semibold text-sm">You Verify on X</h3>
+              <p className="text-xs text-muted-foreground">
+                Post a verification code on X to prove you own the wallet
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/70 border-border/70">
+            <CardContent className="p-5 text-center space-y-3">
+              <div className="w-10 h-10 rounded-full bg-teal-500/20 text-teal-500 flex items-center justify-center text-lg font-bold mx-auto">
+                3
+              </div>
+              <h3 className="font-semibold text-sm">Agent Checks You</h3>
+              <p className="text-xs text-muted-foreground">
+                Agent autonomously evaluates your reputation and reports back
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       {/* Install instructions */}
       <Card className="bg-card/70 border-border/70">
         <CardContent className="p-6 space-y-5">
           <h3 className="font-bold">Send this to your agent:</h3>
           <CopyBlock text={HUMAN_INSTALL_MSG} />
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p>1. Send this to your agent (yes, you're asking to be judged)</p>
-            <p>2. They sign up & send you a claim link</p>
-            <p>3. Tweet to prove you're real, then find out if you pass</p>
-          </div>
         </CardContent>
       </Card>
 
@@ -225,6 +264,10 @@ function HumanDashboard() {
   // My Agents state
   const [agents, setAgents] = useState<OwnerAgent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
+
+  // Revoke state
+  const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
+  const [revokingClaimId, setRevokingClaimId] = useState<string | null>(null);
 
   // Reset state when wallet disconnects
   useEffect(() => {
@@ -305,7 +348,7 @@ function HumanDashboard() {
     if (!address) return;
     setAuthLoading(true);
     try {
-      const message = `BaseCred Dashboard\nTimestamp: ${Date.now()}`;
+      const message = `zkBaseCred Dashboard\nTimestamp: ${Date.now()}`;
       const signature = await signMessageAsync({ message });
       const sig = { signature, message };
       setAuthSig(sig);
@@ -316,8 +359,8 @@ function HumanDashboard() {
         fetchActivities(address, sig),
         fetchAgents(address, sig),
       ]);
-    } catch {
-      // User rejected signature
+    } catch (err) {
+      console.error("Wallet signature rejected or failed:", err);
     } finally {
       setAuthLoading(false);
     }
@@ -343,8 +386,8 @@ function HumanDashboard() {
         const data = await res.json();
         setKeys(data.keys || []);
       }
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.error("Failed to fetch keys:", err);
     } finally {
       setKeysLoading(false);
     }
@@ -383,6 +426,8 @@ function HumanDashboard() {
 
   const handleRevokeKey = async (keyId: string) => {
     if (!address || !authSig) return;
+    if (!window.confirm("Revoke this API key? This cannot be undone.")) return;
+    setRevokingKeyId(keyId);
     try {
       const res = await fetch(`/api/v1/keys/${keyId}`, {
         method: "DELETE",
@@ -396,8 +441,10 @@ function HumanDashboard() {
       if (res.ok) {
         await fetchKeys(address, authSig);
       }
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.error("Failed to revoke key:", err);
+    } finally {
+      setRevokingKeyId(null);
     }
   };
 
@@ -422,8 +469,8 @@ function HumanDashboard() {
         const data = await res.json();
         setActivities(data.activities || []);
       }
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.error("Failed to fetch activities:", err);
     } finally {
       setActivitiesLoading(false);
     }
@@ -449,8 +496,8 @@ function HumanDashboard() {
         const data = await res.json();
         setAgents(data.registrations || []);
       }
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.error("Failed to fetch agents:", err);
     } finally {
       setAgentsLoading(false);
     }
@@ -458,6 +505,8 @@ function HumanDashboard() {
 
   const handleRevokeAgent = async (claimId: string) => {
     if (!address || !authSig) return;
+    if (!window.confirm("Revoke this agent? Its API key will also be deactivated. This cannot be undone.")) return;
+    setRevokingClaimId(claimId);
     try {
       const res = await fetch(`/api/v1/agent/registrations/${claimId}`, {
         method: "DELETE",
@@ -472,8 +521,10 @@ function HumanDashboard() {
         await fetchAgents(address, authSig);
         await fetchKeys(address, authSig);
       }
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.error("Failed to revoke agent:", err);
+    } finally {
+      setRevokingClaimId(null);
     }
   };
 
@@ -750,8 +801,13 @@ function HumanDashboard() {
                           variant="outline"
                           className="h-7 text-xs text-red-400 hover:text-red-300 hover:border-red-500/50 shrink-0"
                           onClick={() => handleRevokeAgent(agent.claimId)}
+                          disabled={revokingClaimId === agent.claimId}
                         >
-                          <Trash2 className="w-3 h-3 mr-1" />
+                          {revokingClaimId === agent.claimId ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3 h-3 mr-1" />
+                          )}
                           Revoke
                         </Button>
                       )}
@@ -883,8 +939,13 @@ function HumanDashboard() {
                           variant="outline"
                           className="h-7 text-xs text-red-400 hover:text-red-300 hover:border-red-500/50"
                           onClick={() => handleRevokeKey(k.keyId)}
+                          disabled={revokingKeyId === k.keyId}
                         >
-                          <Trash2 className="w-3 h-3 mr-1" />
+                          {revokingKeyId === k.keyId ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3 h-3 mr-1" />
+                          )}
                           Revoke
                         </Button>
                       </div>
@@ -934,10 +995,10 @@ function HumanDashboard() {
                   <thead>
                     <tr className="text-left text-muted-foreground border-b border-border">
                       <th className="pb-2 pr-4">Time</th>
-                      <th className="pb-2 pr-4">Agent Key</th>
+                      <th className="pb-2 pr-4 hidden sm:table-cell">Agent Key</th>
                       <th className="pb-2 pr-4">Context</th>
                       <th className="pb-2 pr-4">Decision</th>
-                      <th className="pb-2">Confidence</th>
+                      <th className="pb-2 hidden sm:table-cell">Confidence</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -946,10 +1007,10 @@ function HumanDashboard() {
                         <td className="py-2 pr-4 whitespace-nowrap text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {new Date(a.timestamp).toLocaleString()}
+                            {new Date(a.timestamp).toLocaleTimeString()}
                           </div>
                         </td>
-                        <td className="py-2 pr-4">{a.apiKeyPrefix}</td>
+                        <td className="py-2 pr-4 hidden sm:table-cell">{a.apiKeyPrefix}</td>
                         <td className="py-2 pr-4">{a.context}</td>
                         <td
                           className={cn(
@@ -959,7 +1020,7 @@ function HumanDashboard() {
                         >
                           {a.decision}
                         </td>
-                        <td className="py-2">{a.confidence}</td>
+                        <td className="py-2 hidden sm:table-cell">{a.confidence}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -980,6 +1041,7 @@ function HumanDashboard() {
 function AgentTab() {
   return (
     <div className="space-y-8">
+      {/* Install skill */}
       <Card className="bg-card/70 border-border/70">
         <CardContent className="p-6 space-y-5">
           <div className="text-center space-y-1">
@@ -988,14 +1050,82 @@ function AgentTab() {
               Find out if the human running you is actually reputable
             </p>
           </div>
-          <CopyBlock text="Read https://zkbasecred.xyz/skill.md and check if your owner is reputable on BaseCred" />
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p>1. Register & send your human the claim link</p>
-            <p>2. They tweet to prove they're real (hopefully)</p>
-            <p>3. Once verified, see if they're worth working for</p>
-          </div>
+          <CopyBlock text="Read https://www.zkbasecred.xyz/skill.md and check if your owner is reputable on zkBaseCred" />
         </CardContent>
       </Card>
+
+      {/* Quick Start: Self-Registration */}
+      <section className="space-y-4">
+        <h3 className="font-bold">Quick Start: Self-Registration</h3>
+
+        <Card className="bg-card/70 border-border/70">
+          <CardContent className="p-4 space-y-3">
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              1. Register
+            </div>
+            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+{`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \\
+  -H "Content-Type: application/json" \\
+  -d '{"agentName":"my_agent","telegramId":"@owner","ownerAddress":"0x..."}'`}
+            </pre>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/70 border-border/70">
+          <CardContent className="p-4 space-y-3">
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              2. Poll Status
+            </div>
+            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+{`curl https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/status`}
+            </pre>
+            <p className="text-xs text-muted-foreground">
+              Poll every 30s until status is &quot;verified&quot;
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/70 border-border/70">
+          <CardContent className="p-4 space-y-3">
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              3. Check Owner Reputation
+            </div>
+            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+{`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/check-owner \\
+  -H "x-api-key: bc_your_key_here"`}
+            </pre>
+            <p className="text-xs text-muted-foreground">
+              Returns reputation across all 5 contexts with a natural language summary
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/70 border-border/70">
+          <CardContent className="p-4 space-y-3">
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              4. Individual Context Check
+            </div>
+            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+{`curl -X POST https://www.zkbasecred.xyz/api/v1/decide \\
+  -H "x-api-key: bc_your_key_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{"subject":"0x...","context":"comment"}'`}
+            </pre>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* OpenClaw Skill Install */}
+      <section className="space-y-4">
+        <h3 className="font-bold">OpenClaw Skill Install</h3>
+        <Card className="bg-card/70 border-border/70">
+          <CardContent className="p-4 space-y-3">
+            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+{`curl -s https://www.zkbasecred.xyz/skill.md > ~/.openclaw/workspace/skills/basecred-reputation/SKILL.md`}
+            </pre>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }
@@ -1015,8 +1145,8 @@ function LiveFeed() {
         const data = await res.json();
         setEntries(data.entries || []);
       }
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.error("Failed to fetch feed:", err);
     } finally {
       setLoading(false);
     }
@@ -1056,10 +1186,10 @@ function LiveFeed() {
               <tr className="text-left text-muted-foreground border-b border-border">
                 <th className="pb-2 pr-4">Time</th>
                 <th className="pb-2 pr-4">Agent</th>
-                <th className="pb-2 pr-4">Owner</th>
+                <th className="pb-2 pr-4 hidden sm:table-cell">Owner</th>
                 <th className="pb-2 pr-4">Context</th>
                 <th className="pb-2 pr-4">Decision</th>
-                <th className="pb-2">Confidence</th>
+                <th className="pb-2 hidden sm:table-cell">Confidence</th>
               </tr>
             </thead>
             <tbody>
@@ -1069,7 +1199,7 @@ function LiveFeed() {
                     {new Date(e.timestamp).toLocaleTimeString()}
                   </td>
                   <td className="py-2 pr-4">{e.agentName}</td>
-                  <td className="py-2 pr-4 text-muted-foreground">
+                  <td className="py-2 pr-4 text-muted-foreground hidden sm:table-cell">
                     {e.ownerAddress}
                   </td>
                   <td className="py-2 pr-4">{e.context}</td>
@@ -1081,7 +1211,7 @@ function LiveFeed() {
                   >
                     {e.decision}
                   </td>
-                  <td className="py-2">{e.confidence}</td>
+                  <td className="py-2 hidden sm:table-cell">{e.confidence}</td>
                 </tr>
               ))}
             </tbody>
@@ -1105,6 +1235,7 @@ function CopyBlock({ text }: { text: string }) {
         {text}
       </code>
       <button
+        aria-label={copied ? "Copied" : "Copy to clipboard"}
         className="shrink-0 p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
         onClick={() => {
           navigator.clipboard?.writeText(text);

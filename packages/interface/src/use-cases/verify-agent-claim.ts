@@ -8,7 +8,8 @@
 import { createAgentRegistrationRepository } from "@/repositories/agentRegistrationRepository"
 import { createApiKeyRepository } from "@/repositories/apiKeyRepository"
 
-const TWEET_URL_REGEX = /^https:\/\/(x\.com|twitter\.com)\/[^/]+\/status\/\d+/
+// Anchored regex: username must be alphanumeric/underscores, URL must end after status ID (optional trailing slash or query)
+const TWEET_URL_REGEX = /^https:\/\/(x\.com|twitter\.com)\/[a-zA-Z0-9_]+\/status\/\d+\/?(\?[^#]*)?$/
 const OEMBED_TIMEOUT_MS = 10_000
 
 export class VerifyAgentClaimError extends Error {
@@ -50,6 +51,11 @@ export async function verifyAgentClaim(
     throw new VerifyAgentClaimError("This registration has been revoked", 410)
   }
 
+  // Defense-in-depth: check expiration even though Redis TTL should handle it
+  if (registration.expiresAt < Date.now()) {
+    throw new VerifyAgentClaimError("Registration has expired. Please register again.", 410)
+  }
+
   // Fetch tweet content via oEmbed
   const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(tweetUrl)}&omit_script=true`
 
@@ -58,12 +64,24 @@ export async function verifyAgentClaim(
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), OEMBED_TIMEOUT_MS)
 
-    const response = await fetch(oembedUrl, { signal: controller.signal })
+    const response = await fetch(oembedUrl, {
+      signal: controller.signal,
+      redirect: "error", // Prevent following redirects (SSRF protection)
+    })
     clearTimeout(timeout)
 
     if (!response.ok) {
       throw new VerifyAgentClaimError(
         "Could not fetch tweet. Make sure the tweet is public and the URL is correct.",
+        422
+      )
+    }
+
+    // Validate response is JSON before parsing
+    const contentType = response.headers.get("content-type") || ""
+    if (!contentType.includes("application/json") && !contentType.includes("text/json")) {
+      throw new VerifyAgentClaimError(
+        "Unexpected response from tweet verification. Please try again.",
         422
       )
     }
@@ -81,7 +99,7 @@ export async function verifyAgentClaim(
   // Check if verification code is present in tweet
   if (!tweetHtml.toLowerCase().includes(registration.verificationCode.toLowerCase())) {
     throw new VerifyAgentClaimError(
-      `Tweet does not contain the verification code: ${registration.verificationCode}`,
+      "Tweet does not contain the required verification code.",
       422
     )
   }

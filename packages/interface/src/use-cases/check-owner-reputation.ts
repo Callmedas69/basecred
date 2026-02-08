@@ -4,26 +4,30 @@
  * When an agent calls POST /api/v1/agent/check-owner, this use case:
  * 1. Looks up the owner's wallet from the API key
  * 2. Fetches the owner's profile once
- * 3. Runs the decision engine for ALL 5 contexts in parallel
- * 4. Builds a natural language summary
- * 5. Logs activity + pushes to global feed (fire-and-forget)
+ * 3. Runs the decision engine for ALL 5 contexts
+ * 4. Optionally generates ZK proofs for each context (withProof=true)
+ * 5. Builds a natural language summary
+ * 6. Logs activity + pushes to global feed (fire-and-forget)
  */
 
 import {
   executeDecision,
   normalizeSignals,
+  encodeSignalsForCircuit,
+  encodeContextId,
+  InMemoryPolicyRepository,
+  listPolicies,
   VALID_CONTEXTS,
-  type DecisionContext,
   type NormalizedSignals,
-  type DecisionOutput,
+  type ContractProofStrings,
 } from "basecred-decision-engine"
 import { getUnifiedProfile, type SDKConfig } from "basecred-sdk"
 import { createApiKeyRepository } from "@/repositories/apiKeyRepository"
 import { createActivityRepository } from "@/repositories/activityRepository"
 import { createAgentRegistrationRepository } from "@/repositories/agentRegistrationRepository"
+import type { IProofRepository } from "@/repositories/proofRepository"
 import type { ActivityEntry } from "@/types/apiKeys"
 import type { GlobalFeedEntry } from "@/types/agentRegistration"
-import { getRedis } from "@/lib/redis"
 
 export class CheckOwnerReputationError extends Error {
   status: number
@@ -39,18 +43,36 @@ interface ContextResult {
   confidence: string
   constraints: string[]
   blockingFactors?: string[]
+  verified?: boolean
+  proof?: ContractProofStrings
+  publicSignals?: [string, string, string]
+  policyHash?: string
+  contextId?: number
 }
 
 export interface CheckOwnerReputationOutput {
   ownerAddress: string
   agentName: string
+  zkEnabled: boolean
   summary: string
   results: Record<string, ContextResult>
 }
 
+interface CheckOwnerReputationOptions {
+  withProof?: boolean
+}
+
+interface CheckOwnerReputationDeps {
+  proofRepository?: IProofRepository
+}
+
 export async function checkOwnerReputation(
-  apiKeyHash: string
+  apiKeyHash: string,
+  options?: CheckOwnerReputationOptions,
+  deps?: CheckOwnerReputationDeps,
 ): Promise<CheckOwnerReputationOutput> {
+  const withProof = options?.withProof ?? false
+
   // 1. Look up API key to get walletAddress
   const keyRepo = createApiKeyRepository()
   const keyRecord = await keyRepo.validateKey(apiKeyHash)
@@ -68,7 +90,18 @@ export async function checkOwnerReputation(
   )
   const agentName = registration?.agentName || keyRecord.label || "unknown"
 
-  // 3. Fetch owner profile once
+  // 3. If ZK proofs requested, validate dependencies and circuit availability
+  if (withProof) {
+    if (!deps?.proofRepository) {
+      throw new CheckOwnerReputationError("Proof repository not available", 500)
+    }
+    const circuitsReady = await deps.proofRepository.areCircuitFilesAvailable()
+    if (!circuitsReady) {
+      throw new CheckOwnerReputationError("ZK circuit files are not available", 503)
+    }
+  }
+
+  // 4. Fetch owner profile once
   const config: SDKConfig = {
     ethos: {
       baseUrl: process.env.ETHOS_BASE_URL || "https://api.ethos.network",
@@ -92,31 +125,22 @@ export async function checkOwnerReputation(
     lastActivityAt: null,
   }
 
-  // 4. Normalize signals once
+  // 5. Normalize signals once
   const signals = normalizeSignals(profileData)
 
-  // 5. Run decision engine for ALL contexts in parallel
-  const profileFetcher = async () => profileData
+  // 6. Build results — either with ZK proofs or standard decision engine
+  let results: Record<string, ContextResult>
 
-  const contextResults = await Promise.all(
-    VALID_CONTEXTS.map(async (context) => {
-      const result = await executeDecision(
-        { subject: ownerAddress, context },
-        profileFetcher
-      )
-      return { context, result }
-    })
-  )
-
-  // 6. Build results map
-  const results: Record<string, ContextResult> = {}
-  for (const { context, result } of contextResults) {
-    results[context] = {
-      decision: result.decision,
-      confidence: result.confidence,
-      constraints: result.constraints || [],
-      blockingFactors: result.blockingFactors,
-    }
+  if (withProof) {
+    results = await buildResultsWithProof(
+      signals,
+      deps!.proofRepository!,
+    )
+  } else {
+    results = await buildResultsWithDecisionEngine(
+      ownerAddress,
+      profileData,
+    )
   }
 
   // 7. Build natural language summary
@@ -132,8 +156,86 @@ export async function checkOwnerReputation(
     console.error("Usage recording failed:", err)
   )
 
-  return { ownerAddress, agentName, summary, results }
+  return { ownerAddress, agentName, zkEnabled: withProof, summary, results }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Result Builders
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function buildResultsWithDecisionEngine(
+  ownerAddress: string,
+  profileData: any,
+): Promise<Record<string, ContextResult>> {
+  const profileFetcher = async () => profileData
+
+  const contextResults = await Promise.all(
+    VALID_CONTEXTS.map(async (context) => {
+      const result = await executeDecision(
+        { subject: ownerAddress, context },
+        profileFetcher
+      )
+      return { context, result }
+    })
+  )
+
+  const results: Record<string, ContextResult> = {}
+  for (const { context, result } of contextResults) {
+    results[context] = {
+      decision: result.decision,
+      confidence: result.confidence,
+      constraints: result.constraints || [],
+      blockingFactors: result.blockingFactors,
+    }
+  }
+  return results
+}
+
+async function buildResultsWithProof(
+  signals: NormalizedSignals,
+  proofRepository: IProofRepository,
+): Promise<Record<string, ContextResult>> {
+  const circuitSignals = encodeSignalsForCircuit(signals)
+  const policyRepository = new InMemoryPolicyRepository()
+  const policies = await listPolicies({ policyRepository })
+
+  const results: Record<string, ContextResult> = {}
+
+  // Sequential — snarkjs WASM is CPU-bound, Promise.all adds no benefit
+  for (const context of VALID_CONTEXTS) {
+    const policy = policies.find((p) => p.context === context)
+    if (!policy) {
+      throw new CheckOwnerReputationError(
+        `No policy found for context: ${context}`,
+        500,
+      )
+    }
+
+    const contextId = encodeContextId(context)
+    const proofResult = await proofRepository.generateProof({
+      circuitSignals,
+      policyHash: policy.policyHash,
+      contextId,
+    })
+
+    results[context] = {
+      decision: proofResult.decision,
+      confidence: "HIGH",
+      verified: true,
+      constraints: [],
+      proof: proofResult.proof,
+      publicSignals: proofResult.publicSignals,
+      policyHash: policy.policyHash,
+      contextId,
+    }
+  }
+
+  return results
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Activity Logging
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function logActivitiesAndFeed(
   apiKeyHash: string,
@@ -143,7 +245,6 @@ async function logActivitiesAndFeed(
   results: Record<string, ContextResult>
 ): Promise<void> {
   const activityRepo = createActivityRepository()
-  const redis = getRedis()
   const now = Date.now()
 
   const promises: Promise<void>[] = []
@@ -160,7 +261,7 @@ async function logActivitiesAndFeed(
     }
     promises.push(activityRepo.logActivity(entry))
 
-    // Global feed per context
+    // Global feed per context (via repository, not direct Redis)
     const feedEntry: GlobalFeedEntry = {
       agentName,
       ownerAddress: ownerAddress.slice(0, 6) + "..." + ownerAddress.slice(-4),
@@ -169,14 +270,7 @@ async function logActivitiesAndFeed(
       confidence: result.confidence,
       timestamp: now,
     }
-    promises.push(
-      redis.zadd("global:agent:feed", {
-        score: now,
-        member: JSON.stringify(feedEntry),
-      }).then(() =>
-        redis.zremrangebyrank("global:agent:feed", 0, -101)
-      ).then(() => undefined)
-    )
+    promises.push(activityRepo.logGlobalFeedEntry(feedEntry))
   }
 
   await Promise.all(promises)
