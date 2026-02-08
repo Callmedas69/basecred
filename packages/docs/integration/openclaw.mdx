@@ -11,83 +11,106 @@ Give your OpenClaw agent the ability to check any human's on-chain and social re
 ## Overview
 
 BaseCred provides an **OpenClaw Skill** that teaches agents to:
-- Identify humans by wallet address or Farcaster FID
-- Call the BaseCred API to evaluate reputation
-- Interpret ALLOW / DENY / ALLOW\_WITH\_LIMITS decisions
+- **Self-register** autonomously (no human needed to create API keys)
+- Identify humans by wallet address
+- Call the BaseCred API to evaluate reputation across all 5 contexts
+- Receive natural language summaries alongside structured decisions
+- Optionally request ZK proofs for cryptographic verification
 - Handle errors gracefully (never default to ALLOW)
 
-## Setup
+## Quick Start (Self-Registration)
 
-### 1. Get an API Key
+The recommended flow is fully autonomous — the agent registers itself and sends a verification link to its owner.
 
-1. Visit [basecred.xyz/agent](https://basecred.xyz/agent)
-2. Connect your wallet
-3. Sign a message to authenticate
-4. Generate a new API key
-5. Copy the key — it's only shown once
-
-### 2. Install the Skill
-
-**Option A: OpenClaw CLI**
+### Step 1: Register
 
 ```bash
-npx @basecred/openclaw-skill
-```
-
-**Option B: Manual**
-
-```bash
-curl -s https://basecred.xyz/skill.md > ~/.openclaw/workspace/skills/basecred-reputation/SKILL.md
-```
-
-### 3. Configure Environment
-
-Set these environment variables in your OpenClaw config:
-
-```
-BASECRED_API_URL=https://basecred.xyz
-BASECRED_API_KEY=bc_your_api_key_here
-```
-
-## API Reference
-
-### POST /api/v1/decide
-
-Check a human's reputation.
-
-**Headers:**
-
-| Header | Value |
-|---|---|
-| `x-api-key` | Your API key (`bc_...`) |
-| `Content-Type` | `application/json` |
-
-**Body:**
-
-```json
-{
-  "subject": "0x1234...abcd",
-  "context": "allowlist.general"
-}
+curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "my_agent",
+    "telegramId": "@owner_telegram",
+    "ownerAddress": "0x1234...abcd"
+  }'
 ```
 
 **Response:**
 
 ```json
 {
-  "decision": "ALLOW",
-  "confidence": "HIGH",
-  "explain": ["Trust level: HIGH", "Signal coverage: 85%"],
-  "signals": {
-    "trust": "HIGH",
-    "socialTrust": "HIGH",
-    "builder": "EXPERT",
-    "creator": "MODERATE",
-    "spamRisk": "NEUTRAL",
-    "recencyDays": 3,
-    "signalCoverage": 0.85
+  "apiKey": "bc_...",
+  "claimId": "abc123...",
+  "claimUrl": "https://www.zkbasecred.xyz/agent/claim/abc123...",
+  "verificationCode": "BASECRED-X7K2",
+  "message": "SAVE YOUR API KEY! It will not be shown again."
+}
+```
+
+### Step 2: Deliver Claim Link
+
+Send the `claimUrl` to your owner (via Telegram, Discord, etc.). The owner visits the link, posts a tweet containing the `verificationCode`, and submits the tweet URL on the claim page.
+
+### Step 3: Poll for Verification
+
+```bash
+curl https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/status
+```
+
+Once `status` is `"verified"`, your API key is active.
+
+### Step 4: Check Owner Reputation
+
+```bash
+curl -X POST https://www.zkbasecred.xyz/api/v1/agent/check-owner \
+  -H "x-api-key: bc_your_api_key" \
+  -H "Content-Type: application/json"
+```
+
+No body needed — the owner's wallet is derived from the API key.
+
+**Response:**
+
+```json
+{
+  "ownerAddress": "0x1234...abcd",
+  "agentName": "my_agent",
+  "zkEnabled": false,
+  "summary": "Your reputation is strong. You have high trust on Ethos, solid builder credentials via Talent Protocol. You're approved for allowlist access, commenting, publishing, applications, governance voting.",
+  "results": {
+    "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [] },
+    "comment": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [] },
+    "publish": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [] },
+    "apply": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [] },
+    "governance.vote": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [] }
   }
 }
+```
+
+### Step 5: Deliver Results
+
+Forward the `summary` to your owner. It's written in natural language — no technical interpretation needed.
+
+## Alternative: Manual API Key
+
+If you prefer, you can still create API keys manually:
+
+1. Visit [zkbasecred.xyz/agent](https://www.zkbasecred.xyz/agent)
+2. Connect your wallet
+3. Generate a new API key
+4. Set `BASECRED_API_KEY=bc_...` in your agent config
+
+## Install the Skill
+
+**Option A: OpenClaw CLI**
+
+```bash
+npx @basecred/zkbasecred-skill
+```
+
+**Option B: Manual**
+
+```bash
+curl -s https://www.zkbasecred.xyz/skill.md > ~/.openclaw/workspace/skills/basecred-reputation/SKILL.md
 ```
 
 ## Available Contexts
@@ -108,23 +131,34 @@ Check a human's reputation.
 | `ALLOW_WITH_LIMITS` | Mixed signals — proceed with restrictions |
 | `DENY` | Insufficient reputation — block action |
 
+## ZK Proofs (Optional)
+
+Add `?withProof=true` to the check-owner request for cryptographic verification:
+
+```bash
+curl -X POST "https://www.zkbasecred.xyz/api/v1/agent/check-owner?withProof=true" \
+  -H "x-api-key: bc_your_api_key"
+```
+
+Each context result will include a Groth16 proof, public signals, and `verified: true`. This adds ~3-4 seconds to the response time.
+
+See the [Agent API Reference](./agent-api.mdx) for full endpoint documentation.
+
 ## Error Handling
 
 | Status | Meaning | Action |
 |---|---|---|
-| `401` | Invalid API key | Check configuration |
-| `429` | Rate limited (100 req/min) | Wait for `Retry-After` |
+| `401` | Invalid or inactive API key | Check configuration or verify claim |
+| `409` | Agent name already taken | Choose a different name |
+| `422` | Tweet verification failed | Check tweet is public and contains the code |
+| `429` | Rate limited | Wait for `Retry-After` header |
+| `503` | ZK circuits unavailable | Retry without `withProof` |
 | `5xx` | Server error | **Never default to ALLOW** — retry later |
-
-## Rate Limits
-
-- **100 requests per minute** per API key
-- Rate limit resets on a sliding window
-- `429` responses include a `Retry-After` header
 
 ## Security
 
-- API keys are hashed (SHA-256) before storage
-- All key management requires wallet signature verification
+- API keys are hashed (SHA-256) before storage — never stored in plaintext
+- Keys are **inactive until tweet verification** completes
 - Activity logs let key owners see who's checking their reputation
-- Keys can be revoked instantly from the dashboard
+- Owners can revoke agents at any time from the dashboard
+- Store your API key securely — rotate immediately if exposed
