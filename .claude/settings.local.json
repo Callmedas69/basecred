@@ -37,7 +37,17 @@
       "Bash(pnpm list:*)",
       "Bash(pnpm --filter interface list:*)",
       "Bash(tasklist:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(git stash:*)",
+      "Bash(echo:*)",
+      "Bash(npm view:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nopenclaw-skill: rewrite SKILL.md with complete agent flow + rebrand to zkBaseCred\n\nReplaces the minimal SKILL.md with a comprehensive agent instruction set covering\nself-registration, owner verification, reputation checking, and plain-language\nresult delivery. Rebrands all prose references from BaseCred to zkBaseCred.\nEOF\n\\)\")",
+      "Bash(git mv:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nrename openclaw-skill to zkbasecred-skill\n\nRenames package from @basecred/openclaw-skill to @basecred/zkbasecred-skill.\nUpdates directory, package.json, README, and docs references.\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(npm pack:*)",
+      "Bash(npm whoami:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

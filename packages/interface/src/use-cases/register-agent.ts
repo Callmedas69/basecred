@@ -61,24 +61,15 @@ export async function registerAgent(input: RegisterAgentInput): Promise<Register
     )
   }
 
-  // Validate telegramId
+  // Validate telegramId (max 128 chars, basic format)
   if (!telegramId || typeof telegramId !== "string" || telegramId.trim().length === 0) {
     throw new RegisterAgentError("telegramId is required", 400)
   }
+  if (telegramId.trim().length > 128) {
+    throw new RegisterAgentError("telegramId must be 128 characters or fewer", 400)
+  }
 
   const repo = createAgentRegistrationRepository()
-
-  // Check if agentName already has an active/pending registration
-  const existingClaimId = await repo.getByAgentName(agentName)
-  if (existingClaimId) {
-    const existing = await repo.getByClaimId(existingClaimId)
-    if (existing && (existing.status === "pending_claim" || existing.status === "verified")) {
-      throw new RegisterAgentError(
-        `Agent name "${agentName}" is already registered`,
-        409
-      )
-    }
-  }
 
   // Generate credentials
   const claimId = randomBytes(32).toString("hex")
@@ -88,11 +79,11 @@ export async function registerAgent(input: RegisterAgentInput): Promise<Register
   const apiKeyHash = hashKey(apiKey)
   const apiKeyPrefix = makeKeyPrefix(apiKey)
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://basecred.xyz"
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.zkbasecred.xyz"
   const claimUrl = `${baseUrl}/agent/claim/${claimId}`
 
-  // Store registration (key is NOT yet active — no apikey:{hash} record created)
-  await repo.create({
+  // Atomically claim agent name + store registration (SETNX prevents race conditions)
+  const created = await repo.create({
     claimId,
     verificationCode,
     agentName,
@@ -106,6 +97,13 @@ export async function registerAgent(input: RegisterAgentInput): Promise<Register
     verifiedAt: null,
     expiresAt: Date.now() + TTL_24H_MS,
   })
+
+  if (!created) {
+    throw new RegisterAgentError(
+      `Agent name "${agentName}" is already registered`,
+      409
+    )
+  }
 
   return { apiKey, claimId, claimUrl, verificationCode }
 }

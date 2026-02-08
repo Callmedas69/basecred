@@ -34,6 +34,8 @@ You can integrate BaseCred via the SDK or public API. The response schema is **v
 
 See [Context vs Decision](./context-vs-decision.md) to understand where BaseCred stops and your application begins.
 
+If you are building an **AI agent** (e.g. OpenClaw), see the [OpenClaw Integration](./openclaw.mdx) for a quick-start guide and the [Agent API Reference](./agent-api.mdx) for full endpoint docs. Agents can self-register, verify via tweet, and check their owner's reputation autonomously.
+
 If you are integrating a ZK agent flow, see the [ZK Agent Integration](./zk-agent.mdx) page for policy hashes and proof payload examples.
 
 :::tip Quick Start
