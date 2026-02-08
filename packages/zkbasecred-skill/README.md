@@ -1,4 +1,4 @@
-# zkbasecred-skill
+# zkbasecredagent-skill
 
 OpenClaw skill that teaches agents to autonomously check their owner's on-chain reputation before granting access or trust.
 
@@ -13,8 +13,8 @@ curl -s https://www.zkbasecred.xyz/skill.md > ~/.openclaw/workspace/skills/basec
 ### Option 2: Install from npm
 
 ```bash
-npm install zkbasecred-skill
-cp node_modules/zkbasecred-skill/SKILL.md ~/.openclaw/workspace/skills/basecred-reputation/SKILL.md
+npm install zkbasecredagent-skill
+cp node_modules/zkbasecredagent-skill/SKILL.md ~/.openclaw/workspace/skills/basecred-reputation/SKILL.md
 ```
 
 ## Getting Started
