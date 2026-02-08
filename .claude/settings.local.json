@@ -47,7 +47,8 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nrename openclaw-skill to zkbasecred-skill\n\nRenames package from @basecred/openclaw-skill to @basecred/zkbasecred-skill.\nUpdates directory, package.json, README, and docs references.\nEOF\n\\)\")",
       "Bash(git commit:*)",
       "Bash(npm pack:*)",
-      "Bash(npm whoami:*)"
+      "Bash(npm whoami:*)",
+      "Bash(ls:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
