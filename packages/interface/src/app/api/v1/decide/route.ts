@@ -9,6 +9,7 @@ import {
 import { getUnifiedProfile } from "basecred-sdk";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { createActivityRepository } from "@/repositories/activityRepository";
+import { sendWebhook } from "@/lib/webhook";
 import type { ActivityEntry } from "@/types/apiKeys";
 
 const policyRepository = new InMemoryPolicyRepository();
@@ -118,6 +119,33 @@ export async function POST(req: NextRequest) {
                     timestamp: Date.now(),
                 }),
             ]).catch((err) => console.error("Activity logging failed:", err));
+
+            // Fire webhook if registration has a webhookUrl (fire-and-forget)
+            if (keyRecord) {
+                const walletAddress = keyRecord.walletAddress;
+                const keyHash = apiKeyId;
+                (async () => {
+                    const { createAgentRegistrationRepository } = await import("@/repositories/agentRegistrationRepository");
+                    const regRepo = createAgentRegistrationRepository();
+                    const registrations = await regRepo.listByOwner(walletAddress);
+                    const registration = registrations.find(
+                        (r) => r.apiKeyHash === keyHash && r.status === "verified"
+                    );
+                    if (registration?.webhookUrl) {
+                        await sendWebhook(registration.webhookUrl, {
+                            event: "reputation.checked",
+                            timestamp: Date.now(),
+                            agentName: registration.agentName,
+                            ownerAddress: walletAddress,
+                            data: {
+                                context,
+                                decision: decision.decision,
+                                confidence: decision.confidence ?? "MEDIUM",
+                            },
+                        });
+                    }
+                })().catch((err) => console.error("Webhook delivery failed:", err));
+            }
         }
 
         const response = NextResponse.json(responseBody);

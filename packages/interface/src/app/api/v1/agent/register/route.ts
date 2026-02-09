@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { agentName, telegramId, ownerAddress } = body
+    const { agentName, telegramId, ownerAddress, webhookUrl } = body
 
-    const result = await registerAgent({ agentName, telegramId, ownerAddress })
+    const result = await registerAgent({ agentName, telegramId, ownerAddress, webhookUrl })
 
     return NextResponse.json({
       apiKey: result.apiKey,

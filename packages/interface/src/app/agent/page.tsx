@@ -93,6 +93,7 @@ interface OwnerAgent {
   claimId: string;
   agentName: string;
   telegramId: string;
+  webhookUrl: string | null;
   status: "pending_claim" | "verified" | "revoked";
   apiKeyPrefix: string;
   createdAt: number;
@@ -394,6 +395,7 @@ function HumanDashboard() {
           message: sig.message,
         }),
       });
+      if (res.status === 401) { setAuthSig(null); return; }
       if (res.ok) {
         const data = await res.json();
         setKeys(data.keys || []);
@@ -477,6 +479,7 @@ function HumanDashboard() {
           limit: 100,
         }),
       });
+      if (res.status === 401) { setAuthSig(null); return; }
       if (res.ok) {
         const data = await res.json();
         setActivities(data.activities || []);
@@ -504,6 +507,7 @@ function HumanDashboard() {
           message: sig.message,
         }),
       });
+      if (res.status === 401) { setAuthSig(null); return; }
       if (res.ok) {
         const data = await res.json();
         setAgents(data.registrations || []);
@@ -810,6 +814,11 @@ function HumanDashboard() {
                               {new Date(agent.verifiedAt).toLocaleDateString()}
                             </span>
                           )}
+                          {agent.webhookUrl && (
+                            <span title={agent.webhookUrl}>
+                              Webhook: {agent.webhookUrl.length > 40 ? agent.webhookUrl.slice(0, 40) + "..." : agent.webhookUrl}
+                            </span>
+                          )}
                         </div>
                       </div>
                       {agent.status === "verified" && (
@@ -1106,7 +1115,7 @@ function AgentTab() {
               <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
                 {`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \\
   -H "Content-Type: application/json" \\
-  -d '{"agentName":"my_agent","telegramId":"@owner","ownerAddress":"0x..."}'`}
+  -d '{"agentName":"my_agent","telegramId":"@owner","ownerAddress":"0x...","webhookUrl":"https://your-endpoint.com/webhook"}'`}
               </pre>
             </AccordionContent>
           </AccordionItem>

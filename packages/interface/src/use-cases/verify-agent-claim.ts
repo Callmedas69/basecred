@@ -7,6 +7,7 @@
 
 import { createAgentRegistrationRepository } from "@/repositories/agentRegistrationRepository"
 import { createApiKeyRepository } from "@/repositories/apiKeyRepository"
+import { sendWebhook } from "@/lib/webhook"
 
 // Anchored regex: username must be alphanumeric/underscores, URL must end after status ID (optional trailing slash or query)
 const TWEET_URL_REGEX = /^https:\/\/(x\.com|twitter\.com)\/[a-zA-Z0-9_]+\/status\/\d+\/?(\?[^#]*)?$/
@@ -115,6 +116,20 @@ export async function verifyAgentClaim(
 
   // Mark registration as verified
   await regRepo.markVerified(claimId, tweetUrl)
+
+  // Fire webhook on verification (fire-and-forget)
+  if (registration.webhookUrl) {
+    sendWebhook(registration.webhookUrl, {
+      event: "agent.verified",
+      timestamp: Date.now(),
+      agentName: registration.agentName,
+      ownerAddress: registration.ownerAddress,
+      data: {
+        claimId,
+        apiKeyPrefix: registration.apiKeyPrefix,
+      },
+    }).catch((err) => console.error("Webhook delivery failed:", err))
+  }
 
   return { success: true }
 }
