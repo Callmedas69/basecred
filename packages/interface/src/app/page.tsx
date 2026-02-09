@@ -11,7 +11,7 @@ import {
   Shield,
   Activity,
   Hexagon,
-  Terminal,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +39,7 @@ export default function Home() {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative min-h-[calc(100vh-5rem)] pt-[clamp(5rem,10vw,9rem)] pb-[clamp(3rem,5vw,6rem)] z-10 items-center">
+      <section className="relative min-h-[calc(100vh-5rem)] pt-[clamp(7rem,12vw,11rem)] pb-[clamp(3rem,5vw,6rem)] z-10 items-center">
         <motion.div
           className="container mx-auto px-6 relative z-10 text-center"
           variants={container}
@@ -68,8 +68,9 @@ export default function Home() {
             variants={item}
             className="text-[clamp(1.125rem,2vw,1.5rem)] text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
           >
-            BaseCred aggregates onchain signals into a transparent JSON output
-            you can use for gating, moderation, rewards, or access control.
+            BaseCred aggregates onchain signals and generates zero-knowledge
+            proofs — verifiable reputation data for gating, moderation, rewards,
+            or access control.
           </motion.p>
 
           <motion.div
@@ -151,7 +152,8 @@ export default function Home() {
                 {[
                   "Aggregates signals (Ethos, Neynar, Talent Protocol)",
                   "Normalizes raw scores into stable tiers",
-                  "Producse a single JSON object",
+                  "Produces a verifiable JSON object with zkProof",
+                  "Every decision backed by a Groth16 zero-knowledge proof",
                   "Coverage indicators & audit-friendly reasons",
                 ].map((item, i) => (
                   <li
@@ -222,7 +224,7 @@ export default function Home() {
           whileInView="show"
           viewport={{ once: true, margin: "-100px" }}
         >
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 relative">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 relative">
             {[
               {
                 icon: (
@@ -242,10 +244,18 @@ export default function Home() {
               },
               {
                 icon: (
+                  <Lock className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-400" />
+                ),
+                title: "3. Prove",
+                desc: "A Groth16 zkProof is generated, binding the decision to the policy without exposing raw signals.",
+                gradient: "from-emerald-500/20 to-teal-500/5",
+              },
+              {
+                icon: (
                   <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-teal-400" />
                 ),
-                title: "3. Deliver",
-                desc: "You get a unified JSON object with decision context and audit trails.",
+                title: "4. Deliver",
+                desc: "You get a verified JSON object with decision context, proof, and audit trails.",
                 gradient: "from-teal-500/20 to-emerald-500/5",
               },
             ].map((step, i) => (
@@ -275,11 +285,83 @@ export default function Home() {
         </motion.div>
       </section>
 
+      {/* Zero-Knowledge */}
+      <section className="py-[clamp(4rem,10vw,8rem)] border-t border-border bg-muted/20 backdrop-blur-sm relative z-10">
+        <motion.div
+          className="w-full px-6 md:px-12 mb-[clamp(3rem,6vw,6rem)]"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={container}
+        >
+          <motion.h2
+            variants={item}
+            className="text-[clamp(3rem,10vw,9rem)] font-black text-foreground tracking-tighter leading-none"
+          >
+            <span className="text-teal-500 text-[clamp(1.5rem,3vw,2.5rem)] block mb-2 font-bold tracking-normal">
+              03.
+            </span>
+            ZERO-KNOWLEDGE
+          </motion.h2>
+        </motion.div>
+
+        <motion.div
+          className="container mx-auto px-6"
+          variants={container}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-100px" }}
+        >
+          <div className="max-w-3xl space-y-8 sm:space-y-12">
+            <motion.p
+              variants={item}
+              className="text-[clamp(1.125rem,2vw,1.5rem)] text-muted-foreground leading-relaxed"
+            >
+              Every reputation decision is accompanied by a Groth16 zkProof, a
+              cryptographic guarantee that the result was computed honestly,
+              without revealing the underlying signal data.
+            </motion.p>
+
+            <motion.div
+              variants={item}
+              className="grid sm:grid-cols-3 gap-6 sm:gap-8"
+            >
+              {[
+                {
+                  label: "Verifiable",
+                  desc: "Anyone can verify the proof on-chain without trusting the evaluator.",
+                },
+                {
+                  label: "Private",
+                  desc: "Raw signal scores stay hidden. Only the decision and policy hash are public.",
+                },
+                {
+                  label: "Deterministic",
+                  desc: "Same inputs always produce the same proof. No ambiguity, no discretion.",
+                },
+              ].map((point, i) => (
+                <div key={i} className="space-y-2 sm:space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.5)]" />
+                    <h4 className="font-bold text-foreground text-base sm:text-lg">
+                      {point.label}
+                    </h4>
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                    {point.desc}
+                  </p>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        </motion.div>
+      </section>
+
       {/* Footer */}
       <footer className="relative border-t border-border overflow-hidden">
         {/* CONTENT LAYER */}
         <motion.div
-          className="relative min-h-screen z-10 px-[clamp(1.5rem,4vw,4rem)] pt-[clamp(1rem,2vw,3rem)] pb-0 mb-0 flex flex-col justify-between bg-blue"
+          className="relative min-h-screen z-10 px-[clamp(1.5rem,4vw,4rem)] pt-[clamp(2.5rem,4vw,3rem)] pb-0 mb-0 flex flex-col justify-between"
           initial="hidden"
           whileInView="show"
           viewport={{ once: true }}
@@ -297,7 +379,7 @@ export default function Home() {
 
               <motion.h3
                 variants={item}
-                className="text-[clamp(1.5rem,3vw,6rem)] font-semibold tracking-tighter text-foreground leading-none"
+                className="text-[clamp(1.75rem,3vw,6rem)] font-semibold tracking-tighter text-foreground leading-tight"
               >
                 The decentralized reputation layer for the onchain economy.
               </motion.h3>
@@ -350,19 +432,19 @@ export default function Home() {
           {/* BOTTOM META */}
           <motion.div
             variants={item}
-            className="flex flex-col items-end text-xs sm:text-sm text-muted-foreground w-full mt-8 sm:mt-0"
+            className="flex flex-col items-center md:items-end text-xs sm:text-sm text-muted-foreground w-full mt-8 sm:mt-0"
           >
-            <div className="flex flex-col justify-between w-full gap-4 sm:gap-0 text-right">
+            <div className="flex flex-col justify-between w-full gap-4 sm:gap-0 text-center md:text-right">
               <div className="leading-relaxed">
                 <p>© 2026 BaseCred Protocol.</p>
               </div>
-              <div className="">
+              <div>
                 <p>Designed for the Superchain.</p>
               </div>
             </div>
 
             {/*WORDMARK */}
-            <div className="relative w-full pointer-events-none select-none text-center overflow-hidden">
+            <div className="relative pointer-events-none select-none text-center overflow-hidden -mx-[clamp(1.5rem,4vw,4rem)] w-[100vw] self-center">
               <h1 className="text-[22vw] leading-none font-semibold tracking-tighter text-foreground/60 whitespace-nowrap">
                 basecred
               </h1>
