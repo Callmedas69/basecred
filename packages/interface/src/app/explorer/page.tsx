@@ -398,9 +398,9 @@ export default function ExplorerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-teal-500/30">
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-teal-500/30 overflow-x-hidden">
       <Navbar />
-      <div className="max-w-5xl mx-auto space-y-8 md:space-y-12 pt-20 md:pt-24 lg:pt-32 p-4 sm:p-6 md:p-12">
+      <div className="max-w-5xl mx-auto space-y-8 md:space-y-12 pt-24 md:pt-28 lg:pt-32 px-4 sm:px-6 md:px-12 pb-8 sm:pb-12 md:pb-16">
         {/* Header */}
         <div className="space-y-3 md:space-y-4 text-center md:text-left">
           <h1 className="text-[3.5rem] sm:text-[5rem] md:text-[6rem] lg:text-[8rem] font-black tracking-tighter leading-[0.8] text-foreground select-none uppercase break-words">
@@ -546,7 +546,7 @@ export default function ExplorerPage() {
                   </div>
                   <div
                     className={cn(
-                      "text-4xl sm:text-5xl md:text-7xl lg:text-9xl font-black tracking-tighter uppercase break-all leading-[0.85]",
+                      "text-4xl sm:text-5xl md:text-7xl lg:text-9xl font-black tracking-tighter uppercase break-words leading-[0.85]",
                       currentDecision.decision === "ALLOW"
                         ? "text-emerald-600 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]"
                         : currentDecision.decision === "DENY"
