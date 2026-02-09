@@ -28,6 +28,7 @@ import { createAgentRegistrationRepository } from "@/repositories/agentRegistrat
 import type { IProofRepository } from "@/repositories/proofRepository"
 import type { ActivityEntry } from "@/types/apiKeys"
 import type { GlobalFeedEntry } from "@/types/agentRegistration"
+import { sendWebhook } from "@/lib/webhook"
 
 export class CheckOwnerReputationError extends Error {
   status: number
@@ -150,6 +151,25 @@ export async function checkOwnerReputation(
   logActivitiesAndFeed(apiKeyHash, ownerAddress, agentName, keyRecord.keyPrefix, results).catch(
     (err) => console.error("Activity/feed logging failed:", err)
   )
+
+  // 9. Fire webhook if registration has a webhookUrl (fire-and-forget)
+  if (registration?.webhookUrl) {
+    sendWebhook(registration.webhookUrl, {
+      event: "reputation.checked",
+      timestamp: Date.now(),
+      agentName,
+      ownerAddress,
+      data: {
+        summary,
+        results: Object.fromEntries(
+          Object.entries(results).map(([ctx, r]) => [
+            ctx,
+            { decision: r.decision, confidence: r.confidence },
+          ])
+        ),
+      },
+    }).catch((err) => console.error("Webhook delivery failed:", err))
+  }
 
   // Record usage
   keyRepo.recordUsage(apiKeyHash).catch((err) =>

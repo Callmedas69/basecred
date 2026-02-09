@@ -8,6 +8,7 @@
 import { createHash, randomBytes } from "crypto"
 import { isAddress } from "viem"
 import { createAgentRegistrationRepository } from "@/repositories/agentRegistrationRepository"
+import { validateWebhookUrl } from "@/lib/webhook"
 
 const KEY_PREFIX = "bc_"
 const TTL_24H_MS = 24 * 60 * 60 * 1000
@@ -36,6 +37,7 @@ export interface RegisterAgentInput {
   agentName: string
   telegramId: string
   ownerAddress: string
+  webhookUrl?: string
 }
 
 export interface RegisterAgentOutput {
@@ -46,7 +48,7 @@ export interface RegisterAgentOutput {
 }
 
 export async function registerAgent(input: RegisterAgentInput): Promise<RegisterAgentOutput> {
-  const { agentName, telegramId, ownerAddress } = input
+  const { agentName, telegramId, ownerAddress, webhookUrl } = input
 
   // Validate ownerAddress
   if (!ownerAddress || !isAddress(ownerAddress)) {
@@ -67,6 +69,14 @@ export async function registerAgent(input: RegisterAgentInput): Promise<Register
   }
   if (telegramId.trim().length > 128) {
     throw new RegisterAgentError("telegramId must be 128 characters or fewer", 400)
+  }
+
+  // Validate webhookUrl (optional)
+  if (webhookUrl !== undefined && webhookUrl !== null && webhookUrl !== "") {
+    const webhookError = validateWebhookUrl(webhookUrl)
+    if (webhookError) {
+      throw new RegisterAgentError(webhookError, 400)
+    }
   }
 
   const repo = createAgentRegistrationRepository()
@@ -92,6 +102,7 @@ export async function registerAgent(input: RegisterAgentInput): Promise<Register
     status: "pending_claim",
     apiKeyHash,
     apiKeyPrefix,
+    webhookUrl: webhookUrl || null,
     tweetUrl: null,
     createdAt: Date.now(),
     verifiedAt: null,

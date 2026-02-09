@@ -7,6 +7,7 @@ export interface AgentRegistration {
   status: "pending_claim" | "verified" | "revoked"
   apiKeyHash: string
   apiKeyPrefix: string
+  webhookUrl: string | null
   tweetUrl: string | null
   createdAt: number
   verifiedAt: number | null

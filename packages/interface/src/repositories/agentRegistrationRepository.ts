@@ -17,7 +17,7 @@ export interface IAgentRegistrationRepository {
   getByAgentName(agentName: string): Promise<string | null>
   listByOwner(address: string): Promise<AgentRegistration[]>
   markVerified(claimId: string, tweetUrl: string): Promise<void>
-  revoke(claimId: string): Promise<void>
+  revoke(claimId: string): Promise<AgentRegistration | null>
 }
 
 export function createAgentRegistrationRepository(): IAgentRegistrationRepository {
@@ -95,11 +95,12 @@ export function createAgentRegistrationRepository(): IAgentRegistrationRepositor
       await redis.set(`agent:name:${reg.agentName.toLowerCase()}`, claimId)
     },
 
-    async revoke(claimId: string): Promise<void> {
+    async revoke(claimId: string): Promise<AgentRegistration | null> {
       const data = await redis.get<string>(`agent:reg:${claimId}`)
-      if (!data) return
+      if (!data) return null
 
       const reg: AgentRegistration = typeof data === "string" ? JSON.parse(data) : data as unknown as AgentRegistration
+      const snapshot = { ...reg }
       reg.status = "revoked"
 
       await redis.set(`agent:reg:${claimId}`, JSON.stringify(reg))
@@ -108,6 +109,8 @@ export function createAgentRegistrationRepository(): IAgentRegistrationRepositor
       await redis.del(`agent:code:${reg.verificationCode}`)
       await redis.del(`agent:name:${reg.agentName.toLowerCase()}`)
       await redis.srem(`agent:owner:${reg.ownerAddress.toLowerCase()}`, claimId)
+
+      return snapshot
     },
   }
 }

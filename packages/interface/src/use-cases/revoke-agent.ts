@@ -8,6 +8,7 @@
 import { verifyWalletSignature } from "@/lib/verifyWalletSignature"
 import { createAgentRegistrationRepository } from "@/repositories/agentRegistrationRepository"
 import { createApiKeyRepository } from "@/repositories/apiKeyRepository"
+import { sendWebhook } from "@/lib/webhook"
 
 export class RevokeAgentError extends Error {
   status: number
@@ -50,8 +51,21 @@ export async function revokeAgent(
     await keyRepo.revokeKey(registration.apiKeyHash, registration.ownerAddress)
   }
 
-  // Revoke the registration
-  await regRepo.revoke(claimId)
+  // Revoke the registration (returns pre-revoke snapshot)
+  const revokedReg = await regRepo.revoke(claimId)
+
+  // Fire webhook on revoke (fire-and-forget)
+  if (revokedReg?.webhookUrl) {
+    sendWebhook(revokedReg.webhookUrl, {
+      event: "agent.revoked",
+      timestamp: Date.now(),
+      agentName: revokedReg.agentName,
+      ownerAddress: revokedReg.ownerAddress,
+      data: {
+        claimId,
+      },
+    }).catch((err) => console.error("Webhook delivery failed:", err))
+  }
 
   return { success: true }
 }
