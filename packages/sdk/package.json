@@ -1,6 +1,6 @@
 {
   "name": "@basecred/sdk",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "A neutral SDK that fetches and assembles reputation data from Ethos Network, Talent Protocol, and Neynar (Farcaster) without interpretation, ranking, or judgment.",
   "type": "module",
   "main": "./dist/index.js",
