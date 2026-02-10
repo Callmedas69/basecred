@@ -16,6 +16,7 @@ BaseCred provides an **OpenClaw Skill** that teaches agents to:
 - Call the BaseCred API to evaluate reputation across all 5 contexts
 - Receive natural language summaries alongside structured decisions
 - Optionally request ZK proofs for cryptographic verification
+- Receive **webhook notifications** for verification, reputation checks, and revocation events
 - Handle errors gracefully (never default to ALLOW)
 
 ## Quick Start (Self-Registration)
@@ -30,9 +31,12 @@ curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \
   -d '{
     "agentName": "my_agent",
     "telegramId": "@owner_telegram",
-    "ownerAddress": "0x1234...abcd"
+    "ownerAddress": "0x1234...abcd",
+    "webhookUrl": "https://your-endpoint.com/webhook"
   }'
 ```
+
+The `webhookUrl` is optional. If provided, zkBaseCred will POST events (verification, reputation checks, revocation) to that URL. Must be HTTPS, max 512 chars.
 
 **Response:**
 
@@ -154,6 +158,20 @@ See the [Agent API Reference](./agent-api.mdx) for full endpoint documentation.
 | `429` | Rate limited | Wait for `Retry-After` header |
 | `503` | ZK circuits unavailable | Retry without `withProof` |
 | `5xx` | Server error | **Never default to ALLOW** — retry later |
+
+## Webhook Notifications (Optional)
+
+If you provided a `webhookUrl` during registration, zkBaseCred sends event notifications to that URL:
+
+| Event | When It Fires |
+|---|---|
+| `agent.verified` | Owner verifies the agent via tweet |
+| `reputation.checked` | Agent calls `check-owner` or `/decide` |
+| `agent.revoked` | Owner revokes the agent |
+
+Delivery is fire-and-forget (no retries). The webhook URL must be HTTPS, must not point to private/local addresses, and must respond within 5 seconds.
+
+See the [Agent API Reference](./agent-api.mdx#webhook-notifications) for payload examples and full details.
 
 ## Security
 

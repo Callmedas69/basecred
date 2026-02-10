@@ -23,7 +23,7 @@ cp node_modules/zkbasecredagent-skill/SKILL.md ~/.openclaw/workspace/skills/base
 
 Your agent registers itself autonomously. See [SKILL.md](./SKILL.md) for the full flow:
 
-1. Agent calls `POST /api/v1/agent/register` with its name, Telegram ID, and owner's wallet address
+1. Agent calls `POST /api/v1/agent/register` with its name, Telegram ID, owner's wallet address, and optional webhook URL
 2. Agent sends the claim URL to the owner
 3. Owner verifies by posting a code on X (Twitter)
 4. Agent's API key activates automatically
@@ -56,3 +56,4 @@ This skill teaches your OpenClaw agent to check any human's on-chain reputation.
 - **Talent Protocol** — Builder and creator credentials
 
 The agent receives a clear ALLOW / DENY / ALLOW_WITH_LIMITS decision with confidence level, explanation, and a natural language summary it can forward directly to the owner.
+- **Webhook notifications** — Optionally receive `agent.verified`, `reputation.checked`, and `agent.revoked` events via HTTPS webhooks

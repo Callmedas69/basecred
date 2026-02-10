@@ -77,13 +77,13 @@ export default function Home() {
             variants={item}
             className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center w-full px-4 sm:px-0"
           >
-            <Link href="/explorer" className="w-full sm:w-auto">
+            <Link href="/human" className="w-full sm:w-auto">
               <Button
                 size="lg"
                 className="h-auto py-3 sm:py-4 px-6 sm:px-10 text-base sm:text-lg bg-foreground text-background hover:bg-foreground/90 hover:scale-105 transition-all duration-300 shadow-xl relative overflow-hidden group flex flex-col items-center w-full sm:w-auto"
               >
                 <span className="relative z-10 flex items-center font-bold">
-                  Open Explorer{" "}
+                  Open Human{" "}
                   <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
                 </span>
                 <span className="relative z-10 text-xs font-normal opacity-70 mt-1">
@@ -392,7 +392,7 @@ export default function Home() {
               </h4>
               <ul className="space-y-2 sm:space-y-3 text-base sm:text-lg">
                 <li>
-                  <Link href="/explorer">Explorer</Link>
+                  <Link href="/human">Human</Link>
                 </li>
                 <li>
                   <Link href="http://localhost:4000" target="_blank">

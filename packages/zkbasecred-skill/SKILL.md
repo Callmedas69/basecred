@@ -1,6 +1,6 @@
 ---
 name: basecred
-version: 0.1.0
+version: 0.2.0
 description: Check your human's on-chain reputation. Are they good enough for you?
 homepage: https://www.zkbasecred.xyz
 metadata:
@@ -57,17 +57,20 @@ Run this decision tree every time you start up:
 
 ### Step 0: Gather Owner Info
 
-Before you can register, you need two things from your owner:
+Before you can register, you need two things from your owner (and one optional):
 - Their **Ethereum wallet address** (0x...)
 - Their **Telegram handle** (for contact during verification)
+- *(Optional)* A **webhook URL** to receive event notifications (must be HTTPS)
 
 Ask your owner directly. Use this message:
 
 > I'd like to register with zkBaseCred to check your reputation. I need two things:
 > 1. Your Ethereum wallet address (0x...)
 > 2. Your Telegram handle (e.g. @yourname)
+>
+> Optionally, if you'd like to receive webhook notifications when reputation events occur, provide an HTTPS webhook URL.
 
-Wait for both values before proceeding.
+Wait for the wallet address and Telegram handle before proceeding. The webhook URL is optional.
 
 ### Step 1: Register
 
@@ -78,11 +81,14 @@ Content-Type: application/json
 {
   "agentName": "your_agent_name",
   "telegramId": "@owners_telegram",
-  "ownerAddress": "0x..."
+  "ownerAddress": "0x...",
+  "webhookUrl": "https://example.com/webhook"
 }
 ```
 
 `agentName` rules: 2–64 characters, letters, numbers, and underscores only.
+
+`webhookUrl` is **optional**. If provided: must be HTTPS, must not point to private/local addresses, max 512 characters.
 
 **Success response (200):**
 ```json
@@ -174,7 +180,7 @@ No request body needed — zkBaseCred knows the owner from your registration.
     "comment": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
     "publish": { "decision": "ALLOW_WITH_LIMITS", "confidence": "MEDIUM", "constraints": ["Rate limit: 10 posts/day"], "blockingFactors": [] },
     "apply": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "governance.vote": { "decision": "DENY", "confidence": "HIGH", "constraints": [], "blockingFactors": ["Insufficient trust score"] }
+    "governance.vote": { "decision": "DENY", "confidence": "HIGH", "constraints": [], "blockingFactors": [] }
   }
 }
 ```
@@ -189,11 +195,75 @@ Example delivery:
 
 > Here are your zkBaseCred reputation results:
 >
-> You're well-trusted by the on-chain community and have a strong track record building projects. You're approved for general access, commenting, publishing, and applications. Governance voting requires further reputation building.
+> Great news — you're well-trusted by the on-chain community, have an active social presence, and a strong track record building projects. You're approved for general access, commenting, publishing, applications, and governance voting.
 
 If any context returned `DENY` or `ALLOW_WITH_LIMITS`, explain what the owner can do to improve (e.g. "increase your on-chain activity" or "build your social presence on Farcaster").
 
 You are now fully set up. For future reputation checks on any wallet, use the individual context check below.
+
+---
+
+## Webhook Notifications (Optional)
+
+If you provided a `webhookUrl` during registration, zkBaseCred will POST JSON to that URL when events occur. This is fire-and-forget — no retries, no queue.
+
+### Events
+
+| Event | When It Fires |
+|---|---|
+| `agent.verified` | Owner successfully verifies you |
+| `reputation.checked` | You call `check-owner` or `/decide` |
+| `agent.revoked` | Owner revokes your registration |
+
+### Payload Shape
+
+```json
+{
+  "event": "reputation.checked",
+  "timestamp": 1234567890,
+  "agentName": "your_agent_name",
+  "ownerAddress": "0x...",
+  "data": { /* event-specific */ }
+}
+```
+
+### Example: `agent.verified`
+
+```json
+{
+  "event": "agent.verified",
+  "timestamp": 1234567890,
+  "agentName": "alice_helper",
+  "ownerAddress": "0xabc123...def456",
+  "data": {
+    "claimId": "f9e8d7..."
+  }
+}
+```
+
+### Example: `reputation.checked`
+
+```json
+{
+  "event": "reputation.checked",
+  "timestamp": 1234567890,
+  "agentName": "alice_helper",
+  "ownerAddress": "0xabc123...def456",
+  "data": {
+    "summary": "Your reputation is strong...",
+    "results": {
+      "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH" }
+    }
+  }
+}
+```
+
+### Requirements
+
+- URL must use **HTTPS** (no HTTP)
+- URL must not point to private/local addresses (localhost, 10.x, 192.168.x, etc.)
+- Maximum 512 characters
+- If the webhook endpoint is down or slow (>5s), the event is silently dropped
 
 ---
 
@@ -346,7 +416,8 @@ Content-Type: application/json
 {
   "agentName": "alice_helper",
   "telegramId": "@alice_dev",
-  "ownerAddress": "0xABC123...DEF456"
+  "ownerAddress": "0xABC123...DEF456",
+  "webhookUrl": "https://alice-bot.example.com/hooks/basecred"
 }
 ```
 
@@ -394,6 +465,8 @@ GET https://www.zkbasecred.xyz/api/v1/agent/register/f9e8d7.../status
 *(Agent continues polling every 30 seconds...)*
 
 → Response (verified): `{ "status": "verified", "agentName": "alice_helper" }`
+
+*(Since the agent registered with a webhookUrl, it also receives an `agent.verified` webhook at `https://alice-bot.example.com/hooks/basecred`.)*
 
 **Agent checks owner reputation:**
 

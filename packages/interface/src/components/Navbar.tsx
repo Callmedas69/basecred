@@ -5,7 +5,54 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const BTN =
+  "flex items-center gap-2 rounded-xl bg-teal-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-600 transition-colors cursor-pointer";
+
+function WalletButton() {
+  return (
+    <ConnectButton.Custom>
+      {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+        const ready = mounted;
+        const connected = ready && account && chain;
+
+        return (
+          <div
+            {...(!ready && {
+              "aria-hidden": true,
+              style: { opacity: 0, pointerEvents: "none" as const, userSelect: "none" as const },
+            })}
+          >
+            {!connected ? (
+              <button type="button" onClick={openConnectModal} className={BTN}>
+                Connect Wallet
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={openChainModal} className={BTN + " px-2.5"}>
+                  {chain.hasIcon && chain.iconUrl && (
+                    <img
+                      src={chain.iconUrl}
+                      alt={chain.name ?? "chain"}
+                      className="w-5 h-5 rounded-full"
+                    />
+                  )}
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+                <button type="button" onClick={openAccountModal} className={BTN}>
+                  {account.displayName}
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      }}
+    </ConnectButton.Custom>
+  );
+}
 
 function MenuIcon({ open }: { open: boolean }) {
   return (
@@ -57,7 +104,7 @@ const NAV_LINKS: {
   match: (p: string) => boolean;
   external?: boolean;
 }[] = [
-  { href: "/explorer", label: "explorer", match: (p) => p === "/explorer" },
+  { href: "/human", label: "human", match: (p) => p === "/human" },
   { href: "/agent", label: "agent", match: (p) => p === "/agent" },
   {
     href: "http://docs.zkbasecred.xyz",
@@ -127,7 +174,7 @@ export function Navbar() {
                 </Link>
               ))}
             </div>
-            <ConnectButton />
+            <WalletButton />
           </div>
 
           {/* Mobile hamburger */}
@@ -185,7 +232,7 @@ export function Navbar() {
             )}
             style={{ transitionDelay: menuOpen ? `${75 * (NAV_LINKS.length + 1)}ms` : "0ms" }}
           >
-            <ConnectButton />
+            <WalletButton />
           </div>
         </div>
       </div>

@@ -89,8 +89,8 @@ export default function DocsOverviewPage() {
           <p className="font-bold text-teal-500 m-0 mb-1">Quick Start</p>
           <p className="m-0 text-sm text-foreground">
             Check out the{" "}
-            <a href="/explorer" className="text-teal-500 hover:underline">
-              Explorer
+            <a href="/human" className="text-teal-500 hover:underline">
+              Human
             </a>{" "}
             to see live data.
           </p>

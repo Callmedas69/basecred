@@ -9,7 +9,7 @@ import { getRedis } from "@/lib/redis"
 import type { ApiKeyRecord, ApiKeyInfo } from "@/types/apiKeys"
 
 export interface IApiKeyRepository {
-  createKey(walletAddress: string, label: string, keyHash: string, keyPrefix: string): Promise<void>
+  createKey(walletAddress: string, label: string, keyHash: string, keyPrefix: string, maxKeys: number): Promise<boolean>
   validateKey(keyHash: string): Promise<ApiKeyRecord | null>
   listKeys(walletAddress: string): Promise<ApiKeyInfo[]>
   revokeKey(keyId: string, walletAddress: string): Promise<boolean>
@@ -20,7 +20,7 @@ export function createApiKeyRepository(): IApiKeyRepository {
   const redis = getRedis()
 
   return {
-    async createKey(walletAddress: string, label: string, keyHash: string, keyPrefix: string): Promise<void> {
+    async createKey(walletAddress: string, label: string, keyHash: string, keyPrefix: string, maxKeys: number): Promise<boolean> {
       const record: ApiKeyRecord = {
         walletAddress: walletAddress.toLowerCase(),
         label,
@@ -30,8 +30,21 @@ export function createApiKeyRepository(): IApiKeyRepository {
         requestCount: 0,
       }
 
-      await redis.set(`apikey:${keyHash}`, JSON.stringify(record))
-      await redis.sadd(`wallet:${walletAddress.toLowerCase()}:keys`, keyHash)
+      // Atomic check-and-create: verify key count before adding
+      const script = `
+        local count = redis.call('SCARD', KEYS[1])
+        if count >= tonumber(ARGV[1]) then return 0 end
+        redis.call('SET', KEYS[2], ARGV[2])
+        redis.call('SADD', KEYS[1], ARGV[3])
+        return 1
+      `
+      const addr = walletAddress.toLowerCase()
+      const result = await redis.eval(
+        script,
+        [`wallet:${addr}:keys`, `apikey:${keyHash}`],
+        [maxKeys.toString(), JSON.stringify(record), keyHash]
+      )
+      return result === 1
     },
 
     async validateKey(keyHash: string): Promise<ApiKeyRecord | null> {
@@ -44,13 +57,17 @@ export function createApiKeyRepository(): IApiKeyRepository {
       const keyHashes = await redis.smembers(`wallet:${walletAddress.toLowerCase()}:keys`)
       if (!keyHashes || keyHashes.length === 0) return []
 
+      // Batch fetch all keys in a single Redis call
+      const redisKeys = keyHashes.map(h => `apikey:${h}`)
+      const dataList = await redis.mget<(string | null)[]>(...redisKeys)
+
       const results: ApiKeyInfo[] = []
-      for (const keyHash of keyHashes) {
-        const data = await redis.get<string>(`apikey:${keyHash}`)
+      for (let i = 0; i < keyHashes.length; i++) {
+        const data = dataList[i]
         if (!data) continue
         const record: ApiKeyRecord = typeof data === "string" ? JSON.parse(data) : data as unknown as ApiKeyRecord
         results.push({
-          keyId: keyHash,
+          keyId: keyHashes[i],
           keyPrefix: record.keyPrefix,
           label: record.label,
           createdAt: record.createdAt,
@@ -63,15 +80,23 @@ export function createApiKeyRepository(): IApiKeyRepository {
     },
 
     async revokeKey(keyId: string, walletAddress: string): Promise<boolean> {
-      const data = await redis.get<string>(`apikey:${keyId}`)
-      if (!data) return false
-
-      const record: ApiKeyRecord = typeof data === "string" ? JSON.parse(data) : data as unknown as ApiKeyRecord
-      if (record.walletAddress !== walletAddress.toLowerCase()) return false
-
-      await redis.del(`apikey:${keyId}`)
-      await redis.srem(`wallet:${walletAddress.toLowerCase()}:keys`, keyId)
-      return true
+      // Atomic revocation: verify ownership, delete key, and remove from set in one operation
+      const script = `
+        local data = redis.call('GET', KEYS[1])
+        if not data then return 0 end
+        local record = cjson.decode(data)
+        if record.walletAddress ~= ARGV[1] then return 0 end
+        redis.call('DEL', KEYS[1])
+        redis.call('SREM', KEYS[2], ARGV[2])
+        return 1
+      `
+      const addr = walletAddress.toLowerCase()
+      const result = await redis.eval(
+        script,
+        [`apikey:${keyId}`, `wallet:${addr}:keys`],
+        [addr, keyId]
+      )
+      return result === 1
     },
 
     async recordUsage(keyHash: string): Promise<void> {
