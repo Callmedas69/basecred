@@ -4,5 +4,4 @@ CLAUDE.md
 raw_docs/*
 workingfolder/*
 .env*
-
 foundryup.ps1

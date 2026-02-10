@@ -105,14 +105,22 @@ export async function verifyAgentClaim(
     )
   }
 
-  // Activate the API key via existing apiKeyRepository
+  // Activate the API key via existing apiKeyRepository (atomic with max key cap)
+  const MAX_KEYS_PER_WALLET = 20
   const apiKeyRepo = createApiKeyRepository()
-  await apiKeyRepo.createKey(
+  const created = await apiKeyRepo.createKey(
     registration.ownerAddress,
     registration.agentName,
     registration.apiKeyHash,
-    registration.apiKeyPrefix
+    registration.apiKeyPrefix,
+    MAX_KEYS_PER_WALLET
   )
+  if (!created) {
+    throw new VerifyAgentClaimError(
+      `Maximum API key limit reached (${MAX_KEYS_PER_WALLET}). Revoke unused keys first.`,
+      409
+    )
+  }
 
   // Mark registration as verified
   await regRepo.markVerified(claimId, tweetUrl)

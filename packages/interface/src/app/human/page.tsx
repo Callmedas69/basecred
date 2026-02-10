@@ -98,7 +98,7 @@ interface ContextResult {
   error: string | null;
 }
 
-export default function ExplorerPage() {
+export default function HumanPage() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
@@ -404,7 +404,7 @@ export default function ExplorerPage() {
         {/* Header */}
         <div className="space-y-3 md:space-y-4 text-center md:text-left">
           <h1 className="text-[3.5rem] sm:text-[5rem] md:text-[6rem] lg:text-[8rem] font-black tracking-tighter leading-[0.8] text-foreground select-none uppercase break-words">
-            Explorer
+            Human
           </h1>
           <p className="text-muted-foreground text-base sm:text-lg md:text-xl max-w-2xl leading-relaxed pl-2 border-l-4 border-teal-500">
             {isConnected

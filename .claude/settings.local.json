@@ -52,7 +52,8 @@
       "Bash(python -m json.tool:*)",
       "Bash(pnpm dev)",
       "Bash(powershell -Command \"Start-Sleep -Seconds 15; curl -s -o NUL -w ''%%{http_code}'' http://localhost:3000\")",
-      "Bash(npx shadcn@latest add:*)"
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(grep:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { isAddress } from "viem"
 import { generateApiKey, listApiKeys } from "@/use-cases/manage-api-keys"
+import { checkRateLimit } from "@/lib/rateLimit"
 
 /**
  * POST /api/v1/keys — Generate a new API key
@@ -25,6 +26,32 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Validate and sanitize label if provided
+    if (label !== undefined) {
+      if (typeof label !== "string" || label.length === 0 || label.length > 64) {
+        return NextResponse.json(
+          { code: "INVALID_REQUEST", message: "Label must be a string of 1-64 characters" },
+          { status: 400 }
+        )
+      }
+      // Reject control characters (U+0000–U+001F, U+007F)
+      if (/[\x00-\x1F\x7F]/.test(label)) {
+        return NextResponse.json(
+          { code: "INVALID_REQUEST", message: "Label contains invalid characters" },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Rate limit key generation per wallet
+    const rateCheck = checkRateLimit(`keygen:${address.toLowerCase()}`)
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { code: "RATE_LIMITED", message: "Too many key generation requests." },
+        { status: 429, headers: { "Retry-After": String(rateCheck.retryAfter) } }
+      )
+    }
+
     const result = await generateApiKey(address, signature, message, label)
 
     return NextResponse.json({
@@ -38,6 +65,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { code: "UNAUTHORIZED", message: msg },
         { status: 401 }
+      )
+    }
+    if (msg.startsWith("Maximum API key limit reached")) {
+      return NextResponse.json(
+        { code: "MAX_KEYS_REACHED", message: msg },
+        { status: 409 }
       )
     }
     console.error("Generate API key error:", error)
