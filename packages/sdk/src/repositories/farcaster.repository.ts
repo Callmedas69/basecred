@@ -22,7 +22,10 @@ interface NeynarBulkByAddressUser {
     username: string;
     display_name?: string;
     custody_address: string;
-    score?: number;  // Neynar user score (0-1), probability account is not spam
+    score?: number;  // Neynar user score (simplified/rounded)
+    experimental?: {
+        neynar_user_score?: number;  // Decimal 0-1 quality score (requires x-neynar-experimental header)
+    };
     verified_addresses?: {
         eth_addresses: string[];
         sol_addresses: string[];
@@ -61,6 +64,7 @@ export async function fetchFarcasterScore(
             headers: {
                 'x-api-key': config.neynarApiKey,
                 'Accept': 'application/json',
+                'x-neynar-experimental': 'true',
             },
         });
 
@@ -96,8 +100,10 @@ export async function fetchFarcasterScore(
             return { availability: 'unlinked' };
         }
 
-        // Check if score is available
-        if (user.score === undefined || user.score === null) {
+        // Prefer experimental.neynar_user_score (decimal 0-1), fall back to score (rounded)
+        const rawScore = user.experimental?.neynar_user_score ?? user.score;
+
+        if (rawScore === undefined || rawScore === null) {
             // User exists but no score available
             return {
                 availability: 'available',
@@ -110,7 +116,7 @@ export async function fetchFarcasterScore(
 
         return {
             availability: 'available',
-            rawScore: user.score,
+            rawScore,
             fid: user.fid,
             username: user.username,
             lastUpdatedAt: new Date().toISOString(),

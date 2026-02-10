@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.2] — 2026-02-10
+
+### Fixed
+
+- Neynar score now returns the actual decimal value (e.g., `0.98`) instead of the rounded integer (`1`)
+  - Reads `experimental.neynar_user_score` (decimal 0-1) with fallback to `score` (rounded)
+  - Sends `x-neynar-experimental: true` header to enable the experimental response field
+
+---
+
 ## [0.6.1] — 2026-02-04
 
 ### Fixed

@@ -4,7 +4,7 @@ A neutral, composable SDK that fetches and assembles reputation data from [Ethos
 
 This SDK exists to make reputation data observable without turning it into judgment.
 
-**v0.6.1**
+**v0.6.2**
 
 ## What This SDK Does
 
@@ -291,6 +291,10 @@ This SDK never throws on valid input.
 All failures are surfaced explicitly via the `availability` field for each source. Consumers should check `availability.ethos` and `availability.talent` to determine data presence.
 
 ## Changelog
+
+**v0.6.2 — Neynar Score Precision Fix**
+
+Neynar score now returns the actual decimal value (e.g., `0.98`) instead of the rounded integer.
 
 **v0.6.1 — Talent Scores Update**
 
