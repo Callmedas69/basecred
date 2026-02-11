@@ -1,0 +1,89 @@
+{
+  "identity": {
+    "address": "0x..."
+  },
+  "availability": {
+    "ethos": "available | not_found | unlinked | error",
+    "talent": "available | not_found | unlinked | error",
+    "farcaster": "available | not_found | unlinked | error"
+  },
+  "ethos": {
+    "data": {
+      "score": 0,
+      "credibilityLevel": {
+        "value": 0,
+        "level": "Untrusted | Questionable | Neutral | Known | Established | Reputable | Exemplary | Distinguished | Revered | Renowned",
+        "levelSource": "sdk",
+        "levelPolicy": "ethos@v1"
+      },
+      "vouchesReceived": 0,
+      "reviews": {
+        "positive": 0,
+        "neutral": 0,
+        "negative": 0
+      }
+    },
+    "signals": {
+      "hasNegativeReviews": false,
+      "hasVouches": false
+    },
+    "meta": {
+      "firstSeenAt": "2026-01-01T00:00:00Z",
+      "lastUpdatedAt": "2026-01-01T00:00:00Z",
+      "activeSinceDays": 0,
+      "lastUpdatedDaysAgo": 0
+    }
+  },
+  "talent": {
+    "data": {
+      "builderScore": 0,
+      "builderRankPosition": 0,
+      "builderLevel": {
+        "value": 0,
+        "level": "Novice | Apprentice | Practitioner | Advanced | Expert | Master",
+        "levelSource": "sdk",
+        "levelPolicy": "builder@v1"
+      },
+      "creatorScore": 0,
+      "creatorRankPosition": 0,
+      "creatorLevel": {
+        "value": 0,
+        "level": "Emerging | Growing | Established | Accomplished | Prominent | Elite",
+        "levelSource": "sdk",
+        "levelPolicy": "creator@v1"
+      }
+    },
+    "signals": {
+      "verifiedBuilder": false,
+      "verifiedCreator": false
+    },
+    "meta": {
+      "lastUpdatedAt": "2026-01-01T00:00:00Z",
+      "lastUpdatedDaysAgo": 0
+    }
+  },
+  "farcaster": {
+    "data": {
+      "userScore": 0
+    },
+    "signals": {
+      "passesQualityThreshold": false
+    },
+    "meta": {
+      "source": "neynar",
+      "scope": "farcaster",
+      "lastUpdatedAt": "2026-01-01T00:00:00Z",
+      "lastUpdatedDaysAgo": 0,
+      "updateCadence": "weekly",
+      "timeMeaning": "system_update"
+    }
+  },
+  "recency": {
+    "bucket": "recent | stale | dormant",
+    "windowDays": 30,
+    "lastUpdatedDaysAgo": 0,
+    "derivedFrom": ["ethos", "talent", "farcaster"],
+    "computedAt": "2026-01-01T00:00:00Z",
+    "policy": "recency@v1"
+  }
+}

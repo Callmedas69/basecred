@@ -2,6 +2,6 @@ node_modules
 .mcp.json
 # CLAUDE.md
 raw_docs/*
-workingfolder/*
+# workingfolder/*
 .env*
 foundryup.ps1

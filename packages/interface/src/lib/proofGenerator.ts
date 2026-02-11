@@ -16,13 +16,12 @@ import {
 } from "basecred-decision-engine"
 import type { Decision } from "basecred-decision-engine"
 
-// Circuit file paths
-// When running via `pnpm --filter interface dev`, cwd is packages/interface
-// So we need to go up to monorepo root first
+// Circuit file paths — populated by prebuild/predev script (copies from contracts/circuits/)
+// Works on Vercel (bundled via outputFileTracingIncludes) and locally after dev/build
 const CIRCUIT_WASM_PATH = process.env.ZK_CIRCUIT_WASM_PATH ||
-    path.join(process.cwd(), "..", "contracts", "circuits", "build", "DecisionCircuit_js", "DecisionCircuit.wasm")
+    path.join(process.cwd(), "circuits", "DecisionCircuit.wasm")
 const CIRCUIT_ZKEY_PATH = process.env.ZK_CIRCUIT_ZKEY_PATH ||
-    path.join(process.cwd(), "..", "contracts", "circuits", "circuit_final.zkey")
+    path.join(process.cwd(), "circuits", "circuit_final.zkey")
 
 // Cached snarkjs module — lazy singleton to avoid re-importing every request
 let snarkjsPromise: Promise<typeof import("snarkjs")> | null = null
