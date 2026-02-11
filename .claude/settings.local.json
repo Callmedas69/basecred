@@ -54,7 +54,8 @@
       "Bash(powershell -Command \"Start-Sleep -Seconds 15; curl -s -o NUL -w ''%%{http_code}'' http://localhost:3000\")",
       "Bash(npx shadcn@latest add:*)",
       "Bash(grep:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(node scripts/copy-circuits.mjs:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

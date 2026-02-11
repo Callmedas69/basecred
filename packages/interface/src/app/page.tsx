@@ -68,9 +68,9 @@ export default function Home() {
             variants={item}
             className="text-[clamp(1.125rem,2vw,1.5rem)] text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
           >
-            BaseCred aggregates onchain signals and generates zero-knowledge
-            proofs — verifiable reputation data for gating, moderation, rewards,
-            or access control.
+            Basecred aggregates onchain signals and{" "}
+            <b>generates zero-knowledge proofs</b>, verifiable reputation data
+            for gating, moderation, rewards, or access control.
           </motion.p>
 
           <motion.div
@@ -93,7 +93,7 @@ export default function Home() {
               </Button>
             </Link>
             <Link
-              href="http://localhost:4000"
+              href="http://docs.zkbasecred.xyz"
               target="_blank"
               className="w-full sm:w-auto"
             >
@@ -395,13 +395,13 @@ export default function Home() {
                   <Link href="/human">Human</Link>
                 </li>
                 <li>
-                  <Link href="http://localhost:4000" target="_blank">
+                  <Link href="http://docs.zkbasecred.xyz" target="_blank">
                     Documentation
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href="http://localhost:4000/integration"
+                    href="http://docs.zkbasecred.xyz/integration/integration"
                     target="_blank"
                   >
                     Integration Guide
@@ -417,7 +417,7 @@ export default function Home() {
               </h4>
               <ul className="space-y-2 sm:space-y-3 text-base sm:text-lg">
                 <li>
-                  <Link href="#">Twitter / X</Link>
+                  <Link href="https://x.com/zkbasecred">Twitter / X</Link>
                 </li>
                 <li>
                   <Link href="#">GitHub</Link>

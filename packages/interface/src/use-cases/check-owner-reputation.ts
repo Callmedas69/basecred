@@ -20,12 +20,17 @@ import {
   VALID_CONTEXTS,
   type NormalizedSignals,
   type ContractProofStrings,
+  type DecisionContext,
+  type Decision,
 } from "basecred-decision-engine"
 import { getUnifiedProfile, type SDKConfig } from "basecred-sdk"
 import { createApiKeyRepository } from "@/repositories/apiKeyRepository"
 import { createActivityRepository } from "@/repositories/activityRepository"
 import { createAgentRegistrationRepository } from "@/repositories/agentRegistrationRepository"
 import type { IProofRepository } from "@/repositories/proofRepository"
+import type { IDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
+import { createDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
+import { submitDecisionOnChain } from "@/use-cases/submit-decision-onchain"
 import type { ActivityEntry } from "@/types/apiKeys"
 import type { GlobalFeedEntry } from "@/types/agentRegistration"
 import { sendWebhook } from "@/lib/webhook"
@@ -49,6 +54,12 @@ interface ContextResult {
   publicSignals?: [string, string, string]
   policyHash?: string
   contextId?: number
+  onChain?: {
+    submitted: boolean
+    txHash?: string
+    existing?: boolean
+    error?: string
+  }
 }
 
 export interface CheckOwnerReputationOutput {
@@ -61,10 +72,12 @@ export interface CheckOwnerReputationOutput {
 
 interface CheckOwnerReputationOptions {
   withProof?: boolean
+  submitOnChain?: boolean
 }
 
 interface CheckOwnerReputationDeps {
   proofRepository?: IProofRepository
+  decisionRegistryRepository?: IDecisionRegistryRepository
 }
 
 export async function checkOwnerReputation(
@@ -142,6 +155,49 @@ export async function checkOwnerReputation(
       ownerAddress,
       profileData,
     )
+  }
+
+  // 6b. Submit proofs on-chain (sequential to avoid nonce collisions)
+  const submitOnChain = options?.submitOnChain ?? withProof
+  if (withProof && submitOnChain) {
+    const relayerKey = process.env.RELAYER_PRIVATE_KEY
+    if (relayerKey) {
+      const registryRepo = deps?.decisionRegistryRepository
+        ?? createDecisionRegistryRepository(relayerKey)
+
+      for (const [contextKey, result] of Object.entries(results)) {
+        if (!result.proof || !result.publicSignals || !result.policyHash) continue
+        try {
+          const output = await submitDecisionOnChain(
+            {
+              subject: ownerAddress,
+              context: contextKey as DecisionContext,
+              decision: result.decision as Decision,
+              policyHash: result.policyHash,
+              proof: result.proof,
+              publicSignals: result.publicSignals,
+            },
+            { decisionRegistryRepository: registryRepo }
+          )
+          result.onChain = { submitted: true, txHash: output.transactionHash }
+        } catch (err: any) {
+          // viem wraps revert reasons in nested error structures
+          const reason = err.cause?.reason || err.shortMessage || err.message || ""
+          if (reason.includes("already submitted")) {
+            result.onChain = { submitted: true, existing: true }
+          } else {
+            console.error(`On-chain submit failed for ${contextKey}:`, reason)
+            result.onChain = { submitted: false, error: reason }
+          }
+        }
+      }
+    } else {
+      for (const result of Object.values(results)) {
+        if (result.proof) {
+          result.onChain = { submitted: false, error: "Relayer not configured" }
+        }
+      }
+    }
   }
 
   // 7. Build natural language summary

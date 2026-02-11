@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from "next/server"
 import { checkOwnerReputation, CheckOwnerReputationError } from "@/use-cases/check-owner-reputation"
 import { checkRateLimit } from "@/lib/rateLimit"
 import { createProofRepository } from "@/repositories/proofRepository"
+import { createDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
 
 // Required for snarkjs WASM when withProof=true
 export const runtime = "nodejs"
-export const maxDuration = 60
+export const maxDuration = 120
 
 /**
  * POST /api/v1/agent/check-owner — Agent checks owner's reputation (API key auth via middleware)
  * No body needed — ownerAddress is derived from the API key.
  *
  * Query params:
- *   ?withProof=true — Generate ZK proofs for each context (adds ~3-4s)
+ *   ?withProof=true          — Generate ZK proofs for each context (adds ~3-4s)
+ *   ?submitOnChain=false      — Skip on-chain submission (default: true when withProof=true)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -33,16 +35,24 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Parse withProof flag from query string
+    // Parse query flags
     const withProof = req.nextUrl.searchParams.get("withProof") === "true"
+    const submitOnChain = req.nextUrl.searchParams.get("submitOnChain") !== "false"
 
-    // Inject ProofRepository only when needed
-    const deps = withProof ? { proofRepository: createProofRepository() } : undefined
+    // Inject dependencies only when needed
+    const deps = withProof
+      ? {
+          proofRepository: createProofRepository(),
+          ...(submitOnChain && process.env.RELAYER_PRIVATE_KEY
+            ? { decisionRegistryRepository: createDecisionRegistryRepository(process.env.RELAYER_PRIVATE_KEY) }
+            : {}),
+        }
+      : undefined
 
-    // 45s timeout safeguard — return meaningful error instead of platform kill
-    const TIMEOUT_MS = 45_000
+    // 90s timeout — proof gen (~4s) + on-chain submission (~15-25s for 5 contexts)
+    const TIMEOUT_MS = 90_000
     const result = await Promise.race([
-      checkOwnerReputation(apiKeyHash, { withProof }, deps),
+      checkOwnerReputation(apiKeyHash, { withProof, submitOnChain }, deps),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new CheckOwnerReputationError("Request timed out", 504)), TIMEOUT_MS)
       ),
