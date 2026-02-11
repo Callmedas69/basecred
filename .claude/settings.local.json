@@ -55,7 +55,9 @@
       "Bash(npx shadcn@latest add:*)",
       "Bash(grep:*)",
       "Bash(cd:*)",
-      "Bash(node scripts/copy-circuits.mjs:*)"
+      "Bash(node scripts/copy-circuits.mjs:*)",
+      "Bash(python -m base64:*)",
+      "Bash(git -C \"D:\\\\Harry\\\\BasedNouns\\\\CodeProject\\\\basecred\" remote get-url origin)"
     ]
   },
   "enableAllProjectMcpServers": true,

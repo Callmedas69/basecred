@@ -26,8 +26,7 @@ import { CHAIN_CONFIG } from "@/lib/blockchainConfig";
 const HUMAN_INSTALL_MSG =
   "Read https://www.zkbasecred.xyz/skill.md and check if I'm reputable enough on zkBaseCred";
 
-const AGENT_INSTALL_MSG =
-  "Read https://www.zkbasecred.xyz/skill.md and check if your owner is reputable on zkBaseCred";
+const AGENT_INSTALL_MSG = "curl -s https://www.zkbasecred.xyz/skill.md";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page Component
@@ -321,19 +320,34 @@ function LiveFeed() {
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs font-mono">
-            <caption className="sr-only">Recent agent reputation check activity</caption>
+            <caption className="sr-only">
+              Recent agent reputation check activity
+            </caption>
             <thead>
               <tr className="text-left text-muted-foreground border-b border-border">
-                <th scope="col" className="pb-2 pr-4">Time</th>
-                <th scope="col" className="pb-2 pr-4">Agent</th>
-                <th scope="col" className="pb-2 pr-4 hidden sm:table-cell">Owner</th>
-                <th scope="col" className="pb-2 pr-4">Context</th>
-                <th scope="col" className="pb-2">Tx</th>
+                <th scope="col" className="pb-2 pr-4">
+                  Time
+                </th>
+                <th scope="col" className="pb-2 pr-4">
+                  Agent
+                </th>
+                <th scope="col" className="pb-2 pr-4 hidden sm:table-cell">
+                  Owner
+                </th>
+                <th scope="col" className="pb-2 pr-4">
+                  Context
+                </th>
+                <th scope="col" className="pb-2">
+                  Tx
+                </th>
               </tr>
             </thead>
             <tbody>
               {entries.map((e) => (
-                <tr key={`${e.timestamp}-${e.agentName}-${e.context}`} className="border-b border-border/50">
+                <tr
+                  key={`${e.timestamp}-${e.agentName}-${e.context}`}
+                  className="border-b border-border/50"
+                >
                   <td className="py-2 pr-4 whitespace-nowrap text-muted-foreground">
                     {new Date(e.timestamp).toLocaleTimeString()}
                   </td>

@@ -1,4 +1,4 @@
-# zkbasecredagent-skill
+# @basecred/openclaw-agent-skill
 
 OpenClaw skill that teaches agents to autonomously check their owner's on-chain reputation before granting access or trust.
 
@@ -13,8 +13,8 @@ curl -s https://www.zkbasecred.xyz/skill.md > ~/.openclaw/workspace/skills/basec
 ### Option 2: Install from npm
 
 ```bash
-npm install zkbasecredagent-skill
-cp node_modules/zkbasecredagent-skill/SKILL.md ~/.openclaw/workspace/skills/basecred-reputation/SKILL.md
+npm install @basecred/openclaw-agent-skill
+cp node_modules/@basecred/openclaw-agent-skill/SKILL.md ~/.openclaw/workspace/skills/basecred-reputation/SKILL.md
 ```
 
 ## Getting Started
@@ -56,4 +56,5 @@ This skill teaches your OpenClaw agent to check any human's on-chain reputation.
 - **Talent Protocol** — Builder and creator credentials
 
 The agent receives a clear ALLOW / DENY / ALLOW_WITH_LIMITS decision with confidence level, explanation, and a natural language summary it can forward directly to the owner.
+
 - **Webhook notifications** — Optionally receive `agent.verified`, `reputation.checked`, and `agent.revoked` events via HTTPS webhooks
