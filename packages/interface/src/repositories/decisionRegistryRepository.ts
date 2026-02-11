@@ -10,28 +10,11 @@ import {
     createWalletClient,
     http,
     type Hash,
-    defineChain,
 } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { DECISION_REGISTRY_ABI } from "@basecred/contracts/abi"
 import { ONCHAIN_CONTRACTS } from "@/lib/onChainContracts"
-
-// =============================================================================
-// Chain Definition (avoid viem/chains import for type compatibility)
-// =============================================================================
-
-const baseSepolia = defineChain({
-    id: 84532,
-    name: "Base Sepolia",
-    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-    rpcUrls: {
-        default: { http: ["https://sepolia.base.org"] },
-    },
-    blockExplorers: {
-        default: { name: "BaseScan", url: "https://sepolia.basescan.org" },
-    },
-    testnet: true,
-})
+import { targetChain } from "@/lib/blockchainConfig"
 
 // =============================================================================
 // Types
@@ -124,7 +107,7 @@ export function createDecisionRegistryRepository(
     privateKey?: string
 ): IDecisionRegistryRepository {
     const publicClient = createPublicClient({
-        chain: baseSepolia,
+        chain: targetChain,
         transport: http(),
     })
 
@@ -134,7 +117,7 @@ export function createDecisionRegistryRepository(
 
     const walletClient = account
         ? createWalletClient({
-              chain: baseSepolia,
+              chain: targetChain,
               transport: http(),
               account,
           })

@@ -18,6 +18,7 @@ import {
     type ContractProofStrings,
 } from "basecred-decision-engine"
 import type { IDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
+import { ValidationError } from "@/lib/errors"
 
 // =============================================================================
 // Input/Output Types
@@ -97,19 +98,19 @@ export async function submitDecisionOnChain(
     const expectedDecision = BigInt(decisionValue)
 
     if (publicSignals[0] !== expectedPolicyHash) {
-        throw new Error(
+        throw new ValidationError(
             `Public signal policyHash mismatch. Expected ${expectedPolicyHash}, got ${publicSignals[0]}`
         )
     }
 
     if (publicSignals[1] !== expectedContextId) {
-        throw new Error(
+        throw new ValidationError(
             `Public signal contextId mismatch. Expected ${expectedContextId}, got ${publicSignals[1]}`
         )
     }
 
     if (publicSignals[2] !== expectedDecision) {
-        throw new Error(
+        throw new ValidationError(
             `Public signal decision mismatch. Expected ${expectedDecision}, got ${publicSignals[2]}`
         )
     }

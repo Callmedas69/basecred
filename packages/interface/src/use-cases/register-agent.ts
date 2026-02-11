@@ -63,12 +63,15 @@ export async function registerAgent(input: RegisterAgentInput): Promise<Register
     )
   }
 
-  // Validate telegramId (max 128 chars, basic format)
+  // Validate telegramId (standard Telegram handle format)
   if (!telegramId || typeof telegramId !== "string" || telegramId.trim().length === 0) {
     throw new RegisterAgentError("telegramId is required", 400)
   }
-  if (telegramId.trim().length > 128) {
-    throw new RegisterAgentError("telegramId must be 128 characters or fewer", 400)
+  if (!/^[@a-zA-Z0-9_.\-]{1,128}$/.test(telegramId.trim())) {
+    throw new RegisterAgentError(
+      "telegramId must be 1-128 characters, alphanumeric with @, _, ., - only",
+      400
+    )
   }
 
   // Validate webhookUrl (optional)

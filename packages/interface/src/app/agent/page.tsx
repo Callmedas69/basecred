@@ -12,6 +12,7 @@ import {
   Bot,
   Globe,
   ArrowRight,
+  ExternalLink,
 } from "lucide-react";
 import {
   Accordion,
@@ -19,18 +20,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { cn } from "@/lib/utils";
 import type { GlobalFeedEntry } from "@/types/agentRegistration";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────────────────────────────────────
-
-const DECISION_COLORS: Record<string, string> = {
-  ALLOW: "text-emerald-400",
-  ALLOW_WITH_LIMITS: "text-amber-400",
-  DENY: "text-red-400",
-};
+import { CHAIN_CONFIG } from "@/lib/blockchainConfig";
 
 const HUMAN_INSTALL_MSG =
   "Read https://www.zkbasecred.xyz/skill.md and check if I'm reputable enough on zkBaseCred";
@@ -269,9 +260,12 @@ function QuickStart() {
 // Live Feed (always visible, no auth)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
+
 function LiveFeed() {
   const [entries, setEntries] = useState<GlobalFeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const fetchFeed = useCallback(async () => {
     try {
@@ -279,9 +273,13 @@ function LiveFeed() {
       if (res.ok) {
         const data = await res.json();
         setEntries(data.entries || []);
+        setError(false);
+      } else {
+        setError(true);
       }
     } catch (err) {
       console.error("Failed to fetch feed:", err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -301,7 +299,9 @@ function LiveFeed() {
           <h2 className="text-xl font-bold">Live Activity</h2>
         </div>
         <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-          Auto-refreshes every 30s
+          {error && entries.length > 0
+            ? "Update failed — showing cached data"
+            : "Auto-refreshes every 30s"}
         </span>
       </div>
 
@@ -310,6 +310,10 @@ function LiveFeed() {
           <Loader2 className="w-4 h-4 animate-spin" />
           Loading feed...
         </div>
+      ) : error && entries.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-4 text-center">
+          Feed temporarily unavailable. Will retry automatically.
+        </div>
       ) : entries.length === 0 ? (
         <div className="text-sm text-muted-foreground py-4 text-center">
           No agent activity yet. Be the first to register an agent!
@@ -317,14 +321,14 @@ function LiveFeed() {
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs font-mono">
+            <caption className="sr-only">Recent agent reputation check activity</caption>
             <thead>
               <tr className="text-left text-muted-foreground border-b border-border">
-                <th className="pb-2 pr-4">Time</th>
-                <th className="pb-2 pr-4">Agent</th>
-                <th className="pb-2 pr-4 hidden sm:table-cell">Owner</th>
-                <th className="pb-2 pr-4">Context</th>
-                <th className="pb-2 pr-4">Decision</th>
-                <th className="pb-2 hidden sm:table-cell">Confidence</th>
+                <th scope="col" className="pb-2 pr-4">Time</th>
+                <th scope="col" className="pb-2 pr-4">Agent</th>
+                <th scope="col" className="pb-2 pr-4 hidden sm:table-cell">Owner</th>
+                <th scope="col" className="pb-2 pr-4">Context</th>
+                <th scope="col" className="pb-2">Tx</th>
               </tr>
             </thead>
             <tbody>
@@ -333,20 +337,26 @@ function LiveFeed() {
                   <td className="py-2 pr-4 whitespace-nowrap text-muted-foreground">
                     {new Date(e.timestamp).toLocaleTimeString()}
                   </td>
-                  <td className="py-2 pr-4">{e.agentName}</td>
-                  <td className="py-2 pr-4 text-muted-foreground hidden sm:table-cell">
+                  <td className="py-2 pr-4 break-all">{e.agentName}</td>
+                  <td className="py-2 pr-4 text-muted-foreground hidden sm:table-cell break-all">
                     {e.ownerAddress}
                   </td>
                   <td className="py-2 pr-4">{e.context}</td>
-                  <td
-                    className={cn(
-                      "py-2 pr-4 font-bold",
-                      DECISION_COLORS[e.decision],
+                  <td className="py-2">
+                    {e.txHash && TX_HASH_REGEX.test(e.txHash) ? (
+                      <a
+                        href={CHAIN_CONFIG.txUrl(e.txHash)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-teal-400 hover:text-teal-300 transition-colors"
+                      >
+                        {e.txHash.slice(0, 6)}...{e.txHash.slice(-4)}
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground">off-chain</span>
                     )}
-                  >
-                    {e.decision}
                   </td>
-                  <td className="py-2 hidden sm:table-cell">{e.confidence}</td>
                 </tr>
               ))}
             </tbody>

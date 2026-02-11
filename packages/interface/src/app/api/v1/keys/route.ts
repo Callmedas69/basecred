@@ -9,6 +9,15 @@ import { checkRateLimit } from "@/lib/rateLimit"
  */
 export async function POST(req: NextRequest) {
   try {
+    // Reject oversized payloads (100KB limit)
+    const contentLength = Number(req.headers.get("content-length") || "0")
+    if (contentLength > 100_000) {
+      return NextResponse.json(
+        { code: "PAYLOAD_TOO_LARGE", message: "Request body too large" },
+        { status: 413 }
+      )
+    }
+
     const body = await req.json()
     const { address, signature, message, label } = body
 
@@ -44,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Rate limit key generation per wallet
-    const rateCheck = checkRateLimit(`keygen:${address.toLowerCase()}`)
+    const rateCheck = await checkRateLimit("keygen", address.toLowerCase())
     if (!rateCheck.allowed) {
       return NextResponse.json(
         { code: "RATE_LIMITED", message: "Too many key generation requests." },

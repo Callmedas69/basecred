@@ -43,12 +43,15 @@ export function createActivityRepository(): IActivityRepository {
         offset: 0,
       })
 
-      return entries.map((entry) => {
-        if (typeof entry === "string") {
-          return JSON.parse(entry) as ActivityEntry
+      return entries.reduce<ActivityEntry[]>((acc, entry) => {
+        try {
+          const parsed = typeof entry === "string" ? JSON.parse(entry) : entry
+          acc.push(parsed as ActivityEntry)
+        } catch {
+          console.warn("[activityRepository] Skipping corrupted activity entry")
         }
-        return entry as unknown as ActivityEntry
-      })
+        return acc
+      }, [])
     },
 
     async logGlobalFeedEntry(entry: GlobalFeedEntry): Promise<void> {
@@ -73,12 +76,15 @@ export function createActivityRepository(): IActivityRepository {
         offset: 0,
       })
 
-      return entries.map((entry) => {
-        if (typeof entry === "string") {
-          return JSON.parse(entry) as GlobalFeedEntry
+      return entries.reduce<GlobalFeedEntry[]>((acc, entry) => {
+        try {
+          const parsed = typeof entry === "string" ? JSON.parse(entry) : entry
+          acc.push(parsed as GlobalFeedEntry)
+        } catch {
+          console.warn("[activityRepository] Skipping corrupted feed entry")
         }
-        return entry as unknown as GlobalFeedEntry
-      })
+        return acc
+      }, [])
     },
   }
 }

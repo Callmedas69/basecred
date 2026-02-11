@@ -22,14 +22,14 @@ Complete API reference for AI agent self-registration, reputation checking, and 
   </code>
 </div>
 
-Agent self-registration. No authentication required. Rate limited to 10 requests/hour per IP.
+Agent self-registration. No authentication required. Rate limited: 10 requests/hour per IP, 5 registrations/hour per wallet.
 
 **Request body**
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `agentName` | `string` | Yes | 2-64 chars, alphanumeric and underscores only |
-| `telegramId` | `string` | Yes | Owner's Telegram handle (max 128 chars) |
+| `telegramId` | `string` | Yes | Owner's Telegram handle (1-128 chars, alphanumeric with `@`, `_`, `.`, `-` only) |
 | `ownerAddress` | `string` | Yes | Valid Ethereum address |
 | `webhookUrl` | `string` | No | HTTPS URL for event notifications (max 512 chars) |
 
@@ -66,6 +66,7 @@ The `apiKey` is shown **only once**. Store it securely immediately. The key is i
 |---|---|---|
 | 400 | `REGISTRATION_ERROR` | Invalid `agentName`, `telegramId`, or `ownerAddress` |
 | 409 | `REGISTRATION_ERROR` | Agent name already registered |
+| 413 | `PAYLOAD_TOO_LARGE` | Request body exceeds 100KB limit |
 | 429 | `RATE_LIMITED` | Too many registration attempts |
 
 ---
@@ -136,7 +137,7 @@ With `?include=details` (only returned while `pending_claim`):
   </code>
 </div>
 
-Owner submits a tweet URL containing the verification code. Rate limited: 5 attempts/min per IP and per claimId.
+Owner submits a tweet URL containing the verification code. Rate limited: 20 requests/hour per IP and per claimId.
 
 **Request body**
 
@@ -209,12 +210,17 @@ All webhook payloads follow the same structure:
   "agentName": "my_agent",
   "ownerAddress": "0x1234...abcd",
   "data": {
-    "claimId": "abc123..."
+    "claimId": "abc123...",
+    "apiKeyPrefix": "bc_abc123......wxyz"
   }
 }
 ```
 
 ### Example: `reputation.checked`
+
+The webhook payload shape depends on which endpoint triggered it.
+
+**Via `/api/v1/agent/check-owner`** (multi-context):
 
 ```json
 {
@@ -225,8 +231,25 @@ All webhook payloads follow the same structure:
   "data": {
     "summary": "Your reputation is strong...",
     "results": {
-      "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH" }
+      "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH" },
+      "comment": { "decision": "ALLOW", "confidence": "HIGH" }
     }
+  }
+}
+```
+
+**Via `/api/v1/decide`** (single context):
+
+```json
+{
+  "event": "reputation.checked",
+  "timestamp": 1700000000000,
+  "agentName": "my_agent",
+  "ownerAddress": "0x1234...abcd",
+  "data": {
+    "context": "allowlist.general",
+    "decision": "ALLOW",
+    "confidence": "HIGH"
   }
 }
 ```
@@ -260,7 +283,7 @@ Webhooks are optional. If no `webhookUrl` is provided during registration, no ev
   </code>
 </div>
 
-Checks the agent's owner's reputation across all 5 contexts. Requires API key authentication. No request body needed — the owner's wallet is derived from the API key.
+Checks the agent's owner's reputation across all 5 contexts. Requires API key authentication. No request body needed — the owner's wallet is derived from the API key. Rate limited: 100 requests/minute per API key.
 
 **Headers**
 
@@ -273,6 +296,7 @@ Checks the agent's owner's reputation across all 5 contexts. Requires API key au
 | Parameter | Type | Description |
 |---|---|---|
 | `withProof` | `boolean` | Set to `true` for ZK proofs (adds ~3-4s) |
+| `submitOnChain` | `boolean` | Set to `false` to skip on-chain submission (default: `true` when `withProof=true`) |
 
 ```bash
 # Standard (fast, ~1s)
@@ -347,9 +371,21 @@ curl -X POST "https://www.zkbasecred.xyz/api/v1/agent/check-owner?withProof=true
       "policyHash": "sha256:abc123...",
       "contextId": 1
     }
+  },
+  "onChain": {
+    "submitted": true,
+    "txHash": "0xabc123..."
   }
 }
 ```
+
+The `onChain` field is present when `submitOnChain` is not `false` (the default). Possible shapes:
+
+| Scenario | Value |
+|---|---|
+| Submitted successfully | `{ "submitted": true, "txHash": "0x..." }` |
+| Already on-chain | `{ "submitted": true, "existing": true }` |
+| Submission failed | `{ "submitted": false, "error": "..." }` |
 
 **Response fields**
 
@@ -360,6 +396,7 @@ curl -X POST "https://www.zkbasecred.xyz/api/v1/agent/check-owner?withProof=true
 | `zkEnabled` | `boolean` | Whether ZK proofs were generated |
 | `summary` | `string` | Natural language reputation summary |
 | `results` | `Record<string, ContextResult>` | Per-context results (see below) |
+| `onChain` | `object` | On-chain submission result (present when `submitOnChain` is not `false`) |
 
 **ContextResult fields**
 
@@ -383,7 +420,7 @@ curl -X POST "https://www.zkbasecred.xyz/api/v1/agent/check-owner?withProof=true
 | 429 | `RATE_LIMITED` | Too many requests |
 | 500 | `CHECK_OWNER_ERROR` | Proof repository or internal error |
 | 503 | `CHECK_OWNER_ERROR` | ZK circuit files not available |
-| 504 | `CHECK_OWNER_ERROR` | Request timed out (45s safeguard) |
+| 504 | `CHECK_OWNER_ERROR` | Request timed out (90s limit) |
 
 ---
 
@@ -400,7 +437,7 @@ curl -X POST "https://www.zkbasecred.xyz/api/v1/agent/check-owner?withProof=true
   </code>
 </div>
 
-Public endpoint. Returns the most recent agent reputation check entries. No authentication required.
+Public endpoint. Returns the most recent agent reputation check entries. No authentication required. Rate limited: 60 requests/minute per IP. Responses include `Cache-Control` headers (15s).
 
 ```bash
 curl https://www.zkbasecred.xyz/api/v1/agent/feed
@@ -415,15 +452,20 @@ curl https://www.zkbasecred.xyz/api/v1/agent/feed
       "agentName": "my_agent",
       "ownerAddress": "0x1234...abcd",
       "context": "allowlist.general",
-      "decision": "ALLOW",
-      "confidence": "HIGH",
+      "txHash": "0xabc123...",
       "timestamp": 1700000000000
     }
   ]
 }
 ```
 
-The `ownerAddress` is truncated for privacy (first 6 + last 4 characters).
+| Field | Type | Description |
+|---|---|---|
+| `agentName` | `string` | Agent name |
+| `ownerAddress` | `string` | Truncated owner address (first 6 + last 4 characters) |
+| `context` | `string` | Decision context |
+| `txHash` | `string?` | Transaction hash (present for on-chain submissions, absent for off-chain decisions) |
+| `timestamp` | `number` | Unix timestamp in milliseconds |
 
 ---
 

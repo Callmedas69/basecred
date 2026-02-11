@@ -6,7 +6,7 @@ const CLAIM_ID_REGEX = /^[a-f0-9]{64}$/
 
 /**
  * POST /api/v1/agent/register/[claimId]/verify — Tweet verification (no auth)
- * Rate limited: 5/min per IP + 5/min per claimId (prevents oEmbed amplification)
+ * Rate limited: 20/hour per IP + 20/hour per claimId (prevents oEmbed amplification)
  * Body: { tweetUrl }
  */
 export async function POST(
@@ -15,6 +15,15 @@ export async function POST(
 ) {
   try {
     const { claimId } = await params
+
+    // Reject oversized payloads (100KB limit)
+    const contentLength = Number(req.headers.get("content-length") || "0")
+    if (contentLength > 100_000) {
+      return NextResponse.json(
+        { code: "PAYLOAD_TOO_LARGE", message: "Request body too large" },
+        { status: 413 }
+      )
+    }
 
     if (!CLAIM_ID_REGEX.test(claimId)) {
       return NextResponse.json(
@@ -25,7 +34,7 @@ export async function POST(
 
     // Rate limit by IP to prevent oEmbed amplification abuse
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-    const ipCheck = checkRateLimit(`verify:ip:${ip}`)
+    const ipCheck = await checkRateLimit("verify", `ip:${ip}`)
     if (!ipCheck.allowed) {
       return NextResponse.json(
         { code: "RATE_LIMITED", message: "Too many verification attempts. Please try again later." },
@@ -34,7 +43,7 @@ export async function POST(
     }
 
     // Rate limit per claimId to limit retries on a single registration
-    const claimCheck = checkRateLimit(`verify:claim:${claimId}`)
+    const claimCheck = await checkRateLimit("verify", `claim:${claimId}`)
     if (!claimCheck.allowed) {
       return NextResponse.json(
         { code: "RATE_LIMITED", message: "Too many verification attempts for this claim. Please try again later." },
