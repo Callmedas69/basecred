@@ -1,54 +1,91 @@
 /**
- * In-memory sliding-window rate limiter.
- * 100 requests/minute per API key.
- * Upgradeable to @upstash/ratelimit later.
+ * Redis-backed rate limiter using @upstash/ratelimit.
+ * Distributed, survives restarts, shared across serverless instances.
  */
 
-const WINDOW_MS = 60_000 // 1 minute
-const MAX_REQUESTS = 100
+import { Ratelimit } from "@upstash/ratelimit"
+import { getRedis } from "@/lib/redis"
 
-interface WindowEntry {
-  timestamps: number[]
+// Pre-configured limiters for each endpoint type
+const limiters = {
+  /** /api/v1/decide, /api/v1/agent/check-owner — per API key */
+  apiKey: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(100, "60 s"),
+      prefix: "rl:apikey",
+    }),
+
+  /** /api/v1/agent/register — per IP */
+  registration: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(10, "3600 s"),
+      prefix: "rl:register",
+    }),
+
+  /** /api/v1/agent/register — per wallet (prevents namespace pollution) */
+  registrationWallet: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(5, "3600 s"),
+      prefix: "rl:register-wallet",
+    }),
+
+  /** /api/v1/agent/register/[claimId]/verify — per IP and per claimId */
+  verify: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(20, "3600 s"),
+      prefix: "rl:verify",
+    }),
+
+  /** /api/v1/keys — per wallet */
+  keygen: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(10, "3600 s"),
+      prefix: "rl:keygen",
+    }),
+
+  /** /api/v1/agent/feed — per IP */
+  feed: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(60, "60 s"),
+      prefix: "rl:feed",
+    }),
+} as const
+
+export type RateLimiterType = keyof typeof limiters
+
+// Cache instances so we don't recreate on every request
+const instances = new Map<RateLimiterType, Ratelimit>()
+
+function getLimiter(type: RateLimiterType): Ratelimit {
+  let instance = instances.get(type)
+  if (!instance) {
+    instance = limiters[type]()
+    instances.set(type, instance)
+  }
+  return instance
 }
 
-const windows = new Map<string, WindowEntry>()
+/**
+ * Check rate limit for a given type and identifier.
+ * Returns { allowed, retryAfter } matching the old API shape for easy migration.
+ */
+export async function checkRateLimit(
+  type: RateLimiterType,
+  identifier: string
+): Promise<{ allowed: boolean; retryAfter?: number }> {
+  const limiter = getLimiter(type)
+  const result = await limiter.limit(identifier)
 
-// Periodic cleanup of stale entries (every 5 minutes)
-let cleanupScheduled = false
-function scheduleCleanup() {
-  if (cleanupScheduled) return
-  cleanupScheduled = true
-  setInterval(() => {
-    const now = Date.now()
-    for (const [key, entry] of windows) {
-      entry.timestamps = entry.timestamps.filter((t) => now - t < WINDOW_MS)
-      if (entry.timestamps.length === 0) {
-        windows.delete(key)
-      }
-    }
-  }, 5 * 60_000)
-}
-
-export function checkRateLimit(apiKeyId: string): { allowed: boolean; retryAfter?: number } {
-  scheduleCleanup()
-
-  const now = Date.now()
-  let entry = windows.get(apiKeyId)
-
-  if (!entry) {
-    entry = { timestamps: [] }
-    windows.set(apiKeyId, entry)
+  if (result.success) {
+    return { allowed: true }
   }
 
-  // Remove timestamps outside the window
-  entry.timestamps = entry.timestamps.filter((t) => now - t < WINDOW_MS)
-
-  if (entry.timestamps.length >= MAX_REQUESTS) {
-    const oldestInWindow = entry.timestamps[0]
-    const retryAfter = Math.ceil((oldestInWindow + WINDOW_MS - now) / 1000)
-    return { allowed: false, retryAfter }
-  }
-
-  entry.timestamps.push(now)
-  return { allowed: true }
+  const retryAfter = Math.max(1, Math.ceil((result.reset - Date.now()) / 1000))
+  return { allowed: false, retryAfter }
 }

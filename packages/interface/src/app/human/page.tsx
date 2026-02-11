@@ -25,6 +25,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHAIN_CONFIG } from "@/lib/blockchainConfig";
 import {
   contextToBytes32,
   policyHashToBytes32,
@@ -665,7 +666,7 @@ export default function HumanPage() {
                             </span>
                           </div>
                           <a
-                            href={`https://sepolia.basescan.org/tx/${submitResults.get(selectedContext)?.txHash}`}
+                            href={CHAIN_CONFIG.txUrl(submitResults.get(selectedContext)?.txHash ?? "")}
                             target="_blank"
                             rel="noreferrer"
                             className="text-xs text-teal-600 hover:text-teal-500 underline font-mono break-all"

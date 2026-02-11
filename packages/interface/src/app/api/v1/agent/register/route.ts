@@ -8,18 +8,38 @@ import { checkRateLimit } from "@/lib/rateLimit"
  */
 export async function POST(req: NextRequest) {
   try {
+    // Reject oversized payloads (100KB limit)
+    const contentLength = Number(req.headers.get("content-length") || "0")
+    if (contentLength > 100_000) {
+      return NextResponse.json(
+        { code: "PAYLOAD_TOO_LARGE", message: "Request body too large" },
+        { status: 413 }
+      )
+    }
+
     // Rate limit by IP
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-    const rateCheck = checkRateLimit(`register:ip:${ip}`)
-    if (!rateCheck.allowed) {
+    const ipCheck = await checkRateLimit("registration", ip)
+    if (!ipCheck.allowed) {
       return NextResponse.json(
         { code: "RATE_LIMITED", message: "Too many registration attempts. Please try again later." },
-        { status: 429, headers: { "Retry-After": String(rateCheck.retryAfter ?? 60) } }
+        { status: 429, headers: { "Retry-After": String(ipCheck.retryAfter ?? 60) } }
       )
     }
 
     const body = await req.json()
     const { agentName, telegramId, ownerAddress, webhookUrl } = body
+
+    // Rate limit per wallet to prevent namespace pollution
+    if (ownerAddress && typeof ownerAddress === "string") {
+      const walletCheck = await checkRateLimit("registrationWallet", ownerAddress.toLowerCase())
+      if (!walletCheck.allowed) {
+        return NextResponse.json(
+          { code: "RATE_LIMITED", message: "Too many registrations for this wallet. Please try again later." },
+          { status: 429, headers: { "Retry-After": String(walletCheck.retryAfter ?? 60) } }
+        )
+      }
+    }
 
     const result = await registerAgent({ agentName, telegramId, ownerAddress, webhookUrl })
 

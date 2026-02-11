@@ -3,6 +3,8 @@ import { z } from "zod"
 import { VALID_CONTEXTS, type DecisionContext, type Decision } from "basecred-decision-engine"
 import { createDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
 import { submitDecisionOnChain } from "@/use-cases/submit-decision-onchain"
+import { requireRelayerPrivateKey } from "@/lib/serverConfig"
+import { toAppError } from "@/lib/errors"
 
 // =============================================================================
 // Request Validation Schema
@@ -50,14 +52,7 @@ export type SubmitRequest = z.infer<typeof submitRequestSchema>
 
 export async function POST(req: NextRequest) {
     try {
-        // Validate relayer key is configured
-        const relayerPrivateKey = process.env.RELAYER_PRIVATE_KEY
-        if (!relayerPrivateKey) {
-            return NextResponse.json(
-                { code: "CONFIG_ERROR", message: "Relayer not configured" },
-                { status: 503 }
-            )
-        }
+        const relayerPrivateKey = requireRelayerPrivateKey()
 
         // Parse and validate request body
         const body = await req.json()
@@ -101,24 +96,13 @@ export async function POST(req: NextRequest) {
             contextBytes32: result.contextBytes32,
             policyHashBytes32: result.policyHashBytes32,
         })
-    } catch (error: any) {
-        const message = error?.message || "Unknown error"
-        const status = resolveStatus(message)
-
-        console.error("Submit error:", message)
+    } catch (error: unknown) {
+        const appError = toAppError(error)
+        console.error("Submit error:", appError.message)
 
         return NextResponse.json(
-            { code: "SUBMIT_ERROR", message },
-            { status }
+            { code: appError.code, message: appError.message },
+            { status: appError.status }
         )
     }
-}
-
-function resolveStatus(message: string): number {
-    if (message.includes("mismatch")) return 400
-    if (message.includes("Invalid")) return 400
-    if (message.includes("not configured")) return 503
-    if (message.includes("not initialized")) return 503
-    if (message.includes("revert")) return 422
-    return 500
 }

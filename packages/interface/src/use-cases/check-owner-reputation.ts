@@ -23,17 +23,19 @@ import {
   type DecisionContext,
   type Decision,
 } from "basecred-decision-engine"
-import { getUnifiedProfile, type SDKConfig } from "basecred-sdk"
-import { createApiKeyRepository } from "@/repositories/apiKeyRepository"
-import { createActivityRepository } from "@/repositories/activityRepository"
-import { createAgentRegistrationRepository } from "@/repositories/agentRegistrationRepository"
-import type { IProofRepository } from "@/repositories/proofRepository"
+import { getUnifiedProfile } from "basecred-sdk"
+import { createApiKeyRepository, type IApiKeyRepository } from "@/repositories/apiKeyRepository"
+import { createActivityRepository, type IActivityRepository } from "@/repositories/activityRepository"
+import { createAgentRegistrationRepository, type IAgentRegistrationRepository } from "@/repositories/agentRegistrationRepository"
+import { createProofRepository, type IProofRepository } from "@/repositories/proofRepository"
 import type { IDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
 import { createDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
 import { submitDecisionOnChain } from "@/use-cases/submit-decision-onchain"
 import type { ActivityEntry } from "@/types/apiKeys"
 import type { GlobalFeedEntry } from "@/types/agentRegistration"
 import { sendWebhook } from "@/lib/webhook"
+import { getSDKConfig, getRelayerPrivateKey } from "@/lib/serverConfig"
+import { truncateAddress } from "@/lib/utils"
 
 export class CheckOwnerReputationError extends Error {
   status: number
@@ -76,6 +78,9 @@ interface CheckOwnerReputationOptions {
 }
 
 interface CheckOwnerReputationDeps {
+  apiKeyRepository?: IApiKeyRepository
+  agentRegistrationRepository?: IAgentRegistrationRepository
+  activityRepository?: IActivityRepository
   proofRepository?: IProofRepository
   decisionRegistryRepository?: IDecisionRegistryRepository
 }
@@ -86,9 +91,13 @@ export async function checkOwnerReputation(
   deps?: CheckOwnerReputationDeps,
 ): Promise<CheckOwnerReputationOutput> {
   const withProof = options?.withProof ?? false
+  const submitOnChain = options?.submitOnChain ?? withProof
+
+  // Resolve dependencies — injected or created inline
+  const keyRepo = deps?.apiKeyRepository ?? createApiKeyRepository()
+  const regRepo = deps?.agentRegistrationRepository ?? createAgentRegistrationRepository()
 
   // 1. Look up API key to get walletAddress
-  const keyRepo = createApiKeyRepository()
   const keyRecord = await keyRepo.validateKey(apiKeyHash)
   if (!keyRecord) {
     throw new CheckOwnerReputationError("API key not found", 401)
@@ -97,39 +106,29 @@ export async function checkOwnerReputation(
   const ownerAddress = keyRecord.walletAddress
 
   // 2. Find the agent registration linked to this key
-  const regRepo = createAgentRegistrationRepository()
   const registrations = await regRepo.listByOwner(ownerAddress)
   const registration = registrations.find(
     (r) => r.apiKeyHash === apiKeyHash && r.status === "verified"
   )
   const agentName = registration?.agentName || keyRecord.label || "unknown"
 
-  // 3. If ZK proofs requested, validate dependencies and circuit availability
+  // 3. If ZK proofs requested, resolve proof repository and validate circuit availability
+  const proofRepo = withProof
+    ? (deps?.proofRepository ?? createProofRepository())
+    : undefined
+
   if (withProof) {
-    if (!deps?.proofRepository) {
+    if (!proofRepo) {
       throw new CheckOwnerReputationError("Proof repository not available", 500)
     }
-    const circuitsReady = await deps.proofRepository.areCircuitFilesAvailable()
+    const circuitsReady = await proofRepo.areCircuitFilesAvailable()
     if (!circuitsReady) {
       throw new CheckOwnerReputationError("ZK circuit files are not available", 503)
     }
   }
 
-  // 4. Fetch owner profile once
-  const config: SDKConfig = {
-    ethos: {
-      baseUrl: process.env.ETHOS_BASE_URL || "https://api.ethos.network",
-      clientId: process.env.ETHOS_CLIENT_ID || "",
-    },
-    talent: {
-      baseUrl: process.env.TALENT_BASE_URL || "https://api.talentprotocol.com",
-      apiKey: process.env.TALENT_API_KEY || "",
-    },
-    farcaster: {
-      enabled: true,
-      neynarApiKey: process.env.NEYNAR_API_KEY || "",
-    },
-  }
+  // 4. Fetch owner profile once (config validated at startup via serverConfig)
+  const config = getSDKConfig()
 
   const rawProfile = await getUnifiedProfile(ownerAddress, config)
   const profileData = {
@@ -148,7 +147,7 @@ export async function checkOwnerReputation(
   if (withProof) {
     results = await buildResultsWithProof(
       signals,
-      deps!.proofRepository!,
+      proofRepo!,
     )
   } else {
     results = await buildResultsWithDecisionEngine(
@@ -158,9 +157,8 @@ export async function checkOwnerReputation(
   }
 
   // 6b. Submit proofs on-chain (sequential to avoid nonce collisions)
-  const submitOnChain = options?.submitOnChain ?? withProof
   if (withProof && submitOnChain) {
-    const relayerKey = process.env.RELAYER_PRIVATE_KEY
+    const relayerKey = getRelayerPrivateKey()
     if (relayerKey) {
       const registryRepo = deps?.decisionRegistryRepository
         ?? createDecisionRegistryRepository(relayerKey)
@@ -203,12 +201,13 @@ export async function checkOwnerReputation(
   // 7. Build natural language summary
   const summary = buildReputationSummary(signals, results)
 
-  // 8. Log activity + push to global feed (fire-and-forget)
-  logActivitiesAndFeed(apiKeyHash, ownerAddress, agentName, keyRecord.keyPrefix, results).catch(
-    (err) => console.error("Activity/feed logging failed:", err)
+  // 8. Log activity + push to global feed (best-effort, non-blocking)
+  const activityRepo = deps?.activityRepository ?? createActivityRepository()
+  logActivitiesAndFeed(activityRepo, ownerAddress, agentName, keyRecord.keyPrefix, results).catch(
+    (err) => console.error("[check-owner-reputation] Activity/feed logging failed:", err)
   )
 
-  // 9. Fire webhook if registration has a webhookUrl (fire-and-forget)
+  // 9. Fire webhook if registration has a webhookUrl (best-effort, non-blocking)
   if (registration?.webhookUrl) {
     sendWebhook(registration.webhookUrl, {
       event: "reputation.checked",
@@ -224,12 +223,12 @@ export async function checkOwnerReputation(
           ])
         ),
       },
-    }).catch((err) => console.error("Webhook delivery failed:", err))
+    }).catch((err) => console.error("[check-owner-reputation] Webhook delivery failed:", err))
   }
 
-  // Record usage
+  // Record usage (best-effort, non-blocking)
   keyRepo.recordUsage(apiKeyHash).catch((err) =>
-    console.error("Usage recording failed:", err)
+    console.error("[check-owner-reputation] Usage recording failed:", err)
   )
 
   return { ownerAddress, agentName, zkEnabled: withProof, summary, results }
@@ -314,13 +313,12 @@ async function buildResultsWithProof(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function logActivitiesAndFeed(
-  apiKeyHash: string,
+  activityRepo: IActivityRepository,
   ownerAddress: string,
   agentName: string,
   keyPrefix: string,
   results: Record<string, ContextResult>
 ): Promise<void> {
-  const activityRepo = createActivityRepository()
   const now = Date.now()
 
   const promises: Promise<void>[] = []
@@ -340,10 +338,9 @@ async function logActivitiesAndFeed(
     // Global feed per context (via repository, not direct Redis)
     const feedEntry: GlobalFeedEntry = {
       agentName,
-      ownerAddress: ownerAddress.slice(0, 6) + "..." + ownerAddress.slice(-4),
+      ownerAddress: truncateAddress(ownerAddress),
       context,
-      decision: result.decision,
-      confidence: result.confidence,
+      txHash: result.onChain?.txHash,
       timestamp: now,
     }
     promises.push(activityRepo.logGlobalFeedEntry(feedEntry))

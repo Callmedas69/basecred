@@ -11,54 +11,38 @@ async function sha256Hex(input: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
 }
 
-/**
- * Parse a URL safely, returning null on malformed input.
- */
-function safeParseHost(url: string): string | null {
-  try {
-    return new URL(url).host
-  } catch {
-    return null
-  }
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
 }
 
 /**
- * API key auth middleware for /api/v1/decide and /api/v1/decide-with-proof.
+ * API key auth middleware for /api/v1/decide and /api/v1/agent/check-owner.
  *
  * - If x-api-key header is present: validate against Upstash Redis, forward key metadata
- * - If no x-api-key and request is from a browser same-origin context: allow (frontend calls)
+ * - If Sec-Fetch-Site is "same-origin" or "none": allow (browser same-origin request)
  * - Otherwise: reject with 401
  *
- * Same-origin detection uses Sec-Fetch-Site (unforgeable browser header) as the primary
- * signal, with Origin/Referer as fallback for browsers that don't send Sec-Fetch-Site.
+ * Only trusts Sec-Fetch-Site (unforgeable browser header). No Origin/Referer fallback —
+ * those are trivially spoofable by non-browser clients.
  */
 export async function middleware(req: NextRequest) {
   const apiKey = req.headers.get("x-api-key")
 
   if (!apiKey) {
-    // Check Sec-Fetch-Site first (set by browsers, cannot be forged by scripts)
+    // Only trust Sec-Fetch-Site — unforgeable in browsers, absent in non-browser clients
     const secFetchSite = req.headers.get("sec-fetch-site")
 
     if (secFetchSite === "same-origin" || secFetchSite === "none") {
-      return NextResponse.next()
-    }
-
-    // Fallback: check Origin/Referer for browsers without Sec-Fetch-Site support
-    if (!secFetchSite) {
-      const host = req.headers.get("host") || ""
-      const origin = req.headers.get("origin")
-      const referer = req.headers.get("referer")
-      const originHost = origin ? safeParseHost(origin) : null
-      const refererHost = referer ? safeParseHost(referer) : null
-
-      if ((originHost && originHost === host) || (refererHost && refererHost === host)) {
-        return NextResponse.next()
-      }
+      const res = NextResponse.next()
+      for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v)
+      return res
     }
 
     return NextResponse.json(
       { code: "UNAUTHORIZED", message: "Invalid or missing API key" },
-      { status: 401 }
+      { status: 401, headers: SECURITY_HEADERS }
     )
   }
 
@@ -71,7 +55,7 @@ export async function middleware(req: NextRequest) {
       console.error("UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not configured")
       return NextResponse.json(
         { code: "SERVICE_UNAVAILABLE", message: "API key validation unavailable" },
-        { status: 503 }
+        { status: 503, headers: SECURITY_HEADERS }
       )
     }
 
@@ -86,7 +70,7 @@ export async function middleware(req: NextRequest) {
       console.error("Redis lookup failed:", response.status)
       return NextResponse.json(
         { code: "SERVICE_UNAVAILABLE", message: "API key validation unavailable" },
-        { status: 503 }
+        { status: 503, headers: SECURITY_HEADERS }
       )
     }
 
@@ -95,7 +79,7 @@ export async function middleware(req: NextRequest) {
     if (!data.result) {
       return NextResponse.json(
         { code: "UNAUTHORIZED", message: "Invalid or missing API key" },
-        { status: 401 }
+        { status: 401, headers: SECURITY_HEADERS }
       )
     }
 
@@ -103,14 +87,16 @@ export async function middleware(req: NextRequest) {
     const requestHeaders = new Headers(req.headers)
     requestHeaders.set("x-basecred-key-id", keyHash)
 
-    return NextResponse.next({
+    const res = NextResponse.next({
       request: { headers: requestHeaders },
     })
+    for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v)
+    return res
   } catch (error) {
     console.error("Middleware API key validation error:", error)
     return NextResponse.json(
       { code: "SERVICE_UNAVAILABLE", message: "API key validation unavailable" },
-      { status: 503 }
+      { status: 503, headers: SECURITY_HEADERS }
     )
   }
 }

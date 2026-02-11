@@ -18,6 +18,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@rainbow-me/rainbowkit": "^2.2.10",
     "@tanstack/react-query": "^5.90.20",
+    "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.2",
     "basecred-decision-engine": "workspace:*",
     "basecred-sdk": "^0.6.0",

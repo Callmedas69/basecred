@@ -18,7 +18,6 @@ export interface GlobalFeedEntry {
   agentName: string
   ownerAddress: string
   context: string
-  decision: string
-  confidence: string
+  txHash?: string
   timestamp: number
 }

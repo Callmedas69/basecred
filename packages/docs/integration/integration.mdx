@@ -24,7 +24,7 @@ The easiest way to consume BaseCred signals is via the REST API. All endpoints a
 Returns the list of available decision contexts.
 
 ```bash
-curl https://basecred.com/api/v1/contexts
+curl https://www.zkbasecred.xyz/api/v1/contexts
 ```
 
 **200 OK**
@@ -52,10 +52,10 @@ curl https://basecred.com/api/v1/contexts
   </code>
 </div>
 
-Evaluates a subject's reputation for a given context and returns a decision with explanation.
+Evaluates a subject's reputation for a given context and returns a decision with explanation. Rate limited: 100 requests/minute per API key (when using `x-api-key` header).
 
 ```bash
-curl -X POST https://basecred.com/api/v1/decide \
+curl -X POST https://www.zkbasecred.xyz/api/v1/decide \
   -H "Content-Type: application/json" \
   -d '{"subject": "0xYourAddress", "context": "allowlist.general"}'
 ```
@@ -130,6 +130,8 @@ The response also includes the `x-policy-hash` header when a policy is found.
 | Status | Code | Description |
 |---|---|---|
 | 400 | `INVALID_REQUEST` | Missing or invalid `subject` / `context` |
+| 413 | `PAYLOAD_TOO_LARGE` | Request body exceeds 100KB |
+| 429 | `RATE_LIMITED` | Too many requests per API key |
 | 500 | `INTERNAL_ERROR` | Server error |
 
 ### Endpoint: Decide with ZK Proof
@@ -146,7 +148,7 @@ The response also includes the `x-policy-hash` header when a policy is found.
 Evaluates a subject and generates a Groth16 ZK proof alongside the decision. The proof can be verified on-chain without revealing the raw reputation scores.
 
 ```bash
-curl -X POST https://basecred.com/api/v1/decide-with-proof \
+curl -X POST https://www.zkbasecred.xyz/api/v1/decide-with-proof \
   -H "Content-Type: application/json" \
   -d '{"subject": "0xYourAddress", "context": "allowlist.general"}'
 ```
@@ -245,7 +247,7 @@ interface DecisionResponse {
 }
 
 const checkReputation = async (address: string): Promise<DecisionResponse> => {
-  const response = await fetch("https://basecred.com/api/v1/decide", {
+  const response = await fetch("https://www.zkbasecred.xyz/api/v1/decide", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -275,7 +277,7 @@ import requests
 
 def check_reputation(address: str) -> dict:
     response = requests.post(
-        "https://basecred.com/api/v1/decide",
+        "https://www.zkbasecred.xyz/api/v1/decide",
         json={"subject": address, "context": "allowlist.general"},
     )
     response.raise_for_status()

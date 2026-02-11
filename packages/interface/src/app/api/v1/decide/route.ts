@@ -10,16 +10,27 @@ import { getUnifiedProfile } from "basecred-sdk";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { createActivityRepository } from "@/repositories/activityRepository";
 import { sendWebhook } from "@/lib/webhook";
+import { getSDKConfig } from "@/lib/serverConfig";
+import { truncateAddress } from "@/lib/utils";
 import type { ActivityEntry } from "@/types/apiKeys";
 
 const policyRepository = new InMemoryPolicyRepository();
 
 export async function POST(req: NextRequest) {
     try {
+        // Reject oversized payloads (100KB limit)
+        const contentLength = Number(req.headers.get("content-length") || "0");
+        if (contentLength > 100_000) {
+            return NextResponse.json(
+                { code: "PAYLOAD_TOO_LARGE", message: "Request body too large" },
+                { status: 413 }
+            );
+        }
+
         // Rate limit check for API key requests
         const apiKeyId = req.headers.get("x-basecred-key-id");
         if (apiKeyId) {
-            const rateCheck = checkRateLimit(apiKeyId);
+            const rateCheck = await checkRateLimit("apiKey", apiKeyId);
             if (!rateCheck.allowed) {
                 return NextResponse.json(
                     { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
@@ -48,12 +59,7 @@ export async function POST(req: NextRequest) {
         let capturedProfile: any = null;
 
         const profileFetcher = async (sub: string) => {
-             const config = {
-                 ethos: { baseUrl: process.env.ETHOS_BASE_URL || "https://api.ethos.network", clientId: process.env.ETHOS_CLIENT_ID || "" },
-                 talent: { baseUrl: process.env.TALENT_BASE_URL || "https://api.talentprotocol.com", apiKey: process.env.TALENT_API_KEY || "" },
-                 farcaster: { enabled: true, neynarApiKey: process.env.NEYNAR_API_KEY || "" }
-            };
-            const raw = await getUnifiedProfile(sub, config);
+            const raw = await getUnifiedProfile(sub, getSDKConfig());
             
             // Adapter: Pass SDK objects directly (Engine natively supports SDK structure)
             const profileData = {
@@ -106,19 +112,17 @@ export async function POST(req: NextRequest) {
                 confidence: decision.confidence ?? "MEDIUM",
             };
 
-            // Fire-and-forget: log activity, record usage, and push to global feed
+            // Best-effort, non-blocking: log activity, record usage, and push to global feed
             Promise.all([
                 activityRepo.logActivity(entry),
                 keyRepo.recordUsage(apiKeyId),
                 activityRepo.logGlobalFeedEntry({
                     agentName: keyRecord?.label ?? "unknown",
-                    ownerAddress: subject.slice(0, 6) + "..." + subject.slice(-4),
+                    ownerAddress: truncateAddress(subject),
                     context,
-                    decision: decision.decision,
-                    confidence: decision.confidence ?? "MEDIUM",
                     timestamp: Date.now(),
                 }),
-            ]).catch((err) => console.error("Activity logging failed:", err));
+            ]).catch((err) => console.error("[decide] Activity logging failed:", err));
 
             // Fire webhook if registration has a webhookUrl (fire-and-forget)
             if (keyRecord) {
@@ -144,7 +148,7 @@ export async function POST(req: NextRequest) {
                             },
                         });
                     }
-                })().catch((err) => console.error("Webhook delivery failed:", err));
+                })().catch((err) => console.error("[decide] Webhook delivery failed:", err));
             }
         }
 
