@@ -1,0 +1,34 @@
+{
+  "name": "@basecred/openclaw-8004",
+  "version": "1.0.0",
+  "description": "OpenClaw skill for registering and managing AI agent identities on-chain via ERC-8004",
+  "license": "MIT",
+  "keywords": [
+    "erc-8004",
+    "openclaw",
+    "agent",
+    "identity",
+    "base",
+    "on-chain",
+    "erc-721",
+    "reputation",
+    "basecred"
+  ],
+  "author": "BaseCred",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Callmedas69/basecred.git",
+    "directory": "packages/erc8004"
+  },
+  "files": [
+    "SKILL.md",
+    "README.md"
+  ],
+  "dependencies": {
+    "agent0-sdk": "^1.5.3",
+    "dotenv": "^16.4.7"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

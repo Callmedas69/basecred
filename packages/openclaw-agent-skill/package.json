@@ -1,0 +1,32 @@
+{
+  "name": "@basecred/openclaw-agent-skill",
+  "version": "0.2.0",
+  "description": "OpenClaw skill for checking human reputation via zkBaseCred",
+  "license": "MIT",
+  "author": "BaseCred",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Callmedas69/basecred.git",
+    "directory": "packages/openclaw-agent-skill"
+  },
+  "files": [
+    "SKILL.md",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://www.zkbasecred.xyz",
+  "keywords": [
+    "openclaw",
+    "agent",
+    "skill",
+    "reputation",
+    "basecred",
+    "zkbasecred",
+    "ethos",
+    "farcaster",
+    "talent-protocol",
+    "neynar"
+  ]
+}
