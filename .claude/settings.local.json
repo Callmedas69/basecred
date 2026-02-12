@@ -66,7 +66,9 @@
       "Bash(python:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:eips.ethereum.org)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "WebFetch(domain:base-sepolia.basescan.org)",
+      "WebFetch(domain:sepolia.basescan.org)"
     ]
   },
   "enableAllProjectMcpServers": true,

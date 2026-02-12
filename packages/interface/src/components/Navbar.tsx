@@ -106,6 +106,7 @@ const NAV_LINKS: {
 }[] = [
   { href: "/human", label: "human", match: (p) => p === "/human" },
   { href: "/agent", label: "agent", match: (p) => p === "/agent" },
+  { href: "/stats", label: "stats", match: (p) => p === "/stats" },
   {
     href: "http://docs.zkbasecred.xyz",
     label: "docs",
