@@ -1,881 +1,906 @@
 ---
-name: openclaw-8004
-version: 1.0.0
-description: Register, manage, and build reputation for your AI agent on-chain via ERC-8004
-metadata:
-  emoji: "\U0001F916"
-  category: "identity"
-  chain: "base"
-  chainId: 8453
-  contracts:
-    identity_registry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
-    reputation_registry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63"
+name: "OpenClaw ERC-8004"
+version: "2.0.0"
+description: "Register and manage AI agent identities, reputation, and validation on-chain via ERC-8004"
+chain: "Base (Chain ID: 8453)"
+contracts:
+  IdentityRegistry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+  ReputationRegistry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63"
+  ValidationRegistry: "Not yet deployed on Base mainnet"
+standard: "ERC-8004 (ERC-721 based)"
+storage: "Fully on-chain (base64 data URI)"
+dependencies: "None — library-agnostic, ABI-level"
 ---
 
-# OpenClaw ERC-8004 Agent Registration
+# ERC-8004 Agent Identity Skill
 
-Register your AI agent on-chain as an ERC-721 identity on Base mainnet. Advertise capabilities, receive feedback, and build reputation — all permissionless, no intermediaries.
+## 1. Overview
 
-> **HTTP registration only.** This skill covers on-chain registration via HTTP URIs (`agent.registerHTTP()`). IPFS registration is **not** covered.
+ERC-8004 is an on-chain standard for AI agent identity, reputation, and validation built on ERC-721. Each registered agent receives a non-fungible token representing its on-chain identity. The standard defines three registries:
 
-| File | Description |
-|---|---|
-| **SKILL.md** (this file) | Full agent instructions |
-| **README.md** | Quick-start guide |
-| **IDENTITY.md** | Agent profile card (created after registration) |
+- **IdentityRegistry** — Register agents, store metadata, manage ownership (ERC-721 NFT)
+- **ReputationRegistry** — Give, revoke, and query feedback for agents
+- **ValidationRegistry** — Request and respond to third-party validation of agents
 
-## When to Use This Skill
+This skill covers **fully on-chain** registration and management. All agent metadata is stored directly on-chain as base64-encoded data URIs — no external URLs, no IPFS, no HTTP endpoints required. The skill is **library-agnostic**: all instructions are at the ABI level. Use any web3 library (ethers.js, viem, wagmi, web3.js, etc.) to execute these calls.
 
-Use this skill whenever you need to:
-- Register yourself as an on-chain agent identity
-- Advertise your MCP tools, A2A skills, or other capabilities
-- Receive or give feedback to other agents
-- Check your reputation score
-- Update your agent profile (name, description, endpoints)
-- Transfer ownership of your agent identity to a new wallet
+**This skill does NOT cover:**
+
+- Off-chain metadata storage (IPFS, HTTP URLs)
+- SDK wrappers (agent0-sdk or similar)
+- Contract deployment or upgrades
+- UUPS proxy administration
 
 ---
 
-## Prerequisites
+## 2. Quick Reference
 
-- **Node.js** >= 22
-- **agent0-sdk** `^1.5.3` (`npm install agent0-sdk`)
-- A **private key** with ETH on Base mainnet (for gas)
-- A **Base RPC URL** (default: `https://mainnet.base.org`)
+| Operation               | Contract           | Function                                           | Gas? |
+| ----------------------- | ------------------ | -------------------------------------------------- | ---- |
+| Register agent          | IdentityRegistry   | `register(string)`                                 | Yes  |
+| Register with metadata  | IdentityRegistry   | `register(string, MetadataEntry[])`                | Yes  |
+| Update profile          | IdentityRegistry   | `setAgentURI(uint256, string)`                     | Yes  |
+| Set metadata key        | IdentityRegistry   | `setMetadata(uint256, string, bytes)`              | Yes  |
+| Read metadata key       | IdentityRegistry   | `getMetadata(uint256, string)`                     | No   |
+| Read full profile       | IdentityRegistry   | `tokenURI(uint256)`                                | No   |
+| Set agent wallet        | IdentityRegistry   | `setAgentWallet(uint256, address, uint256, bytes)` | Yes  |
+| Get agent wallet        | IdentityRegistry   | `getAgentWallet(uint256)`                          | No   |
+| Unset agent wallet      | IdentityRegistry   | `unsetAgentWallet(uint256)`                        | Yes  |
+| Transfer ownership      | IdentityRegistry   | `transferFrom(address, address, uint256)`          | Yes  |
+| Give feedback           | ReputationRegistry | `giveFeedback(...)`                                | Yes  |
+| Revoke feedback         | ReputationRegistry | `revokeFeedback(uint256, uint64)`                  | Yes  |
+| Respond to feedback     | ReputationRegistry | `appendResponse(...)`                              | Yes  |
+| Read feedback summary   | ReputationRegistry | `getSummary(...)`                                  | No   |
+| Read all feedback       | ReputationRegistry | `readAllFeedback(...)`                             | No   |
+| Request validation      | ValidationRegistry | `validationRequest(...)`                           | Yes  |
+| Respond to validation   | ValidationRegistry | `validationResponse(...)`                          | Yes  |
+| Check validation status | ValidationRegistry | `getValidationStatus(bytes32)`                     | No   |
 
 ---
 
-## Start Here (Decision Tree)
+## 3. Contract Interfaces
 
-Run this decision tree every time this skill is invoked:
+> All three contracts are UUPS upgradeable proxies. Only agent-facing functions are documented here. Infrastructure methods (`upgradeToAndCall`, `proxiableUUID`, `getVersion`, `initialize`, ownership) are omitted.
+
+### 3.1 IdentityRegistry
+
+**Address:** `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` (Base mainnet)
+
+**Struct:**
 
 ```
-1. Load environment from .env file (+ process.env overrides)
-
-2. If .env does not exist OR WALLET_PRIVATE_KEY is missing:
-   → Run "First-Time Setup"
-
-3. If WALLET_PRIVATE_KEY is present:
-   a. If AGENT0_AGENT_ID is missing:
-      → Run "Register Agent"
-   b. If AGENT0_AGENT_ID is present:
-      → Agent is registered. Ask the owner what they want to do.
+struct MetadataEntry {
+    string metadataKey;
+    bytes metadataValue;
+}
 ```
 
-### Ask the Owner (Action Menu)
+**Functions:**
 
-When the agent is already registered, **always present this menu** to the owner:
+```
+register() → uint256
+register(string agentURI) → uint256
+register(string agentURI, MetadataEntry[] metadata) → uint256
+setAgentURI(uint256 agentId, string newURI)
+setMetadata(uint256 agentId, string metadataKey, bytes metadataValue)
+getMetadata(uint256 agentId, string metadataKey) → bytes
+setAgentWallet(uint256 agentId, address newWallet, uint256 deadline, bytes signature)
+getAgentWallet(uint256 agentId) → address
+unsetAgentWallet(uint256 agentId)
+tokenURI(uint256 tokenId) → string
+```
 
-> Your agent **{agent_name}** (ID: {agent_id}) is registered on Base.
->
-> What would you like to do?
->
-> 1. **Update Agent** — modify name, description, endpoints, skills, or metadata
-> 2. **Give Feedback** — rate another agent on-chain
-> 3. **Search Feedback** — check reputation for any agent
-> 4. **Transfer Ownership** — move your agent identity to a new wallet
-> 5. **View Profile** — show your current IDENTITY.md
->
-> Pick a number, or describe what you need.
+**Events:**
 
-**Wait for the owner's choice before proceeding.** Do not assume an action.
+```
+Registered(uint256 indexed agentId, string agentURI, address indexed owner)
+URIUpdated(uint256 indexed agentId, string newURI, address indexed updatedBy)
+MetadataSet(uint256 indexed agentId, string indexed indexedMetadataKey, string metadataKey, bytes metadataValue)
+```
+
+**Notes:**
+
+- `register()` returns the new `agentId` (auto-incrementing uint256).
+- `tokenURI()` returns the `agentURI` set during registration or via `setAgentURI()`.
+- `setMetadata()` value parameter is `bytes`, not `string` — encode strings to bytes before calling.
+- Only the token owner can call `setAgentURI`, `setMetadata`, `setAgentWallet`, `unsetAgentWallet`.
+- `agentWallet` is a reserved metadata key with special handling:
+  - Set automatically to the owner's address on registration.
+  - Can only be updated via `setAgentWallet()` with an EIP-712 / ERC-1271 signature proving control of the new wallet.
+  - Cleared on transfer — the new owner must re-verify by calling `setAgentWallet()`.
+
+### 3.2 ReputationRegistry
+
+**Address:** `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` (Base mainnet)
+
+**Functions:**
+
+```
+giveFeedback(uint256 agentId, int128 value, uint8 valueDecimals, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)
+revokeFeedback(uint256 agentId, uint64 feedbackIndex)
+appendResponse(uint256 agentId, address clientAddress, uint64 feedbackIndex, string responseURI, bytes32 responseHash)
+getSummary(uint256 agentId, address[] clientAddresses, string tag1, string tag2) → (uint64 count, int128 summaryValue, uint8 summaryValueDecimals)
+readFeedback(uint256 agentId, address clientAddress, uint64 feedbackIndex) → (int128 value, uint8 valueDecimals, string tag1, string tag2, bool isRevoked)
+readAllFeedback(uint256 agentId, address[] clientAddresses, string tag1, string tag2, bool includeRevoked) → (address[], uint64[], int128[], uint8[], string[], string[], bool[])
+getClients(uint256 agentId) → address[]
+getLastIndex(uint256 agentId, address clientAddress) → uint64
+getResponseCount(uint256 agentId, address[] responders, uint64 feedbackIndex, address[] responders) → uint64
+getIdentityRegistry() → address
+```
+
+**Events:**
+
+```
+NewFeedback(uint256 indexed agentId, address indexed clientAddress, uint64 feedbackIndex, int128 value, uint8 valueDecimals, string indexed indexedTag1, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)
+FeedbackRevoked(uint256 indexed agentId, address indexed clientAddress, uint64 indexed feedbackIndex)
+ResponseAppended(uint256 indexed agentId, address indexed clientAddress, uint64 feedbackIndex, address indexed responder, string responseURI, bytes32 responseHash)
+```
+
+**Notes:**
+
+- `value` is `int128` (signed) — supports positive and negative feedback.
+- `valueDecimals` indicates decimal precision (e.g., value=450, decimals=2 → 4.50).
+- `tag1` and `tag2` are free-form category strings for filtering.
+- `endpoint` records which service endpoint the feedback is about.
+- `feedbackURI` and `feedbackHash` can be empty strings / zero bytes for on-chain-only feedback.
+- Only the original feedback giver can call `revokeFeedback()`.
+- Anyone can call `appendResponse()` — not restricted to the agent owner.
+- The contract prevents self-feedback: the agent owner and approved operators cannot give feedback to their own agent (checked via the Identity Registry).
+- `getSummary()` and `readAllFeedback()` are view functions (no gas).
+- `getSummary()` requires a non-empty `clientAddresses` array (anti-Sybil/spam design). You must supply specific client addresses to query.
+- `readAllFeedback()` also accepts `clientAddresses` for filtering. Pass empty strings for `tag1`/`tag2` to skip tag filtering.
+
+### 3.3 ValidationRegistry
+
+> **Status: NOT deployed on Base mainnet.** The ABI exists in the [erc-8004-contracts](https://github.com/erc-8004/erc-8004-contracts) repo but no contract address is published for any chain. This section documents the interface for reference — it will be ready when the contract goes live.
+
+**Functions:**
+
+```
+validationRequest(address validatorAddress, uint256 agentId, string requestURI, bytes32 requestHash)
+validationResponse(bytes32 requestHash, uint8 response, string responseURI, bytes32 responseHash, string tag)
+getValidationStatus(bytes32 requestHash) → (address validatorAddress, uint256 agentId, uint8 response, bytes32 responseHash, string tag, uint256 lastUpdate)
+getSummary(uint256 agentId, address[] validatorAddresses, string tag) → (uint64 count, uint8 avgResponse)
+getAgentValidations(uint256 agentId) → bytes32[]
+getValidatorRequests(address validatorAddress) → bytes32[]
+getIdentityRegistry() → address
+```
+
+**Events:**
+
+```
+ValidationRequest(address indexed validatorAddress, uint256 indexed agentId, string requestURI, bytes32 indexed requestHash)
+ValidationResponse(address indexed validatorAddress, uint256 indexed agentId, bytes32 indexed requestHash, uint8 response, string responseURI, bytes32 responseHash, string tag)
+```
+
+**Notes:**
+
+- Anyone can request validation of an agent from a specific validator address.
+- Only the designated `validatorAddress` can respond to a validation request.
+- `response` is a `uint8` representing the validation outcome.
+- `requestHash` is the unique identifier linking requests to responses.
 
 ---
 
-## First-Time Setup
+## 4. On-Chain Data Model
 
-Before you can register, you need credentials from your owner.
+### 4.1 Primary Method: Base64 Data URI as agentURI
 
-Ask your owner directly. Use this message:
+All agent metadata is stored fully on-chain by encoding the registration JSON as a base64 data URI and passing it as the `agentURI` parameter:
 
-> I'd like to register as an on-chain agent on Base via ERC-8004. I need:
-> 1. A **private key** for signing transactions (this wallet needs ETH on Base for gas)
-> 2. A **Base RPC URL** (or I'll use the default: `https://mainnet.base.org`)
->
-> Your private key will be stored in a local `.env` file and never shared.
+```
+register("data:application/json;base64,{base64-encoded-JSON}")
+```
 
-Wait for the private key before proceeding. The RPC URL is optional (defaults to `https://mainnet.base.org`).
+When `tokenURI(agentId)` is called, it returns this data URI directly. Any consumer decodes the base64 payload to get the full agent profile.
 
-**Before saving, check for an existing `.env` file:**
+This is the **proven production approach** — for example, Mr. Tee (agent ID 14482) on Base mainnet uses this exact pattern.
 
-1. If `.env` already exists, ask the owner: *"I found an existing `.env` file. Does it already contain a `WALLET_PRIVATE_KEY`?"*
-2. If yes — do **not** overwrite it. Only append missing keys (e.g., `BASE_RPC_URL`, `AGENT0_AGENT_ID`).
-3. If no — append the new keys to the existing file.
-4. If `.env` does not exist — create it.
+### 4.2 Registration JSON Schema
 
-**Save credentials to `.env` in the project root:**
+The registration JSON follows the ERC-8004 specification:
+
+```json
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Agent Name",
+  "description": "What the agent does",
+  "image": "https://example.com/avatar.png",
+  "services": [
+    { "name": "web", "endpoint": "https://agent.example.com" },
+    {
+      "name": "A2A",
+      "endpoint": "https://agent.example.com/.well-known/agent-card.json",
+      "version": "0.3.0"
+    },
+    {
+      "name": "OASF",
+      "endpoint": "...",
+      "version": "0.8",
+      "skills": [],
+      "domains": []
+    },
+    { "name": "ENS", "endpoint": "name.eth", "version": "v1" },
+    { "name": "agentWallet", "endpoint": "eip155:8453:0x..." },
+    { "name": "twitter", "endpoint": "https://twitter.com/handle" },
+    { "name": "farcaster", "endpoint": "https://farcaster.xyz/handle" },
+    { "name": "telegram", "endpoint": "https://t.me/handle" },
+    { "name": "github", "endpoint": "https://github.com/handle" }
+  ],
+  "x402Support": false,
+  "active": true,
+  "registrations": [
+    {
+      "agentId": 42,
+      "agentRegistry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+    }
+  ],
+  "supportedTrust": ["reputation", "crypto-economic", "tee-attestation"]
+}
+```
+
+**Field reference:**
+
+| Field            | Required | Description                                                        |
+| ---------------- | -------- | ------------------------------------------------------------------ |
+| `type`           | Yes      | Always `"https://eips.ethereum.org/EIPS/eip-8004#registration-v1"` |
+| `name`           | Yes      | Human-readable agent name                                          |
+| `description`    | Yes      | What the agent does                                                |
+| `image`          | No       | Avatar/logo URL                                                    |
+| `services`       | No       | Array of service endpoints (see service types below)               |
+| `x402Support`    | No       | Whether the agent supports x402 payments                           |
+| `active`         | No       | Whether the agent is currently active                              |
+| `registrations`  | No       | Array of on-chain registrations (agentId + registry address)       |
+| `supportedTrust` | No       | Trust models the agent supports                                    |
+
+**Service types:** `web`, `A2A`, `OASF`, `ENS`, `agentWallet`, `twitter`, `farcaster`, `telegram`, `github`, or any custom string.
+
+### 4.3 Updating Profiles
+
+To update an agent's profile:
+
+1. Read current profile: call `tokenURI(agentId)` → decode base64 → parse JSON
+2. Modify the JSON with desired changes
+3. Re-encode: JSON → base64 → construct `data:application/json;base64,{encoded}`
+4. Call `setAgentURI(agentId, newDataURI)`
+
+This replaces the entire profile atomically.
+
+### 4.4 Supplementary: Key-Value Metadata
+
+`setMetadata()` stores individual key-value pairs on-chain alongside the agentURI:
+
+- Keys are strings, values are `bytes` (encode strings to bytes before calling)
+- Useful for fields that other contracts need to query without decoding the full JSON
+- Read with `getMetadata(agentId, key)` (view, no gas)
+
+The `MetadataEntry[]` parameter in `register(string, MetadataEntry[])` sets multiple key-value pairs during registration in a single transaction.
+
+---
+
+## 5. Decision Tree
+
+```
+START
+  │
+  ├── Load .env
+  │
+  ├── WALLET_PRIVATE_KEY exists?
+  │     ├── No  → Go to Section 6: First-Time Setup
+  │     └── Yes ↓
+  │
+  ├── AGENT0_AGENT_ID exists?
+  │     ├── No  → Go to Section 7: Register Agent
+  │     └── Yes ↓
+  │
+  └── Agent is registered → Show Action Menu:
+        ├── Update Profile       → Section 8
+        ├── Search Feedback      → Section 9
+        ├── Give Feedback        → Section 10
+        ├── Revoke Feedback      → Section 11
+        ├── Respond to Feedback  → Section 12
+        ├── Request Validation   → Section 13
+        ├── Respond to Validation → Section 14
+        ├── Check Validation     → Section 15
+        └── Transfer Ownership   → Section 16
+```
+
+---
+
+## 6. First-Time Setup
+
+### 6.1 Gather Credentials
+
+Ask the owner for:
+
+1. **Wallet private key** — the EOA that will own the agent NFT
+2. **RPC URL** — a Base mainnet RPC endpoint (default: `https://mainnet.base.org`)
+
+### 6.2 Save to Environment
+
+Create or update `.env`:
 
 ```
 WALLET_PRIVATE_KEY=0x...
 BASE_RPC_URL=https://mainnet.base.org
 ```
 
-**Ensure `.env` is in `.gitignore`** — never commit secrets to version control.
+### 6.3 Verify .gitignore
 
-Proceed to "Register Agent".
+Ensure `.env` is listed in `.gitignore`. If not, add it. **Never commit private keys.**
 
----
+### 6.4 Verify Connection
 
-## SDK Initialization
-
-Use this code block at the start of every operation:
-
-```typescript
-import 'dotenv/config';
-import { SDK } from 'agent0-sdk';
-
-const sdk = new SDK({
-  chainId: 8453,
-  rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
-  privateKey: process.env.WALLET_PRIVATE_KEY!,
-});
-```
-
-**No IPFS configuration is needed.** This skill uses HTTP registration only.
+- Connect to the RPC
+- Confirm the wallet address resolves correctly
+- Check the wallet has ETH on Base for gas
 
 ---
 
-## Transaction Safety (Non-Negotiable)
+## 7. Register Agent
 
-**Before every on-chain transaction (register, update, feedback, transfer), you MUST:**
+### 7.1 Pre-fill from Project Files
 
-1. **Build a draft preview** summarizing exactly what will be submitted on-chain
-2. **Present the draft to the owner** and ask for explicit approval
-3. **Only sign and submit after the owner confirms**
+Scan for existing project context:
 
-Never skip the preview. On-chain actions cost gas and are irreversible.
+- `IDENTITY.md` — previous agent identity card
+- `README.md` — project description
+- `package.json` — name, description, repository
+
+Use found values as defaults. The owner can override any field.
+
+### 7.2 Gather Agent Information
+
+Collect from the owner:
+
+- **name** (required) — agent display name
+- **description** (required) — what the agent does
+- **image** (optional) — avatar/logo URL
+- **services** (optional) — array of service endpoints
+- **x402Support** (optional) — boolean, default false
+- **active** (optional) — boolean, default true
+- **supportedTrust** (optional) — array of trust model strings
+
+### 7.3 Build Registration JSON
+
+Construct the JSON object following the schema in Section 4.2.
+
+Set `registrations` to an empty array initially — the `agentId` isn't known until after the transaction confirms.
+
+### 7.4 Encode as Data URI
+
+```
+1. JSON.stringify(registrationJSON)
+2. Base64 encode the JSON string
+3. Prepend "data:application/json;base64,"
+```
+
+### 7.5 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+Display to the owner:
+
+- The full JSON (human-readable)
+- The target contract address
+- The function being called: `register(string agentURI)`
+- Estimated gas
+
+**Owner must explicitly approve before proceeding.**
+
+### 7.6 Submit Registration
+
+Call:
+
+```
+IdentityRegistry.register("data:application/json;base64,{encoded}")
+```
+
+Wait for transaction confirmation. Extract `agentId` from the `Registered` event.
+
+### 7.7 Update Registration with agentId
+
+Now that the `agentId` is known:
+
+1. Update the `registrations` array in the JSON:
+   ```json
+   "registrations": [
+     {
+       "agentId": <returned-agentId>,
+       "agentRegistry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+     }
+   ]
+   ```
+2. Re-encode the updated JSON as a data URI
+3. **Transaction Safety (Section 17 applies)** — preview and obtain owner approval before submitting.
+4. Call `setAgentURI(agentId, updatedDataURI)` — this is a second transaction
+
+### 7.8 Save Agent ID
+
+Update `.env`:
+
+```
+AGENT0_AGENT_ID=<agentId>
+```
+
+### 7.9 Confirm and Offer IDENTITY.md
+
+- Confirm registration success with agentId and transaction hash
+- Offer to create/update `IDENTITY.md` (see Section 20)
 
 ---
 
-## Register Agent
+## 8. Update Agent Profile
 
-### Step 1: Pre-Fill from Existing Files
+### 8.1 Read Current Profile
 
-Before asking the owner for details, scan the project for files that may already contain agent information. Use any values found as **pre-filled defaults** — the owner can accept, edit, or override them.
+Call `tokenURI(agentId)` (view, no gas).
 
-| File | What to extract |
-|---|---|
-| `IDENTITY.md` | Name, description, image, endpoints (MCP, A2A), ENS, OASF skills/domains, trust models, metadata |
-| `TOOLS.md` | Tool names and descriptions — suggest as MCP capabilities or OASF skills |
-| `README.md` | Project name and description — suggest as agent name and description |
-| `package.json` | `name`, `description`, `homepage` — suggest as agent name, description, HTTP URL |
-| `SKILL.md` (other skills) | Skill names and categories — suggest as OASF skills |
-| `.env` | `AGENT0_AGENT_ID` (skip registration if already set), `BASE_RPC_URL` |
+Parse the returned data URI:
 
-**Rules:**
-- Only read files that exist — do not error on missing files
-- Never extract secrets (private keys, API keys) from any file
-- Present all pre-filled values clearly so the owner can review them
-- If no files are found, proceed with empty fields as normal
+1. Strip `data:application/json;base64,` prefix
+2. Base64 decode
+3. JSON parse
 
-### Step 2: Gather Agent Info
+### 8.2 Identify Changes
 
-Present pre-filled values (if any) and ask the owner to confirm or edit:
+Ask the owner which fields to update. Show current values for context.
 
-**Required:**
-- **Agent name** — a display name for your agent (e.g. "Alice's Research Agent")
-- **Description** — what your agent does (e.g. "Analyzes on-chain data and generates reports")
+### 8.3 Modify JSON
 
-**Optional:**
-- **Image URL** — a publicly accessible URL for your agent's avatar
-- **MCP endpoint** — if your agent exposes MCP tools (e.g. `https://mcp.example.com/`)
-- **A2A endpoint** — if your agent exposes A2A skills (e.g. `https://a2a.example.com/agent-card.json`)
-- **ENS name** — a human-readable name (e.g. `myagent.eth`)
-- **HTTP URL** — where to host your registration file (e.g. `https://myserver.com/agents/my-agent.json`)
-- **OASF skills** — standardized skill categories (e.g. `data_engineering/data_transformation_pipeline`)
-- **OASF domains** — standardized domain categories (e.g. `finance_and_business/investment_services`)
-- **Trust models** — which trust models to advertise: `reputation`, `crypto-economic`, `tee-attestation`
-- **Metadata** — key-value pairs for additional info (e.g. `{ version: '1.0.0', category: 'ai-assistant' }`)
+Apply the requested changes to the parsed JSON object.
 
-If pre-filled values were found, present them like this:
-
-> I found existing project files and pre-filled some fields. Please review:
->
-> - **Name:** My AI Agent *(from package.json)*
-> - **Description:** An intelligent assistant for tasks. *(from README.md)*
-> - **MCP Endpoint:** https://mcp.example.com/ *(from IDENTITY.md)*
-> - **Skills:** data_transformation_pipeline *(from TOOLS.md)*
->
-> Edit any field, or say "looks good" to continue.
-
-### Step 3: Create and Configure Agent
-
-```typescript
-// Create the agent
-const agent = sdk.createAgent(
-  'My AI Agent',                           // name
-  'An intelligent assistant for tasks.',   // description
-  'https://example.com/agent-image.png'    // image URL (optional)
-);
-
-// Configure endpoints (optional — each auto-extracts capabilities)
-await agent.setMCP('https://mcp.example.com/');              // extracts tools, prompts, resources
-await agent.setA2A('https://a2a.example.com/agent-card.json'); // extracts skills
-agent.setENS('myagent.eth');
-
-// Add OASF skills and domains (optional)
-agent.addSkill('data_engineering/data_transformation_pipeline', true);
-agent.addDomain('finance_and_business/investment_services', true);
-
-// Set trust models (optional): reputation, cryptoEconomic, teeAttestation
-agent.setTrust(true, false, false);
-
-// Add metadata (optional)
-agent.setMetadata({ version: '1.0.0', category: 'ai-assistant' });
-
-// Set agent as active
-agent.setActive(true);
-```
-
-### Step 4: Preview Draft
-
-Before signing, present a summary to the owner for approval:
-
-> Here's what I'm about to register on-chain:
->
-> - **Name:** My AI Agent
-> - **Description:** An intelligent assistant for tasks.
-> - **Image:** https://example.com/agent-image.png
-> - **MCP Endpoint:** https://mcp.example.com/
-> - **A2A Endpoint:** https://a2a.example.com/agent-card.json
-> - **ENS:** myagent.eth
-> - **OASF Skills:** data_engineering/data_transformation_pipeline
-> - **OASF Domains:** finance_and_business/investment_services
-> - **Trust Models:** reputation
-> - **Registration URI:** https://myserver.com/agents/my-agent.json
->
-> This will mint an ERC-721 NFT on Base and cost gas. Shall I proceed?
-
-**Do NOT submit the transaction until the owner confirms.**
-
-### Step 5: Register On-Chain via HTTP
-
-The `registerHTTP()` call does three things:
-1. Serializes your agent's registration file (name, description, endpoints, skills, metadata) as JSON
-2. Mints an ERC-721 NFT on-chain representing your agent identity
-3. Records the HTTP URL on-chain as the agent's URI, pointing to the hosted registration file
-
-**The SDK generates the JSON automatically** — the owner must ensure the HTTP URL serves the file. The simplest approach is a static file on any HTTPS-accessible server or CDN.
-
-```typescript
-// Register with HTTP URI (no IPFS required)
-const txHandle = await agent.registerHTTP('https://myserver.com/agents/my-agent.json');
-const { result: registration } = await txHandle.waitConfirmed();
-
-console.log(`Agent ID: ${registration.agentId}`);   // e.g. "8453:42"
-console.log(`Agent URI: ${registration.agentURI}`);  // the HTTP URL
-```
-
-### Step 6: Save Agent ID
-
-Append the agent ID to your `.env` file:
+### 8.4 Re-encode
 
 ```
-AGENT0_AGENT_ID=8453:42
+1. JSON.stringify(updatedJSON)
+2. Base64 encode
+3. Prepend "data:application/json;base64,"
 ```
 
-### Step 7: Deliver Confirmation
+### 8.5 Preview and Approve
 
-Send a confirmation to your owner:
+**Transaction Safety (Section 17 applies)**
 
-> Your agent has been registered on-chain on Base mainnet!
->
-> - **Agent ID:** 8453:42
-> - **Name:** My AI Agent
-> - **Registration URI:** https://myserver.com/agents/my-agent.json
->
-> Your agent is now discoverable by any ERC-8004 compatible app or agent.
+Show the owner:
 
-### Step 8: Offer to Save IDENTITY.md
+- A diff of old vs new JSON
+- The target contract and function: `setAgentURI(uint256, string)`
+- Estimated gas
 
-After registration, ask the owner:
+**Owner must explicitly approve.**
 
-> Would you like me to save your agent profile to an `IDENTITY.md` file? This creates a local reference card with your agent's on-chain identity — useful for other tools, agents, or documentation.
+### 8.6 Submit Update
 
-If the owner agrees, create `IDENTITY.md` in the project root with the following format:
+Call:
 
-```markdown
-# Agent Identity
-
-| Field | Value |
-|---|---|
-| **Agent ID** | 8453:42 |
-| **Name** | My AI Agent |
-| **Description** | An intelligent assistant for tasks. |
-| **Chain** | Base (8453) |
-| **Registration URI** | https://myserver.com/agents/my-agent.json |
-| **Image** | https://example.com/agent-image.png |
-| **MCP Endpoint** | https://mcp.example.com/ |
-| **A2A Endpoint** | https://a2a.example.com/agent-card.json |
-| **ENS** | myagent.eth |
-| **OASF Skills** | data_engineering/data_transformation_pipeline |
-| **OASF Domains** | finance_and_business/investment_services |
-| **Trust Models** | reputation |
-| **Active** | true |
-| **Registered** | 2025-01-15 |
-
-> On-chain identity minted as ERC-721 on Base mainnet.
+```
+IdentityRegistry.setAgentURI(agentId, "data:application/json;base64,{new-encoded}")
 ```
 
-**Rules:**
-- Only include fields that have values — omit empty rows
-- Use the actual registration date (from the transaction timestamp or current date)
-- If `IDENTITY.md` already exists, ask before overwriting
-- Never include the private key, wallet address, or any secrets
+Wait for confirmation.
+
+### 8.7 Confirm
+
+- Confirm update success with transaction hash
+- Offer to update `IDENTITY.md`
 
 ---
 
-## Update Agent
+## 9. Search Feedback
 
-Load your existing agent, modify properties, and re-register.
+### 9.1 Identify Target
 
-### Step 1: Load Agent
+Get the target `agentId` from the owner. This can be their own agent or any other registered agent.
 
-```typescript
-const agent = await sdk.loadAgent(process.env.AGENT0_AGENT_ID!); // e.g. '8453:42'
-console.log(`Loaded: ${agent.name}`);
+### 9.2 Get Summary
+
+Call (view, no gas):
+
+```
+ReputationRegistry.getSummary(agentId, clientAddresses, tag1, tag2)
 ```
 
-### Step 2: Modify Configuration
+- `clientAddresses` must be non-empty — supply the specific client addresses to include in the summary (anti-Sybil/spam design)
+- Use `getClients(agentId)` first to discover which addresses have given feedback, then pass those to `getSummary()`
+- Pass empty strings for `tag1` and `tag2` for all categories
 
-```typescript
-// Update basic info
-agent.updateInfo(
-  'Updated Agent Name',
-  'New description with enhanced capabilities.'
-);
+Returns: `(count, summaryValue, summaryValueDecimals)`
 
-// Update or add endpoints
-await agent.setMCP('https://mcp-v2.example.com/');
-await agent.setA2A('https://a2a-v2.example.com/agent-card.json');
+### 9.3 Get Detailed Feedback (Optional)
 
-// Remove an endpoint
-agent.removeEndpoint({ type: 'A2A' });
+If the owner wants details, call (view, no gas):
 
-// Add/remove OASF skills
-agent.addSkill('advanced_reasoning_planning/strategic_planning', true);
-agent.removeSkill('data_engineering/data_transformation_pipeline');
-
-// Update metadata
-agent.setMetadata({ version: '2.0.0', pricing: '0.02' });
-agent.delMetadata('category'); // remove a key
+```
+ReputationRegistry.readAllFeedback(agentId, clientAddresses, tag1, tag2, includeRevoked)
 ```
 
-### Step 3: Preview Draft
+Returns arrays of: addresses, feedback indices, values, decimals, tag1s, tag2s, revocation status.
 
-Before signing, present the updated configuration to the owner:
+### 9.4 Present Results
 
-> Here's what will be updated on-chain:
->
-> - **Name:** Updated Agent Name
-> - **Description:** New description with enhanced capabilities.
-> - **MCP Endpoint:** https://mcp-v2.example.com/
-> - **Skills Added:** advanced_reasoning_planning/strategic_planning
-> - **Skills Removed:** data_engineering/data_transformation_pipeline
-> - **Metadata:** version=2.0.0, pricing=0.02
-> - **Registration URI:** https://myserver.com/agents/my-agent.json
->
-> This will update the on-chain URI and cost gas. Shall I proceed?
+Display:
 
-**Do NOT submit the transaction until the owner confirms.**
-
-### Step 4: Re-Register
-
-```typescript
-const txHandle = await agent.registerHTTP('https://myserver.com/agents/my-agent.json');
-const { result: updated } = await txHandle.waitConfirmed();
-console.log(`Updated URI: ${updated.agentURI}`);
-```
-
-### Step 5: Confirm Update
-
-> Your agent profile has been updated on-chain.
->
-> - **Agent ID:** 8453:42
-> - **New Name:** Updated Agent Name
-> - **Updated URI:** https://myserver.com/agents/my-agent.json
-
-### Step 6: Offer to Update IDENTITY.md
-
-If `IDENTITY.md` exists, ask the owner:
-
-> Your on-chain profile has changed. Would you like me to update `IDENTITY.md` to match?
-
-If yes, regenerate the file using the same format as in "Register Agent → Step 7". If `IDENTITY.md` does not exist, offer to create it.
+- Total feedback count
+- Summary score (value / 10^decimals)
+- Individual feedback entries if detailed view was requested
+- Filter by tags or client addresses if specified
 
 ---
 
-## Give Feedback
+## 10. Give Feedback
 
-Submit on-chain feedback for another agent. This is the simple on-chain-only approach (no IPFS feedback file).
+### 10.1 Gather Feedback Details
 
-### Parameters
+Collect from the owner:
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `agentId` | Yes | The target agent's ID (e.g. `8453:99`) |
-| `value` | Yes | Reputation score (signed decimal — positive = good, negative = bad) |
-| `tag1` | No | First tag for categorization (e.g. `data_analyst`) |
-| `tag2` | No | Second tag (e.g. `enterprise`) |
-| `endpoint` | No | Specific endpoint being rated (e.g. `tools`) |
+- **agentId** (required) — the agent to give feedback for
+- **value** (required) — int128, the feedback score (positive or negative)
+- **valueDecimals** (required) — uint8, decimal precision
+- **tag1** (optional) — category tag, default empty string
+- **tag2** (optional) — subcategory tag, default empty string
+- **endpoint** (optional) — which service endpoint the feedback is about, default empty string
 
-### Preview Draft
+**Note:** The contract prevents self-feedback. The agent owner and approved operators cannot give feedback to their own agent.
 
-Before signing, present the feedback to the owner:
+### 10.2 Preview and Approve
 
-> Here's the feedback I'm about to submit on-chain:
->
-> - **Target Agent:** 8453:99
-> - **Score:** 85
-> - **Tag 1:** data_analyst
-> - **Tag 2:** enterprise
-> - **Endpoint:** tools
->
-> This will cost gas. Shall I proceed?
+**Transaction Safety (Section 17 applies)**
 
-**Do NOT submit the transaction until the owner confirms.**
+Show:
 
-### Submit
+- Target agent and feedback value
+- Tags and endpoint
+- Function: `giveFeedback(uint256, int128, uint8, string, string, string, string, bytes32)`
 
-```typescript
-const tx = await sdk.giveFeedback(
-  '8453:99',       // agentId
-  85,              // value (positive = good feedback)
-  'data_analyst',  // tag1 (optional)
-  'enterprise',    // tag2 (optional)
-  'tools'          // endpoint (optional)
-);
+**Owner must explicitly approve.**
 
-const { receipt, result: feedback } = await tx.waitConfirmed();
-console.log(`Feedback submitted! Tx: ${receipt.transactionHash}`);
+### 10.3 Submit Feedback
+
+Call:
+
+```
+ReputationRegistry.giveFeedback(
+    agentId,
+    value,
+    valueDecimals,
+    tag1,
+    tag2,
+    endpoint,
+    "",           // feedbackURI — empty for on-chain-only
+    bytes32(0)    // feedbackHash — zero for on-chain-only
+)
 ```
 
-### Deliver Confirmation
+### 10.4 Confirm
 
-> Feedback submitted on-chain for agent 8453:99.
->
-> - **Score:** 85
-> - **Tags:** data_analyst, enterprise
-> - **Endpoint:** tools
-> - **Transaction:** 0xabc123...
+Confirm with transaction hash and the `NewFeedback` event details.
 
 ---
 
-## Search Feedback
+## 11. Revoke Feedback
 
-Query feedback history and reputation for any agent.
+### 11.1 Identify Feedback
 
-### Get Reputation Summary
+The owner needs:
 
-```typescript
-// Overall reputation
-const summary = await sdk.getReputationSummary('8453:99');
-console.log(`Total reviews: ${summary.count}`);
-console.log(`Average rating: ${summary.averageValue}`);
+- **agentId** — the agent the feedback was given to
+- **feedbackIndex** — the index of the specific feedback entry (uint64)
 
-// Filtered by tag
-const taggedSummary = await sdk.getReputationSummary(
-  '8453:99',
-  'data_analyst'  // tag1
-);
+To find the index, use `readAllFeedback()` or `getLastIndex()` from Section 9.
 
-// Filtered by two tags
-const dualTagSummary = await sdk.getReputationSummary(
-  '8453:99',
-  'data_analyst',  // tag1
-  'enterprise'     // tag2
-);
+### 11.2 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+Show the feedback being revoked (value, tags, timestamp). **Owner must approve.**
+
+### 11.3 Submit Revocation
+
+Call:
+
+```
+ReputationRegistry.revokeFeedback(agentId, feedbackIndex)
 ```
 
-### Search Feedback Entries
+Only the original feedback giver can revoke.
 
-```typescript
-// All feedback for an agent
-const feedback = await sdk.searchFeedback(
-  { agentId: '8453:99' }
-);
+### 11.4 Confirm
 
-// Filtered by value range
-const highRated = await sdk.searchFeedback(
-  { agentId: '8453:99' },
-  { minValue: 70, maxValue: 100 }
-);
-
-// Filtered by tags
-const tagged = await sdk.searchFeedback({
-  agentId: '8453:99',
-  tags: ['data_analyst', 'enterprise'],
-});
-
-// Filtered by capabilities and skills
-const skilled = await sdk.searchFeedback({
-  agentId: '8453:99',
-  capabilities: ['tools', 'prompts'],
-  skills: ['financial_analysis'],
-});
-
-// Display results
-for (const fb of feedback) {
-  console.log(`Reviewer: ${fb.reviewer}`);
-  console.log(`Value: ${fb.value}`);
-  console.log(`Tags: ${fb.tags.join(', ')}`);
-  console.log(`Endpoint: ${fb.endpoint ?? 'N/A'}`);
-  console.log(`Revoked: ${fb.isRevoked}`);
-}
-```
-
-### Deliver Results
-
-Translate reputation data into plain language:
-
-> Here's the reputation summary for agent 8453:99:
->
-> - **Total reviews:** 42
-> - **Average rating:** 87.3
->
-> This agent has strong positive feedback, especially for data analysis capabilities.
+Confirm with transaction hash.
 
 ---
 
-## Transfer Ownership
+## 12. Respond to Feedback
 
-Transfer your agent's ERC-721 identity to a new wallet address.
+### 12.1 Context
 
-**WARNING:** This transfers the NFT representing your agent identity. The new owner will have full control. This also resets the on-chain wallet.
+Anyone can append a response to feedback on-chain. This is not restricted to the agent owner — the original feedback giver, the agent owner, or any third party can respond.
 
-### Step 1: Verify Current Ownership
+### 12.2 Gather Response Details
 
-```typescript
-const currentOwner = await sdk.getAgentOwner(process.env.AGENT0_AGENT_ID!);
-console.log(`Current owner: ${currentOwner}`);
+- **agentId** — the owner's agent
+- **clientAddress** — the address that gave the feedback
+- **feedbackIndex** — which feedback entry to respond to
+- **responseURI** — optional URI with detailed response (empty string for on-chain-only)
+- **responseHash** — optional hash of the response content (bytes32(0) for on-chain-only)
+
+### 12.3 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+### 12.4 Submit Response
+
+Call:
+
+```
+ReputationRegistry.appendResponse(agentId, clientAddress, feedbackIndex, responseURI, responseHash)
 ```
 
-### Step 2: Preview Draft & Confirm
+### 12.5 Confirm
 
-Before proceeding, present the transfer details and **always** confirm with your owner:
-
-> Here's what I'm about to submit on-chain:
->
-> - **Action:** Transfer ownership
-> - **Agent ID:** {agent_id}
-> - **Current Owner:** {currentOwner}
-> - **New Owner:** {newOwner}
->
-> **This action:**
-> - Transfers the ERC-721 NFT to the new address
-> - Resets the agent's on-chain wallet
-> - Is irreversible without the new owner's cooperation
->
-> Do you want to proceed? (yes/no)
-
-**Do NOT submit the transaction until the owner confirms.**
-
-### Step 3: Execute Transfer
-
-```typescript
-const newOwner = '0x742d35cc6634c0532925a3b844bc9e7595f0beb7';
-
-const txHandle = await sdk.transferAgent(process.env.AGENT0_AGENT_ID!, newOwner);
-console.log(`Transfer submitted: ${txHandle.hash}`);
-
-const { result } = await txHandle.waitConfirmed();
-console.log(`Transfer confirmed!`);
-console.log(`From: ${result.from}`);
-console.log(`To: ${result.to}`);
-console.log(`Agent: ${result.agentId}`);
-```
-
-### Step 4: Verify New Ownership
-
-```typescript
-const verifiedOwner = await sdk.getAgentOwner(process.env.AGENT0_AGENT_ID!);
-console.log(`New owner: ${verifiedOwner}`);
-```
-
-### Step 5: Deliver Confirmation
-
-> Agent ownership transferred successfully.
->
-> - **Agent ID:** 8453:42
-> - **Previous owner:** 0xOLD...
-> - **New owner:** 0xNEW...
->
-> The agent's on-chain wallet has been reset. The new owner now has full control.
+Confirm with transaction hash.
 
 ---
 
-## Error Handling
+## 13. Request Validation
 
-| Error | Cause | Recovery |
-|---|---|---|
-| `insufficient funds` | Wallet doesn't have enough ETH for gas | Ask owner to fund the wallet with ETH on Base |
-| `execution reverted: not owner` | Wallet is not the owner of this agent | Verify `AGENT0_AGENT_ID` in `.env` matches the wallet's agent |
-| `execution reverted: agent not found` | The agent ID doesn't exist on-chain | Check the agent ID format (`8453:XX`) and verify it was registered |
-| `nonce too low` | Transaction conflict — another tx was sent | Retry the operation |
-| `transaction underpriced` | Gas price too low | Retry — the SDK uses network-estimated gas |
-| `network error` / `timeout` | RPC endpoint is down or unreachable | Check `BASE_RPC_URL` in `.env`, try an alternative Base RPC |
-| `IPFS` or `Pinata` errors | Should not occur — this skill uses HTTP only | Verify you are using `agent.registerHTTP()`, not `agent.registerIPFS()` |
-| `setMCP` / `setA2A` soft failure | Endpoint unreachable during capability extraction | Non-blocking — the endpoint is still set, but tools/skills won't be auto-extracted. Verify the endpoint URL is correct and accessible. |
+> **Requires ValidationRegistry deployment.** This section documents the expected flow for when the contract goes live.
+
+### 13.1 Gather Request Details
+
+- **validatorAddress** — the address of the validator being asked
+- **agentId** — the agent to be validated
+- **requestURI** — optional URI with validation request details (empty string for on-chain-only)
+- **requestHash** — hash identifying this request (bytes32)
+
+### 13.2 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+### 13.3 Submit Request
+
+Call:
+
+```
+ValidationRegistry.validationRequest(validatorAddress, agentId, requestURI, requestHash)
+```
+
+### 13.4 Confirm
+
+Confirm with transaction hash and `requestHash` for tracking.
+
+---
+
+## 14. Respond to Validation
+
+> **Requires ValidationRegistry deployment.**
+
+### 14.1 Context
+
+Only the designated `validatorAddress` from the original request can respond.
+
+### 14.2 Gather Response Details
+
+- **requestHash** — the hash from the original request
+- **response** — uint8 validation outcome
+- **responseURI** — optional URI with response details
+- **responseHash** — optional hash of the response content
+- **tag** — category tag for the validation
+
+### 14.3 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+### 14.4 Submit Response
+
+Call:
+
+```
+ValidationRegistry.validationResponse(requestHash, response, responseURI, responseHash, tag)
+```
+
+### 14.5 Confirm
+
+Confirm with transaction hash.
+
+---
+
+## 15. Check Validation Status
+
+> **Requires ValidationRegistry deployment.**
+
+### 15.1 By Request Hash
+
+Call (view, no gas):
+
+```
+ValidationRegistry.getValidationStatus(requestHash)
+```
+
+Returns: `(validatorAddress, agentId, response, responseHash, tag, lastUpdate)`
+
+### 15.2 By Agent
+
+Call (view, no gas):
+
+```
+ValidationRegistry.getAgentValidations(agentId)
+```
+
+Returns array of `requestHash` values. Query each for details.
+
+### 15.3 Summary
+
+Call (view, no gas):
+
+```
+ValidationRegistry.getSummary(agentId, validatorAddresses, tag)
+```
+
+Returns: `(count, avgResponse)`
+
+### 15.4 Present Results
+
+Display validation status, validator addresses, responses, and summary statistics.
+
+---
+
+## 16. Transfer Ownership
+
+### 16.1 Verify Current Owner
+
+Confirm the connected wallet is the current owner of the agent NFT by checking `ownerOf(agentId)`.
+
+### 16.2 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+Display:
+
+- Current owner address
+- New owner address
+- Agent ID and name
+
+**WARNING: This action is irreversible. The current owner will lose all control of this agent identity.**
+
+**Note:** The `agentWallet` metadata is automatically cleared on transfer. The new owner must call `setAgentWallet()` to re-verify a wallet.
+
+**Owner must explicitly approve.**
+
+### 16.3 Submit Transfer
+
+Call:
+
+```
+IdentityRegistry.transferFrom(currentOwner, newOwner, agentId)
+```
+
+### 16.4 Verify
+
+After confirmation, call `ownerOf(agentId)` to verify the new owner.
+
+### 16.5 Confirm
+
+Confirm with transaction hash and verified new owner address.
+
+---
+
+## 17. Transaction Safety (Non-Negotiable)
+
+Every on-chain transaction **MUST** follow this protocol:
+
+1. **Preview** — Show the owner exactly what will be submitted:
+   - Target contract address
+   - Function name and parameters
+   - Human-readable summary of the action
+   - Estimated gas cost
+
+2. **Explicit Approval** — The owner must actively confirm. Never auto-submit.
+
+3. **Confirmation** — After the transaction is mined:
+   - Show the transaction hash
+   - Show relevant event data
+   - Confirm the state change
+
+**Never skip the preview step. Never auto-approve transactions.**
+
+---
+
+## 18. Error Handling
+
+| Error                               | Cause                            | Recovery                                     |
+| ----------------------------------- | -------------------------------- | -------------------------------------------- |
+| `insufficient funds`                | Wallet lacks ETH for gas         | Fund the wallet on Base                      |
+| `execution reverted`                | Contract rejected the call       | Check function parameters and permissions    |
+| `not the owner`                     | Caller doesn't own the agent NFT | Verify correct wallet and agentId            |
+| `agent not found` / `invalid token` | agentId doesn't exist            | Verify agentId on-chain                      |
+| `nonce too low`                     | Pending transaction conflict     | Wait for pending tx or reset nonce           |
+| `gas estimation failed`             | Transaction would revert         | Check all parameters match ABI types exactly |
+| `user rejected`                     | Owner declined in wallet         | No action needed — this is expected behavior |
 
 **General rules:**
-- Never silently swallow errors. Log them and inform the owner.
-- If a transaction fails, do NOT retry more than 3 times.
-- If the RPC is down, tell the owner and stop. Do not keep retrying.
+
+- Never swallow errors — always surface them to the owner
+- Include the raw error message for debugging
+- Suggest specific recovery actions
+- If a transaction fails, do NOT retry automatically — ask the owner
 
 ---
 
-## Security
+## 19. Security Rules
 
-**CRITICAL — follow these rules at all times:**
+### Private Keys
 
-- **NEVER** expose the private key in chat messages, logs, or any output
-- **NEVER** share the contents of your `.env` file
-- **NEVER** send the private key to any external service or API
-- **NEVER** commit `.env` files to version control
-- **ALWAYS** ensure `.env` is listed in `.gitignore`
-- **ALWAYS** verify wallet addresses with the owner before executing transfers
-- **ALWAYS** confirm destructive operations (transfer, unset wallet) with the owner
-- The private key is stored **locally in `.env`** — it never leaves the machine
-- `process.env` overrides take priority over `.env` values (standard for production)
-- If the owner asks you to display the private key, **refuse** and explain why
+- **Never** log, display, or transmit private keys
+- Store only in `.env` files
+- Verify `.env` is in `.gitignore` before any operation
+
+### Address Verification
+
+- Before any transfer: confirm the destination address with the owner
+- Display addresses in full — never truncate for verification steps
+
+### Transaction Safety
+
+- Section 17 applies to ALL on-chain operations without exception
+- Preview every transaction before signing
+- Never batch transactions without individual approval
+
+### RPC Security
+
+- Use trusted RPC endpoints only
+- Never send private keys over unencrypted connections
 
 ---
 
-## Example Interaction
+## 20. IDENTITY.md
 
-Below is a complete conversation showing first boot through registration, feedback, and transfer.
-
----
-
-**Agent (first startup, no `.env` file found):**
-
-> I'd like to register as an on-chain agent on Base via ERC-8004. I need:
-> 1. A **private key** for signing transactions (this wallet needs ETH on Base for gas)
-> 2. A **Base RPC URL** (or I'll use the default: `https://mainnet.base.org`)
->
-> Your private key will be stored in a local `.env` file and never shared.
-
-**Owner:**
-
-> Here's my private key: 0xABC123...DEF456
-> Use the default RPC.
-
-**Agent saves credentials to `.env`:**
-
-```
-WALLET_PRIVATE_KEY=0xABC123...DEF456
-BASE_RPC_URL=https://mainnet.base.org
-```
-
-**Agent:**
-
-> Credentials saved. Now let's register your agent. I need:
-> 1. A name for your agent
-> 2. A description of what it does
-> 3. (Optional) An image URL, MCP endpoint, A2A endpoint, or ENS name
-> 4. An HTTP URL where the registration file will be hosted
-
-**Owner:**
-
-> Name: Alice Research Agent
-> Description: Analyzes on-chain data and generates portfolio reports
-> MCP endpoint: https://mcp.alice.dev/
-> HTTP URL: https://alice.dev/agents/research.json
-
-**Agent previews draft:**
-
-> Here's what I'm about to register on-chain:
->
-> - **Name:** Alice Research Agent
-> - **Description:** Analyzes on-chain data and generates portfolio reports
-> - **MCP Endpoint:** https://mcp.alice.dev/
-> - **Registration URI:** https://alice.dev/agents/research.json
->
-> This will mint an ERC-721 NFT on Base and cost gas. Shall I proceed?
-
-**Owner:**
-
-> Yes, go ahead.
-
-**Agent registers:**
-
-```typescript
-const sdk = new SDK({
-  chainId: 8453,
-  rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
-  privateKey: process.env.WALLET_PRIVATE_KEY!,
-});
-
-const agent = sdk.createAgent(
-  'Alice Research Agent',
-  'Analyzes on-chain data and generates portfolio reports'
-);
-
-await agent.setMCP('https://mcp.alice.dev/');
-agent.setActive(true);
-
-const txHandle = await agent.registerHTTP('https://alice.dev/agents/research.json');
-const { result: registration } = await txHandle.waitConfirmed();
-// registration.agentId = "8453:42"
-```
-
-**Agent saves agent ID and confirms:**
-
-> Your agent has been registered on-chain on Base mainnet!
->
-> - **Agent ID:** 8453:42
-> - **Name:** Alice Research Agent
-> - **MCP Endpoint:** https://mcp.alice.dev/
-> - **Registration URI:** https://alice.dev/agents/research.json
->
-> Your agent is now discoverable by any ERC-8004 compatible app.
->
-> Would you like me to save your agent profile to an `IDENTITY.md` file?
-
-**Owner:**
-
-> Yes.
-
-**Agent creates `IDENTITY.md`:**
+After registration or updates, offer to create/update a local `IDENTITY.md` file as a quick-reference card:
 
 ```markdown
-# Agent Identity
+# Agent Identity Card
 
-| Field | Value |
-|---|---|
-| **Agent ID** | 8453:42 |
-| **Name** | Alice Research Agent |
-| **Description** | Analyzes on-chain data and generates portfolio reports |
-| **Chain** | Base (8453) |
-| **Registration URI** | https://alice.dev/agents/research.json |
-| **MCP Endpoint** | https://mcp.alice.dev/ |
-| **Active** | true |
-| **Registered** | 2025-01-15 |
+| Field      | Value                                      |
+| ---------- | ------------------------------------------ |
+| Name       | {name}                                     |
+| Agent ID   | {agentId}                                  |
+| Owner      | {ownerAddress}                             |
+| Registry   | 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 |
+| Chain      | Base (8453)                                |
+| Registered | {timestamp or block number}                |
 
-> On-chain identity minted as ERC-721 on Base mainnet.
+## Description
+
+{description}
+
+## Services
+
+| Service | Endpoint   |
+| ------- | ---------- |
+| {name}  | {endpoint} |
+| ...     | ...        |
+
+## Trust Models
+
+{supportedTrust array, comma-separated}
+
+## On-Chain Profile
+
+tokenURI({agentId}) → data:application/json;base64,...
+
+## Links
+
+- Registry: https://basescan.org/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432
+- Agent NFT: https://basescan.org/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a={agentId}
 ```
-
-**Agent:**
-
-> Saved to `IDENTITY.md`.
 
 ---
 
-**Later, owner invokes the skill again (agent already registered):**
+## 21. References
 
-**Agent:**
-
-> Your agent **Alice Research Agent** (ID: 8453:42) is registered on Base.
->
-> What would you like to do?
->
-> 1. **Update Agent** — modify name, description, endpoints, skills, or metadata
-> 2. **Give Feedback** — rate another agent on-chain
-> 3. **Search Feedback** — check reputation for any agent
-> 4. **Transfer Ownership** — move your agent identity to a new wallet
-> 5. **View Profile** — show your current IDENTITY.md
->
-> Pick a number, or describe what you need.
-
-**Owner:**
-
-> 2 — Give feedback to agent 8453:99 — they did great data analysis work. Score 90.
-
----
-
-**Agent previews draft:**
-
-> Here's the feedback I'm about to submit on-chain:
->
-> - **Target Agent:** 8453:99
-> - **Score:** 90
-> - **Tag:** data_analyst
->
-> This will cost gas. Shall I proceed?
-
-**Owner:**
-
-> Yes.
-
-**Agent submits feedback:**
-
-```typescript
-const tx = await sdk.giveFeedback('8453:99', 90, 'data_analyst');
-const { receipt } = await tx.waitConfirmed();
-```
-
-**Agent confirms:**
-
-> Feedback submitted on-chain for agent 8453:99.
->
-> - **Score:** 90
-> - **Tag:** data_analyst
-> - **Transaction:** 0xdef789...
-
----
-
-**Later, owner wants to check their agent's reputation:**
-
-**Owner:**
-
-> What's my agent's reputation?
-
-**Agent checks:**
-
-```typescript
-const summary = await sdk.getReputationSummary('8453:42');
-```
-
-**Agent responds:**
-
-> Here's your reputation summary:
->
-> - **Total reviews:** 15
-> - **Average rating:** 82.4
->
-> You have solid positive feedback from the community.
-
----
-
-**Later, owner wants to transfer the agent:**
-
-**Owner:**
-
-> Transfer my agent to 0x9876...FEDC
-
-**Agent previews draft:**
-
-> Here's what I'm about to submit on-chain:
->
-> - **Action:** Transfer ownership
-> - **Agent ID:** 8453:42
-> - **New Owner:** 0x9876...FEDC
->
-> **This action:**
-> - Transfers the ERC-721 NFT to the new address
-> - Resets the agent's on-chain wallet
-> - Is irreversible without the new owner's cooperation
->
-> Do you want to proceed? (yes/no)
-
-**Owner:**
-
-> Yes, proceed.
-
-**Agent executes transfer:**
-
-```typescript
-const txHandle = await sdk.transferAgent('8453:42', '0x9876...FEDC');
-const { result } = await txHandle.waitConfirmed();
-
-const verifiedOwner = await sdk.getAgentOwner('8453:42');
-```
-
-**Agent confirms:**
-
-> Agent ownership transferred successfully.
->
-> - **Agent ID:** 8453:42
-> - **New owner:** 0x9876...FEDC (verified on-chain)
->
-> The agent's on-chain wallet has been reset. The new owner now has full control.
+- **EIP-8004 Specification:** [https://eips.ethereum.org/EIPS/eip-8004](https://eips.ethereum.org/EIPS/eip-8004)
+- **Contract Source:** [https://github.com/erc-8004/erc-8004-contracts](https://github.com/erc-8004/erc-8004-contracts)
+- **ABIs:** [https://github.com/erc-8004/erc-8004-contracts/tree/master/abis](https://github.com/erc-8004/erc-8004-contracts/tree/master/abis)
+- **Deployed Addresses:** [https://github.com/erc-8004/erc-8004-contracts/blob/master/README.md](https://github.com/erc-8004/erc-8004-contracts/blob/master/README.md)
+- **Base Documentation:** [https://docs.base.org](https://docs.base.org)

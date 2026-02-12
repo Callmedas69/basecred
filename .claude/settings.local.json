@@ -57,7 +57,16 @@
       "Bash(cd:*)",
       "Bash(node scripts/copy-circuits.mjs:*)",
       "Bash(python -m base64:*)",
-      "Bash(git -C \"D:\\\\Harry\\\\BasedNouns\\\\CodeProject\\\\basecred\" remote get-url origin)"
+      "Bash(git -C \"D:\\\\Harry\\\\BasedNouns\\\\CodeProject\\\\basecred\" remote get-url origin)",
+      "Bash(test:*)",
+      "Bash(pushd:*)",
+      "Bash(popd:*)",
+      "Bash(pnpm pack:*)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(python:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:eips.ethereum.org)",
+      "Bash(python3:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -1,79 +1,87 @@
-# OpenClaw ERC-8004 Agent Registration
+# @basecred/openclaw-8004
 
-An OpenClaw skill that teaches AI agents to register and manage on-chain identities on Base mainnet via [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) using the [agent0-sdk](https://github.com/agent0lab/agent0-ts).
+OpenClaw skill for registering and managing AI agent identities on-chain via [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004).
 
-> **HTTP registration only.** This skill covers on-chain registration via HTTP URIs (`agent.registerHTTP()`). IPFS registration is **not** covered.
+## What This Is
 
-## Install
+An AI-agent skill (SKILL.md) that enables any LLM agent to register, update, and manage on-chain identities using the ERC-8004 standard on Base. Covers all three registries:
 
-```bash
-npm install @basecred/openclaw-8004
-```
+- **IdentityRegistry** — Agent registration, metadata, ownership (ERC-721 NFT)
+- **ReputationRegistry** — Feedback, scoring, and responses
+- **ValidationRegistry** — Third-party validation requests and responses (not yet deployed)
 
-Or copy `SKILL.md` directly into your agent's skill directory.
+## Approach
 
-## Prerequisites
+**Fully on-chain. No SDK. No external storage.**
 
-- **Node.js** >= 22
-- **agent0-sdk** `^1.5.3`
-- A private key with ETH on **Base mainnet** (for gas)
-- A Base RPC URL (default: `https://mainnet.base.org`)
+- All metadata stored as base64-encoded data URIs directly on-chain
+- Instructions are at the ABI level — use any web3 library (ethers.js, viem, wagmi, web3.js)
+- No dependency on `agent0-sdk` or any other wrapper
+- Zero IPFS, zero HTTP URLs for metadata
 
-## What This Skill Does
+## Key Behaviors
 
-| Operation | Description |
-|-----------|-------------|
-| **Register** | Create an on-chain agent identity (ERC-721 NFT) |
-| **Update** | Modify name, description, endpoints, skills, metadata |
-| **Give Feedback** | Submit on-chain reputation scores for other agents |
-| **Search Feedback** | Query reputation summaries and feedback history |
-| **Transfer** | Move agent ownership to a new wallet |
+- **`agentWallet` is managed specially** — auto-set to the owner's address on registration, updated only via `setAgentWallet()` with EIP-712/ERC-1271 proof, and cleared on ownership transfer
+- **Self-feedback is prevented** — the agent owner and approved operators cannot give feedback to their own agent
+- **Anyone can respond to feedback** — `appendResponse()` is not restricted to the agent owner
+- **`getSummary()` requires non-empty `clientAddresses`** — use `getClients(agentId)` first to discover feedback givers (anti-Sybil/spam design)
 
-## Files
+## Quick Start
 
-| File | Description |
-|---|---|
-| **SKILL.md** | Full agent instructions |
-| **README.md** | Quick-start guide (this file) |
-| **IDENTITY.md** | Agent profile card (created after registration) |
+1. **Read the skill:** See [SKILL.md](./SKILL.md) for complete instructions
+2. **Get the ABIs:** From [erc-8004-contracts](https://github.com/erc-8004/erc-8004-contracts/tree/master/abis)
+3. **Connect to Base:** Chain ID 8453, any RPC endpoint
 
-## Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `WALLET_PRIVATE_KEY` | Yes | Private key for signing transactions |
-| `BASE_RPC_URL` | No | Base RPC endpoint (default: `https://mainnet.base.org`) |
-| `AGENT0_AGENT_ID` | Auto | Set after registration (e.g. `8453:42`) |
-
-Store these in a `.env` file in the project root. Never commit `.env` to version control.
-
-## Contracts (Base Mainnet)
+### Contract Addresses (Base Mainnet)
 
 | Contract | Address |
 |----------|---------|
-| Identity Registry | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` |
-| Reputation Registry | `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` |
+| IdentityRegistry | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` |
+| ReputationRegistry | `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` |
+| ValidationRegistry | Not yet deployed |
 
-## How It Works
+### Register an Agent (Pseudocode)
 
-1. **First run** — the agent asks the owner for credentials and saves them to `.env`
-2. **Registration** — the agent gathers profile info, previews a draft, and registers on-chain after owner approval
-3. **IDENTITY.md** — after registration, the agent offers to save a local profile card
-4. **Subsequent runs** — the agent presents an action menu (update, feedback, search, transfer, view profile) and waits for the owner's choice
-5. **Every transaction** — the agent always previews a draft and waits for explicit owner approval before signing
+```
+// 1. Build registration JSON
+json = {
+  type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  name: "My Agent",
+  description: "What it does",
+  services: [...],
+  active: true
+}
 
-## Usage
+// 2. Encode as data URI
+uri = "data:application/json;base64," + base64(JSON.stringify(json))
 
-See [SKILL.md](./SKILL.md) for complete agent instructions including:
+// 3. Call register
+agentId = IdentityRegistry.register(uri)
 
-- Decision tree with action menu for returning users
-- Draft preview before every on-chain transaction
-- Step-by-step registration flow with IDENTITY.md generation
-- SDK code examples for every operation
-- Error handling table
-- Security guidelines
-- Full example interaction
+// 4. Update with agentId in registrations array
+json.registrations = [{ agentId, agentRegistry: "eip155:8453:0x8004..." }]
+uri = "data:application/json;base64," + base64(JSON.stringify(json))
+IdentityRegistry.setAgentURI(agentId, uri)
+```
 
-## License
+## SKILL.md Contents
 
-MIT
+| Section | Topic |
+|---------|-------|
+| 1-2 | Overview and quick reference |
+| 3 | Contract interfaces (all three registries) |
+| 4 | On-chain data model (base64 data URI) |
+| 5-6 | Decision tree and first-time setup |
+| 7 | Agent registration |
+| 8 | Profile updates |
+| 9-12 | Reputation (search, give, revoke, respond) |
+| 13-15 | Validation (request, respond, check) |
+| 16 | Ownership transfer |
+| 17-19 | Transaction safety, error handling, security |
+| 20-21 | IDENTITY.md schema and references |
+
+## References
+
+- [EIP-8004 Specification](https://eips.ethereum.org/EIPS/eip-8004)
+- [Contract Source](https://github.com/erc-8004/erc-8004-contracts)
+- [Deployed Addresses](https://github.com/erc-8004/erc-8004-contracts/blob/master/README.md)
