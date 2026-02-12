@@ -655,7 +655,7 @@ export default function HumanPage() {
                       </span>
                     </div>
 
-                    {/* Submit On-Chain Button */}
+                    {/* Seal On-Chain Button */}
                     <div className="pt-4 border-t border-gray-200/50 mt-4 flex flex-wrap gap-3 items-center">
                       {submitResults.get(selectedContext)?.txHash ? (
                         <div className="space-y-2">
@@ -728,7 +728,7 @@ export default function HumanPage() {
                               ) : (
                                 <>
                                   <Send className="w-4 h-4 mr-2" />
-                                  Submit On-Chain
+                                  Seal On-Chain
                                 </>
                               )}
                             </Button>

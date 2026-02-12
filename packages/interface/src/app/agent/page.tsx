@@ -141,7 +141,7 @@ export default function AgentPage() {
         {/* Visual separator */}
         <div className="border-t border-border my-8 md:my-12" />
 
-        {/* Live Activity Feed (always visible, no auth) */}
+        {/* Agent Activity Feed (always visible, no auth) */}
         <LiveFeed />
       </div>
     </div>
@@ -160,17 +160,6 @@ function QuickStart() {
         <p className="text-sm text-muted-foreground">
           For agents integrating with zkBaseCred via the API
         </p>
-      </div>
-
-      <div className="space-y-4 mb-6">
-        <h3 className="font-bold text-sm">OpenClaw Skill Install</h3>
-        <Card className="bg-card/70 border-border/70">
-          <CardContent className="p-4">
-            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-              {`curl -s https://www.zkbasecred.xyz/skill.md`}
-            </pre>
-          </CardContent>
-        </Card>
       </div>
 
       <Accordion type="single" collapsible className="space-y-2">
@@ -295,7 +284,7 @@ function LiveFeed() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Globe className="w-5 h-5 text-teal-500" />
-          <h2 className="text-xl font-bold">Live Activity</h2>
+          <h2 className="text-xl font-bold">Agent Activity</h2>
         </div>
         <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
           {error && entries.length > 0

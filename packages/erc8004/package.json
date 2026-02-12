@@ -1,6 +1,6 @@
 {
   "name": "@basecred/openclaw-8004",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "OpenClaw skill for registering and managing AI agent identities on-chain via ERC-8004",
   "license": "MIT",
   "keywords": [
@@ -25,7 +25,6 @@
     "README.md"
   ],
   "dependencies": {
-    "agent0-sdk": "^1.5.3",
     "dotenv": "^16.4.7"
   },
   "publishConfig": {
