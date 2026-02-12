@@ -55,6 +55,14 @@ const limiters = {
       limiter: Ratelimit.slidingWindow(60, "60 s"),
       prefix: "rl:feed",
     }),
+
+  /** /api/v1/stats — per IP */
+  stats: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(30, "60 s"),
+      prefix: "rl:stats",
+    }),
 } as const
 
 export type RateLimiterType = keyof typeof limiters
