@@ -1,6 +1,6 @@
 {
   "name": "@basecred/openclaw-8004",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "OpenClaw skill for registering and managing AI agent identities on-chain via ERC-8004",
   "license": "MIT",
   "keywords": [
