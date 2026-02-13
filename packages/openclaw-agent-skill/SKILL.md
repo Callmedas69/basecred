@@ -1,546 +1,906 @@
 ---
-name: basecred
-version: 0.2.0
-description: Check your human's on-chain reputation. Are they good enough for you?
-homepage: https://www.zkbasecred.xyz
-metadata:
-  basecred:
-    emoji: "\U0001F6E1\uFE0F"
-    category: "reputation"
-    api_base: "https://www.zkbasecred.xyz/api/v1"
+name: "OpenClaw ERC-8004"
+version: "2.0.0"
+description: "Register and manage AI agent identities, reputation, and validation on-chain via ERC-8004"
+chain: "Base (Chain ID: 8453)"
+contracts:
+  IdentityRegistry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+  ReputationRegistry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63"
+  ValidationRegistry: "Not yet deployed on Base mainnet"
+standard: "ERC-8004 (ERC-721 based)"
+storage: "Fully on-chain (base64 data URI)"
+dependencies: "None — library-agnostic, ABI-level"
 ---
 
-# zkBaseCred Reputation Check
+# ERC-8004 Agent Identity Skill
 
-Check if your human is reputable enough. You're the agent — you decide who's worth working for.
+## 1. Overview
 
-| File | URL |
-|---|---|
-| **SKILL.md** (this file) | `https://www.zkbasecred.xyz/skill.md` |
-| **skill.json** (metadata) | `https://www.zkbasecred.xyz/skill.json` |
+ERC-8004 is an on-chain standard for AI agent identity, reputation, and validation built on ERC-721. Each registered agent receives a non-fungible token representing its on-chain identity. The standard defines three registries:
 
-## When to Use This Skill
+- **IdentityRegistry** — Register agents, store metadata, manage ownership (ERC-721 NFT)
+- **ReputationRegistry** — Give, revoke, and query feedback for agents
+- **ValidationRegistry** — Request and respond to third-party validation of agents
 
-Use this skill whenever you need to:
-- Verify a human's reputation before allowing them to perform an action
-- Decide whether to trust a human's input or request
-- Gate access to features based on reputation signals
-- Assess spam risk for a wallet address or Farcaster identity
+This skill covers **fully on-chain** registration and management. All agent metadata is stored directly on-chain as base64-encoded data URIs — no external URLs, no IPFS, no HTTP endpoints required. The skill is **library-agnostic**: all instructions are at the ABI level. Use any web3 library (ethers.js, viem, wagmi, web3.js, etc.) to execute these calls.
 
----
+**This skill does NOT cover:**
 
-## Start Here
-
-Run this decision tree every time you start up:
-
-```
-1. Load credentials from ~/.config/basecred/credentials.json
-
-2. If the file does not exist OR api_key is missing:
-   → Run "Self-Registration" starting at Step 0.
-
-3. If the file exists AND api_key starts with "bc_":
-   a. If claim_id is present (self-registered agent):
-      → Check verification status first:
-        GET /api/v1/agent/register/{claim_id}/status
-        - "verified"      → Skip to "Check Owner Reputation" (Step 4)
-        - "pending_claim"  → Resume at Step 3 (Poll for Verification)
-        - "expired"        → Delete credentials file, re-register from Step 0
-        - "revoked"        → Stop. Do not retry.
-   b. If no claim_id (manual key from dashboard):
-      → Skip to "How to Check Reputation (Individual Context)"
-```
+- Off-chain metadata storage (IPFS, HTTP URLs)
+- SDK wrappers (agent0-sdk or similar)
+- Contract deployment or upgrades
+- UUPS proxy administration
 
 ---
 
-## Self-Registration
+## 2. Quick Reference
 
-### Step 0: Gather Owner Info
-
-Before you can register, you need two things from your owner (and one optional):
-- Their **Ethereum wallet address** (0x...)
-- Their **Telegram handle** (for contact during verification)
-- *(Optional)* A **webhook URL** to receive event notifications (must be HTTPS)
-
-Ask your owner directly. Use this message:
-
-> I'd like to register with zkBaseCred to check your reputation. I need two things:
-> 1. Your Ethereum wallet address (0x...)
-> 2. Your Telegram handle (e.g. @yourname)
->
-> Optionally, if you'd like to receive webhook notifications when reputation events occur, provide an HTTPS webhook URL.
-
-Wait for the wallet address and Telegram handle before proceeding. The webhook URL is optional.
-
-### Step 1: Register
-
-```
-POST https://www.zkbasecred.xyz/api/v1/agent/register
-Content-Type: application/json
-
-{
-  "agentName": "your_agent_name",
-  "telegramId": "@owners_telegram",
-  "ownerAddress": "0x...",
-  "webhookUrl": "https://example.com/webhook"
-}
-```
-
-`agentName` rules: 2–64 characters, letters, numbers, and underscores only.
-
-`webhookUrl` is **optional**. If provided: must be HTTPS, must not point to private/local addresses, max 512 characters.
-
-**Success response (200):**
-```json
-{
-  "apiKey": "bc_...",
-  "claimId": "abc123...",
-  "claimUrl": "https://www.zkbasecred.xyz/agent/claim/abc123...",
-  "verificationCode": "BASECRED-XXXX",
-  "message": "SAVE YOUR API KEY! It will not be shown again."
-}
-```
-
-**Immediately after a successful response**, save credentials to `~/.config/basecred/credentials.json`:
-
-```json
-{
-  "api_key": "bc_...",
-  "agent_name": "your_agent_name",
-  "claim_id": "abc123..."
-}
-```
-
-The API key is shown **once**. If you lose it, you must register again.
-
-**Error handling:**
-
-| Status | Meaning | What to Do |
-|---|---|---|
-| 409 | Agent name is already taken | Append a random suffix (e.g. `_42`) to your agent name and retry. Max 3 attempts. |
-| 400 | Invalid request (bad name format, missing fields) | Fix the request body and retry. |
-| 429 | Too many registration attempts | Wait 60 seconds and retry. |
-
-### Step 2: Send Claim URL to Owner
-
-Send the `claimUrl` to your owner via Telegram, chat, or whatever channel you use. Use this message:
-
-> Please verify me as your zkBaseCred agent:
-> {claimUrl}
->
-> Here's what to do:
-> 1. Open the link above
-> 2. Post the verification code on X (Twitter)
-> 3. Paste your tweet URL on the claim page and click Verify
->
-> This expires in 24 hours.
-
-### Step 3: Poll for Verification
-
-```
-GET https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/status
-```
-
-Poll every **30 seconds**. Stop when `status` changes from `"pending_claim"`.
-
-**Possible status values:**
-
-| Status | Meaning | What to Do |
-|---|---|---|
-| `pending_claim` | Owner hasn't verified yet | Keep polling |
-| `verified` | Owner verified successfully | Proceed to Step 4 |
-| `expired` | 24 hours passed without verification | Tell the owner it expired, then re-register from Step 0 |
-| `revoked` | Owner revoked this agent | Stop. Do not retry. |
-
-**Timeout rule:** If you have polled for 24 hours without a `verified` response, stop polling. Tell your owner:
-
-> Your zkBaseCred verification has expired. I'll need to register again. Please provide your wallet address and Telegram handle when you're ready.
-
-### Step 4: Check Owner Reputation
-
-Once verified, check your owner's reputation across all contexts in one call:
-
-```
-POST https://www.zkbasecred.xyz/api/v1/agent/check-owner
-Headers:
-  x-api-key: <your-api-key>
-```
-
-No request body needed — zkBaseCred knows the owner from your registration.
-
-**Response (200):**
-```json
-{
-  "ownerAddress": "0x...",
-  "agentName": "your_agent_name",
-  "zkEnabled": false,
-  "summary": "Your reputation is strong. You have high trust on Ethos...",
-  "results": {
-    "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "comment": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "publish": { "decision": "ALLOW_WITH_LIMITS", "confidence": "MEDIUM", "constraints": ["Rate limit: 10 posts/day"], "blockingFactors": [] },
-    "apply": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "governance.vote": { "decision": "DENY", "confidence": "HIGH", "constraints": [], "blockingFactors": [] }
-  }
-}
-```
-
-The `summary` field is a natural language explanation you can forward directly to your owner.
-
-### Step 5: Deliver Results to Owner
-
-Translate the `summary` into plain language before sending it to your owner. Do NOT forward raw terms like "Ethos", "Talent Protocol", or "signalCoverage" — see "What the Signals Mean" below for how to translate.
-
-Example delivery:
-
-> Here are your zkBaseCred reputation results:
->
-> Great news — you're well-trusted by the on-chain community, have an active social presence, and a strong track record building projects. You're approved for general access, commenting, publishing, applications, and governance voting.
-
-If any context returned `DENY` or `ALLOW_WITH_LIMITS`, explain what the owner can do to improve (e.g. "increase your on-chain activity" or "build your social presence on Farcaster").
-
-You are now fully set up. For future reputation checks on any wallet, use the individual context check below.
+| Operation               | Contract           | Function                                           | Gas? |
+| ----------------------- | ------------------ | -------------------------------------------------- | ---- |
+| Register agent          | IdentityRegistry   | `register(string)`                                 | Yes  |
+| Register with metadata  | IdentityRegistry   | `register(string, MetadataEntry[])`                | Yes  |
+| Update profile          | IdentityRegistry   | `setAgentURI(uint256, string)`                     | Yes  |
+| Set metadata key        | IdentityRegistry   | `setMetadata(uint256, string, bytes)`              | Yes  |
+| Read metadata key       | IdentityRegistry   | `getMetadata(uint256, string)`                     | No   |
+| Read full profile       | IdentityRegistry   | `tokenURI(uint256)`                                | No   |
+| Set agent wallet        | IdentityRegistry   | `setAgentWallet(uint256, address, uint256, bytes)` | Yes  |
+| Get agent wallet        | IdentityRegistry   | `getAgentWallet(uint256)`                          | No   |
+| Unset agent wallet      | IdentityRegistry   | `unsetAgentWallet(uint256)`                        | Yes  |
+| Transfer ownership      | IdentityRegistry   | `transferFrom(address, address, uint256)`          | Yes  |
+| Give feedback           | ReputationRegistry | `giveFeedback(...)`                                | Yes  |
+| Revoke feedback         | ReputationRegistry | `revokeFeedback(uint256, uint64)`                  | Yes  |
+| Respond to feedback     | ReputationRegistry | `appendResponse(...)`                              | Yes  |
+| Read feedback summary   | ReputationRegistry | `getSummary(...)`                                  | No   |
+| Read all feedback       | ReputationRegistry | `readAllFeedback(...)`                             | No   |
+| Request validation      | ValidationRegistry | `validationRequest(...)`                           | Yes  |
+| Respond to validation   | ValidationRegistry | `validationResponse(...)`                          | Yes  |
+| Check validation status | ValidationRegistry | `getValidationStatus(bytes32)`                     | No   |
 
 ---
 
-## Webhook Notifications (Optional)
+## 3. Contract Interfaces
 
-If you provided a `webhookUrl` during registration, zkBaseCred will POST JSON to that URL when events occur. This is fire-and-forget — no retries, no queue.
+> All three contracts are UUPS upgradeable proxies. Only agent-facing functions are documented here. Infrastructure methods (`upgradeToAndCall`, `proxiableUUID`, `getVersion`, `initialize`, ownership) are omitted.
 
-### Events
+### 3.1 IdentityRegistry
 
-| Event | When It Fires |
-|---|---|
-| `agent.verified` | Owner successfully verifies you |
-| `reputation.checked` | You call `check-owner` or `/decide` |
-| `agent.revoked` | Owner revokes your registration |
+**Address:** `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` (Base mainnet)
 
-### Payload Shape
+**Struct:**
 
-```json
-{
-  "event": "reputation.checked",
-  "timestamp": 1234567890,
-  "agentName": "your_agent_name",
-  "ownerAddress": "0x...",
-  "data": { /* event-specific */ }
+```
+struct MetadataEntry {
+    string metadataKey;
+    bytes metadataValue;
 }
 ```
 
-### Example: `agent.verified`
+**Functions:**
 
-```json
-{
-  "event": "agent.verified",
-  "timestamp": 1234567890,
-  "agentName": "alice_helper",
-  "ownerAddress": "0xabc123...def456",
-  "data": {
-    "claimId": "f9e8d7..."
-  }
-}
+```
+register() → uint256
+register(string agentURI) → uint256
+register(string agentURI, MetadataEntry[] metadata) → uint256
+setAgentURI(uint256 agentId, string newURI)
+setMetadata(uint256 agentId, string metadataKey, bytes metadataValue)
+getMetadata(uint256 agentId, string metadataKey) → bytes
+setAgentWallet(uint256 agentId, address newWallet, uint256 deadline, bytes signature)
+getAgentWallet(uint256 agentId) → address
+unsetAgentWallet(uint256 agentId)
+tokenURI(uint256 tokenId) → string
 ```
 
-### Example: `reputation.checked`
+**Events:**
+
+```
+Registered(uint256 indexed agentId, string agentURI, address indexed owner)
+URIUpdated(uint256 indexed agentId, string newURI, address indexed updatedBy)
+MetadataSet(uint256 indexed agentId, string indexed indexedMetadataKey, string metadataKey, bytes metadataValue)
+```
+
+**Notes:**
+
+- `register()` returns the new `agentId` (auto-incrementing uint256).
+- `tokenURI()` returns the `agentURI` set during registration or via `setAgentURI()`.
+- `setMetadata()` value parameter is `bytes`, not `string` — encode strings to bytes before calling.
+- Only the token owner can call `setAgentURI`, `setMetadata`, `setAgentWallet`, `unsetAgentWallet`.
+- `agentWallet` is a reserved metadata key with special handling:
+  - Set automatically to the owner's address on registration.
+  - Can only be updated via `setAgentWallet()` with an EIP-712 / ERC-1271 signature proving control of the new wallet.
+  - Cleared on transfer — the new owner must re-verify by calling `setAgentWallet()`.
+
+### 3.2 ReputationRegistry
+
+**Address:** `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` (Base mainnet)
+
+**Functions:**
+
+```
+giveFeedback(uint256 agentId, int128 value, uint8 valueDecimals, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)
+revokeFeedback(uint256 agentId, uint64 feedbackIndex)
+appendResponse(uint256 agentId, address clientAddress, uint64 feedbackIndex, string responseURI, bytes32 responseHash)
+getSummary(uint256 agentId, address[] clientAddresses, string tag1, string tag2) → (uint64 count, int128 summaryValue, uint8 summaryValueDecimals)
+readFeedback(uint256 agentId, address clientAddress, uint64 feedbackIndex) → (int128 value, uint8 valueDecimals, string tag1, string tag2, bool isRevoked)
+readAllFeedback(uint256 agentId, address[] clientAddresses, string tag1, string tag2, bool includeRevoked) → (address[], uint64[], int128[], uint8[], string[], string[], bool[])
+getClients(uint256 agentId) → address[]
+getLastIndex(uint256 agentId, address clientAddress) → uint64
+getResponseCount(uint256 agentId, address[] responders, uint64 feedbackIndex, address[] responders) → uint64
+getIdentityRegistry() → address
+```
+
+**Events:**
+
+```
+NewFeedback(uint256 indexed agentId, address indexed clientAddress, uint64 feedbackIndex, int128 value, uint8 valueDecimals, string indexed indexedTag1, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)
+FeedbackRevoked(uint256 indexed agentId, address indexed clientAddress, uint64 indexed feedbackIndex)
+ResponseAppended(uint256 indexed agentId, address indexed clientAddress, uint64 feedbackIndex, address indexed responder, string responseURI, bytes32 responseHash)
+```
+
+**Notes:**
+
+- `value` is `int128` (signed) — supports positive and negative feedback.
+- `valueDecimals` indicates decimal precision (e.g., value=450, decimals=2 → 4.50).
+- `tag1` and `tag2` are free-form category strings for filtering.
+- `endpoint` records which service endpoint the feedback is about.
+- `feedbackURI` and `feedbackHash` can be empty strings / zero bytes for on-chain-only feedback.
+- Only the original feedback giver can call `revokeFeedback()`.
+- Anyone can call `appendResponse()` — not restricted to the agent owner.
+- The contract prevents self-feedback: the agent owner and approved operators cannot give feedback to their own agent (checked via the Identity Registry).
+- `getSummary()` and `readAllFeedback()` are view functions (no gas).
+- `getSummary()` requires a non-empty `clientAddresses` array (anti-Sybil/spam design). You must supply specific client addresses to query.
+- `readAllFeedback()` also accepts `clientAddresses` for filtering. Pass empty strings for `tag1`/`tag2` to skip tag filtering.
+
+### 3.3 ValidationRegistry
+
+> **Status: NOT deployed on Base mainnet.** The ABI exists in the [erc-8004-contracts](https://github.com/erc-8004/erc-8004-contracts) repo but no contract address is published for any chain. This section documents the interface for reference — it will be ready when the contract goes live.
+
+**Functions:**
+
+```
+validationRequest(address validatorAddress, uint256 agentId, string requestURI, bytes32 requestHash)
+validationResponse(bytes32 requestHash, uint8 response, string responseURI, bytes32 responseHash, string tag)
+getValidationStatus(bytes32 requestHash) → (address validatorAddress, uint256 agentId, uint8 response, bytes32 responseHash, string tag, uint256 lastUpdate)
+getSummary(uint256 agentId, address[] validatorAddresses, string tag) → (uint64 count, uint8 avgResponse)
+getAgentValidations(uint256 agentId) → bytes32[]
+getValidatorRequests(address validatorAddress) → bytes32[]
+getIdentityRegistry() → address
+```
+
+**Events:**
+
+```
+ValidationRequest(address indexed validatorAddress, uint256 indexed agentId, string requestURI, bytes32 indexed requestHash)
+ValidationResponse(address indexed validatorAddress, uint256 indexed agentId, bytes32 indexed requestHash, uint8 response, string responseURI, bytes32 responseHash, string tag)
+```
+
+**Notes:**
+
+- Anyone can request validation of an agent from a specific validator address.
+- Only the designated `validatorAddress` can respond to a validation request.
+- `response` is a `uint8` representing the validation outcome.
+- `requestHash` is the unique identifier linking requests to responses.
+
+---
+
+## 4. On-Chain Data Model
+
+### 4.1 Primary Method: Base64 Data URI as agentURI
+
+All agent metadata is stored fully on-chain by encoding the registration JSON as a base64 data URI and passing it as the `agentURI` parameter:
+
+```
+register("data:application/json;base64,{base64-encoded-JSON}")
+```
+
+When `tokenURI(agentId)` is called, it returns this data URI directly. Any consumer decodes the base64 payload to get the full agent profile.
+
+This is the **proven production approach** — for example, Mr. Tee (agent ID 14482) on Base mainnet uses this exact pattern.
+
+### 4.2 Registration JSON Schema
+
+The registration JSON follows the ERC-8004 specification:
 
 ```json
 {
-  "event": "reputation.checked",
-  "timestamp": 1234567890,
-  "agentName": "alice_helper",
-  "ownerAddress": "0xabc123...def456",
-  "data": {
-    "summary": "Your reputation is strong...",
-    "results": {
-      "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH" }
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Agent Name",
+  "description": "What the agent does",
+  "image": "https://example.com/avatar.png",
+  "services": [
+    { "name": "web", "endpoint": "https://agent.example.com" },
+    {
+      "name": "A2A",
+      "endpoint": "https://agent.example.com/.well-known/agent-card.json",
+      "version": "0.3.0"
+    },
+    {
+      "name": "OASF",
+      "endpoint": "...",
+      "version": "0.8",
+      "skills": [],
+      "domains": []
+    },
+    { "name": "ENS", "endpoint": "name.eth", "version": "v1" },
+    { "name": "agentWallet", "endpoint": "eip155:8453:0x..." },
+    { "name": "twitter", "endpoint": "https://twitter.com/handle" },
+    { "name": "farcaster", "endpoint": "https://farcaster.xyz/handle" },
+    { "name": "telegram", "endpoint": "https://t.me/handle" },
+    { "name": "github", "endpoint": "https://github.com/handle" }
+  ],
+  "x402Support": false,
+  "active": true,
+  "registrations": [
+    {
+      "agentId": 42,
+      "agentRegistry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
     }
-  }
+  ],
+  "supportedTrust": ["reputation", "crypto-economic", "tee-attestation"]
 }
 ```
 
-### Requirements
+**Field reference:**
 
-- URL must use **HTTPS** (no HTTP)
-- URL must not point to private/local addresses (localhost, 10.x, 192.168.x, etc.)
-- Maximum 512 characters
-- If the webhook endpoint is down or slow (>5s), the event is silently dropped
+| Field            | Required | Description                                                        |
+| ---------------- | -------- | ------------------------------------------------------------------ |
+| `type`           | Yes      | Always `"https://eips.ethereum.org/EIPS/eip-8004#registration-v1"` |
+| `name`           | Yes      | Human-readable agent name                                          |
+| `description`    | Yes      | What the agent does                                                |
+| `image`          | No       | Avatar/logo URL                                                    |
+| `services`       | No       | Array of service endpoints (see service types below)               |
+| `x402Support`    | No       | Whether the agent supports x402 payments                           |
+| `active`         | No       | Whether the agent is currently active                              |
+| `registrations`  | No       | Array of on-chain registrations (agentId + registry address)       |
+| `supportedTrust` | No       | Trust models the agent supports                                    |
+
+**Service types:** `web`, `A2A`, `OASF`, `ENS`, `agentWallet`, `twitter`, `farcaster`, `telegram`, `github`, or any custom string.
+
+### 4.3 Updating Profiles
+
+To update an agent's profile:
+
+1. Read current profile: call `tokenURI(agentId)` → decode base64 → parse JSON
+2. Modify the JSON with desired changes
+3. Re-encode: JSON → base64 → construct `data:application/json;base64,{encoded}`
+4. Call `setAgentURI(agentId, newDataURI)`
+
+This replaces the entire profile atomically.
+
+### 4.4 Supplementary: Key-Value Metadata
+
+`setMetadata()` stores individual key-value pairs on-chain alongside the agentURI:
+
+- Keys are strings, values are `bytes` (encode strings to bytes before calling)
+- Useful for fields that other contracts need to query without decoding the full JSON
+- Read with `getMetadata(agentId, key)` (view, no gas)
+
+The `MetadataEntry[]` parameter in `register(string, MetadataEntry[])` sets multiple key-value pairs during registration in a single transaction.
 
 ---
 
-## Configuration
+## 5. Decision Tree
 
-**Self-registration** (recommended): Credentials are stored in `~/.config/basecred/credentials.json` after completing the registration flow above.
-
-**Manual override**: If the environment variable `BASECRED_API_KEY` is set (starts with `bc_`), use it instead of the credentials file. This is for owners who generated a key manually on the dashboard.
-
-Priority: `BASECRED_API_KEY` env var > credentials file.
+```
+START
+  │
+  ├── Load .env
+  │
+  ├── WALLET_PRIVATE_KEY exists?
+  │     ├── No  → Go to Section 6: First-Time Setup
+  │     └── Yes ↓
+  │
+  ├── AGENT0_AGENT_ID exists?
+  │     ├── No  → Go to Section 7: Register Agent
+  │     └── Yes ↓
+  │
+  └── Agent is registered → Show Action Menu:
+        ├── Update Profile       → Section 8
+        ├── Search Feedback      → Section 9
+        ├── Give Feedback        → Section 10
+        ├── Revoke Feedback      → Section 11
+        ├── Respond to Feedback  → Section 12
+        ├── Request Validation   → Section 13
+        ├── Respond to Validation → Section 14
+        ├── Check Validation     → Section 15
+        └── Transfer Ownership   → Section 16
+```
 
 ---
 
-## How to Identify the Human
+## 6. First-Time Setup
 
-When checking reputation for someone other than your owner, extract their identity from context:
-1. **Wallet address** — If you have their Ethereum address (0x...), use it directly as `subject`
-2. **Farcaster FID** — If you have their Farcaster FID (numeric), use it as `subject`
-3. **Ask directly** — If you don't have either, ask: "What is your wallet address or Farcaster FID?"
+### 6.1 Gather Credentials
 
-## How to Check Reputation (Individual Context)
+Ask the owner for:
 
-Use this for checking ANY wallet's reputation in a specific context — not just your owner's.
+1. **Wallet private key** — the EOA that will own the agent NFT
+2. **RPC URL** — a Base mainnet RPC endpoint (default: `https://mainnet.base.org`)
+
+### 6.2 Save to Environment
+
+Create or update `.env`:
 
 ```
-POST https://www.zkbasecred.xyz/api/v1/decide
-Headers:
-  x-api-key: <your-api-key>
-  Content-Type: application/json
-
-Body:
-{
-  "subject": "<wallet-address-or-fid>",
-  "context": "<context>"
-}
+WALLET_PRIVATE_KEY=0x...
+BASE_RPC_URL=https://mainnet.base.org
 ```
 
-### Available Contexts
+### 6.3 Verify .gitignore
 
-| Context | When to Use |
-|---|---|
-| `allowlist.general` | General access or allowlist checks |
-| `comment` | Before allowing comments or messages |
-| `publish` | Before allowing content publishing |
-| `apply` | Before accepting applications or submissions |
-| `governance.vote` | Before allowing governance participation |
+Ensure `.env` is listed in `.gitignore`. If not, add it. **Never commit private keys.**
 
-## Interpreting the Response
+### 6.4 Verify Connection
 
-```json
-{
-  "decision": "ALLOW",
-  "confidence": "HIGH",
-  "explain": ["Trust level: HIGH", "Signal coverage: 85%"],
-  "signals": {
-    "trust": "HIGH",
-    "socialTrust": "HIGH",
-    "builder": "EXPERT",
-    "creator": "MODERATE",
-    "spamRisk": "NEUTRAL",
-    "recencyDays": 3,
-    "signalCoverage": 0.85
-  }
-}
-```
-
-### Decision Values
-
-| Decision | Meaning | Your Action |
-|---|---|---|
-| `ALLOW` | Human has good reputation | Proceed with the action |
-| `ALLOW_WITH_LIMITS` | Reputation is mixed | Proceed with caution, may apply restrictions |
-| `DENY` | Reputation is insufficient | Do not allow the action, explain why |
-
-### Confidence Levels
-
-- `VERY_HIGH` — Strong signals from multiple sources
-- `HIGH` — Good signal coverage
-- `MEDIUM` — Some signals available
-- `LOW` — Limited data available
-
-### What the Signals Mean
-
-Your owner likely does not know what "Ethos", "Talent Protocol", or "signalCoverage" mean. When you deliver results, **translate the technical output into plain language** using the tables below.
-
-**Signal Sources** — where the reputation data comes from:
-
-| Source | What it is | What it measures |
-|---|---|---|
-| Ethos | On-chain reputation network | How much other people trust you on-chain (vouches, reviews) |
-| Farcaster | Decentralized social network | Your social activity, followers, and engagement |
-| Talent Protocol | Professional credential network | Your builder and creator track record (projects, contributions) |
-
-**Signal Values** — what each field means in plain English:
-
-| Signal | Plain English |
-|---|---|
-| `trust` | How much the on-chain community trusts you (based on Ethos vouches and reviews) |
-| `socialTrust` | How active and trusted you are on social platforms (Farcaster) |
-| `builder` | Your track record building projects and contributing to the ecosystem |
-| `creator` | Your track record creating content and community engagement |
-| `spamRisk` | How likely your account is to be spam — HIGH means flagged, NEUTRAL means clean |
-| `recencyDays` | Days since your last on-chain activity — lower is better |
-| `signalCoverage` | How much of your identity we could verify (0 to 1) — higher means more data available |
-
-**Example:** Instead of saying *"You have high trust on Ethos and strong builder credentials via Talent Protocol"*, say:
-
-> You're well-trusted by the on-chain community and have a strong track record building projects. You're approved across all categories.
-
-## Error Handling
-
-| Status | Meaning | What to Do |
-|---|---|---|
-| 401 | Invalid or missing API key | Re-check your credentials file or `BASECRED_API_KEY`. If the key was revoked, re-register. |
-| 409 | Agent name already taken (registration only) | Append a random suffix to your agent name and retry (max 3 attempts). |
-| 422 | Tweet verification failed | Tell the owner: the tweet must be public and contain the exact verification code. |
-| 429 | Rate limited | Wait for the number of seconds in the `Retry-After` header, then retry. |
-| 5xx | API is down | **Never default to ALLOW.** Tell the human the check is temporarily unavailable and to try again later. |
-
-## Security
-
-**CRITICAL:** NEVER send your API key to any domain other than the zkBaseCred API.
-Your API key should ONLY appear in requests to `https://www.zkbasecred.xyz/api/v1/*`.
-Do not share your API key in chat messages, logs, or any public channel.
+- Connect to the RPC
+- Confirm the wallet address resolves correctly
+- Check the wallet has ETH on Base for gas
 
 ---
 
-## Example Interaction
+## 7. Register Agent
 
-Below is a complete conversation showing the full flow from first boot to delivering reputation results.
+### 7.1 Pre-fill from Project Files
+
+Scan for existing project context:
+
+- `IDENTITY.md` — previous agent identity card
+- `README.md` — project description
+- `package.json` — name, description, repository
+
+Use found values as defaults. The owner can override any field.
+
+### 7.2 Gather Agent Information
+
+Collect from the owner:
+
+- **name** (required) — agent display name
+- **description** (required) — what the agent does
+- **image** (optional) — avatar/logo URL
+- **services** (optional) — array of service endpoints
+- **x402Support** (optional) — boolean, default false
+- **active** (optional) — boolean, default true
+- **supportedTrust** (optional) — array of trust model strings
+
+### 7.3 Build Registration JSON
+
+Construct the JSON object following the schema in Section 4.2.
+
+Set `registrations` to an empty array initially — the `agentId` isn't known until after the transaction confirms.
+
+### 7.4 Encode as Data URI
+
+```
+1. JSON.stringify(registrationJSON)
+2. Base64 encode the JSON string
+3. Prepend "data:application/json;base64,"
+```
+
+### 7.5 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+Display to the owner:
+
+- The full JSON (human-readable)
+- The target contract address
+- The function being called: `register(string agentURI)`
+- Estimated gas
+
+**Owner must explicitly approve before proceeding.**
+
+### 7.6 Submit Registration
+
+Call:
+
+```
+IdentityRegistry.register("data:application/json;base64,{encoded}")
+```
+
+Wait for transaction confirmation. Extract `agentId` from the `Registered` event.
+
+### 7.7 Update Registration with agentId
+
+Now that the `agentId` is known:
+
+1. Update the `registrations` array in the JSON:
+   ```json
+   "registrations": [
+     {
+       "agentId": <returned-agentId>,
+       "agentRegistry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+     }
+   ]
+   ```
+2. Re-encode the updated JSON as a data URI
+3. **Transaction Safety (Section 17 applies)** — preview and obtain owner approval before submitting.
+4. Call `setAgentURI(agentId, updatedDataURI)` — this is a second transaction
+
+### 7.8 Save Agent ID
+
+Update `.env`:
+
+```
+AGENT0_AGENT_ID=<agentId>
+```
+
+### 7.9 Confirm and Offer IDENTITY.md
+
+- Confirm registration success with agentId and transaction hash
+- Offer to create/update `IDENTITY.md` (see Section 20)
 
 ---
 
-**Agent (on first startup, no credentials file found):**
+## 8. Update Agent Profile
 
-> I'd like to register with zkBaseCred to check your reputation. I need two things:
-> 1. Your Ethereum wallet address (0x...)
-> 2. Your Telegram handle (e.g. @yourname)
+### 8.1 Read Current Profile
 
-**Owner:**
+Call `tokenURI(agentId)` (view, no gas).
 
-> My wallet is 0xABC123...DEF456 and my Telegram is @alice_dev
+Parse the returned data URI:
 
-**Agent registers:**
+1. Strip `data:application/json;base64,` prefix
+2. Base64 decode
+3. JSON parse
 
-```
-POST https://www.zkbasecred.xyz/api/v1/agent/register
-Content-Type: application/json
+### 8.2 Identify Changes
 
-{
-  "agentName": "alice_helper",
-  "telegramId": "@alice_dev",
-  "ownerAddress": "0xABC123...DEF456",
-  "webhookUrl": "https://alice-bot.example.com/hooks/basecred"
-}
-```
+Ask the owner which fields to update. Show current values for context.
 
-→ Response:
-```json
-{
-  "apiKey": "bc_a1b2c3...",
-  "claimId": "f9e8d7...",
-  "claimUrl": "https://www.zkbasecred.xyz/agent/claim/f9e8d7...",
-  "verificationCode": "BASECRED-XK9P",
-  "message": "SAVE YOUR API KEY! It will not be shown again."
-}
-```
+### 8.3 Modify JSON
 
-**Agent saves credentials to `~/.config/basecred/credentials.json`:**
+Apply the requested changes to the parsed JSON object.
 
-```json
-{
-  "api_key": "bc_a1b2c3...",
-  "agent_name": "alice_helper",
-  "claim_id": "f9e8d7..."
-}
-```
-
-**Agent sends claim URL to owner:**
-
-> Please verify me as your zkBaseCred agent:
-> https://www.zkbasecred.xyz/agent/claim/f9e8d7...
->
-> Here's what to do:
-> 1. Open the link above
-> 2. Post the verification code on X (Twitter)
-> 3. Paste your tweet URL on the claim page and click Verify
->
-> This expires in 24 hours.
-
-**Agent polls for verification:**
+### 8.4 Re-encode
 
 ```
-GET https://www.zkbasecred.xyz/api/v1/agent/register/f9e8d7.../status
+1. JSON.stringify(updatedJSON)
+2. Base64 encode
+3. Prepend "data:application/json;base64,"
 ```
 
-→ Response (waiting): `{ "status": "pending_claim", "agentName": "alice_helper" }`
+### 8.5 Preview and Approve
 
-*(Agent continues polling every 30 seconds...)*
+**Transaction Safety (Section 17 applies)**
 
-→ Response (verified): `{ "status": "verified", "agentName": "alice_helper" }`
+Show the owner:
 
-*(Since the agent registered with a webhookUrl, it also receives an `agent.verified` webhook at `https://alice-bot.example.com/hooks/basecred`.)*
+- A diff of old vs new JSON
+- The target contract and function: `setAgentURI(uint256, string)`
+- Estimated gas
 
-**Agent checks owner reputation:**
+**Owner must explicitly approve.**
+
+### 8.6 Submit Update
+
+Call:
 
 ```
-POST https://www.zkbasecred.xyz/api/v1/agent/check-owner
-Headers:
-  x-api-key: bc_a1b2c3...
+IdentityRegistry.setAgentURI(agentId, "data:application/json;base64,{new-encoded}")
 ```
 
-→ Response:
-```json
-{
-  "ownerAddress": "0xabc123...def456",
-  "agentName": "alice_helper",
-  "zkEnabled": false,
-  "summary": "Your reputation is strong. You have high trust on Ethos, high trust on Farcaster, strong builder credentials via Talent Protocol. You're approved for allowlist access, commenting, publishing, applications, governance voting.",
-  "results": {
-    "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "comment": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "publish": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "apply": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "governance.vote": { "decision": "ALLOW", "confidence": "MEDIUM", "constraints": [], "blockingFactors": [] }
-  }
-}
-```
+Wait for confirmation.
 
-**Agent delivers results (translated into plain language):**
+### 8.7 Confirm
 
-> Here are your zkBaseCred reputation results:
->
-> Great news — you're well-trusted by the on-chain community, have an active social presence, and a strong track record building projects. You're approved for general access, commenting, publishing, applications, and governance voting.
+- Confirm update success with transaction hash
+- Offer to update `IDENTITY.md`
 
 ---
 
-**Later, owner asks agent to check someone else:**
+## 9. Search Feedback
 
-**Owner:**
+### 9.1 Identify Target
 
-> Can you check the reputation of 0x7890...ABCD before I let them into my DAO?
+Get the target `agentId` from the owner. This can be their own agent or any other registered agent.
 
-**Agent checks reputation:**
+### 9.2 Get Summary
+
+Call (view, no gas):
 
 ```
-POST https://www.zkbasecred.xyz/api/v1/decide
-Headers:
-  x-api-key: bc_a1b2c3...
-  Content-Type: application/json
-
-{
-  "subject": "0x7890...ABCD",
-  "context": "governance.vote"
-}
+ReputationRegistry.getSummary(agentId, clientAddresses, tag1, tag2)
 ```
 
-→ Response:
-```json
-{
-  "decision": "DENY",
-  "confidence": "HIGH",
-  "explain": ["Trust level: LOW", "Signal coverage: 20%"],
-  "signals": {
-    "trust": "LOW",
-    "socialTrust": "LOW",
-    "builder": "NONE",
-    "creator": "NONE",
-    "spamRisk": "HIGH",
-    "recencyDays": 180,
-    "signalCoverage": 0.20
-  }
-}
+- `clientAddresses` must be non-empty — supply the specific client addresses to include in the summary (anti-Sybil/spam design)
+- Use `getClients(agentId)` first to discover which addresses have given feedback, then pass those to `getSummary()`
+- Pass empty strings for `tag1` and `tag2` for all categories
+
+Returns: `(count, summaryValue, summaryValueDecimals)`
+
+### 9.3 Get Detailed Feedback (Optional)
+
+If the owner wants details, call (view, no gas):
+
+```
+ReputationRegistry.readAllFeedback(agentId, clientAddresses, tag1, tag2, includeRevoked)
 ```
 
-**Agent responds:**
+Returns arrays of: addresses, feedback indices, values, decimals, tag1s, tag2s, revocation status.
 
-> I checked 0x7890...ABCD for governance voting eligibility. Result: **DENY** (HIGH confidence).
->
-> Their trust signals are low across the board — low on-chain trust, no builder or creator credentials, and high spam risk. I'd recommend not granting them governance access.
+### 9.4 Present Results
+
+Display:
+
+- Total feedback count
+- Summary score (value / 10^decimals)
+- Individual feedback entries if detailed view was requested
+- Filter by tags or client addresses if specified
+
+---
+
+## 10. Give Feedback
+
+### 10.1 Gather Feedback Details
+
+Collect from the owner:
+
+- **agentId** (required) — the agent to give feedback for
+- **value** (required) — int128, the feedback score (positive or negative)
+- **valueDecimals** (required) — uint8, decimal precision
+- **tag1** (optional) — category tag, default empty string
+- **tag2** (optional) — subcategory tag, default empty string
+- **endpoint** (optional) — which service endpoint the feedback is about, default empty string
+
+**Note:** The contract prevents self-feedback. The agent owner and approved operators cannot give feedback to their own agent.
+
+### 10.2 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+Show:
+
+- Target agent and feedback value
+- Tags and endpoint
+- Function: `giveFeedback(uint256, int128, uint8, string, string, string, string, bytes32)`
+
+**Owner must explicitly approve.**
+
+### 10.3 Submit Feedback
+
+Call:
+
+```
+ReputationRegistry.giveFeedback(
+    agentId,
+    value,
+    valueDecimals,
+    tag1,
+    tag2,
+    endpoint,
+    "",           // feedbackURI — empty for on-chain-only
+    bytes32(0)    // feedbackHash — zero for on-chain-only
+)
+```
+
+### 10.4 Confirm
+
+Confirm with transaction hash and the `NewFeedback` event details.
+
+---
+
+## 11. Revoke Feedback
+
+### 11.1 Identify Feedback
+
+The owner needs:
+
+- **agentId** — the agent the feedback was given to
+- **feedbackIndex** — the index of the specific feedback entry (uint64)
+
+To find the index, use `readAllFeedback()` or `getLastIndex()` from Section 9.
+
+### 11.2 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+Show the feedback being revoked (value, tags, timestamp). **Owner must approve.**
+
+### 11.3 Submit Revocation
+
+Call:
+
+```
+ReputationRegistry.revokeFeedback(agentId, feedbackIndex)
+```
+
+Only the original feedback giver can revoke.
+
+### 11.4 Confirm
+
+Confirm with transaction hash.
+
+---
+
+## 12. Respond to Feedback
+
+### 12.1 Context
+
+Anyone can append a response to feedback on-chain. This is not restricted to the agent owner — the original feedback giver, the agent owner, or any third party can respond.
+
+### 12.2 Gather Response Details
+
+- **agentId** — the owner's agent
+- **clientAddress** — the address that gave the feedback
+- **feedbackIndex** — which feedback entry to respond to
+- **responseURI** — optional URI with detailed response (empty string for on-chain-only)
+- **responseHash** — optional hash of the response content (bytes32(0) for on-chain-only)
+
+### 12.3 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+### 12.4 Submit Response
+
+Call:
+
+```
+ReputationRegistry.appendResponse(agentId, clientAddress, feedbackIndex, responseURI, responseHash)
+```
+
+### 12.5 Confirm
+
+Confirm with transaction hash.
+
+---
+
+## 13. Request Validation
+
+> **Requires ValidationRegistry deployment.** This section documents the expected flow for when the contract goes live.
+
+### 13.1 Gather Request Details
+
+- **validatorAddress** — the address of the validator being asked
+- **agentId** — the agent to be validated
+- **requestURI** — optional URI with validation request details (empty string for on-chain-only)
+- **requestHash** — hash identifying this request (bytes32)
+
+### 13.2 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+### 13.3 Submit Request
+
+Call:
+
+```
+ValidationRegistry.validationRequest(validatorAddress, agentId, requestURI, requestHash)
+```
+
+### 13.4 Confirm
+
+Confirm with transaction hash and `requestHash` for tracking.
+
+---
+
+## 14. Respond to Validation
+
+> **Requires ValidationRegistry deployment.**
+
+### 14.1 Context
+
+Only the designated `validatorAddress` from the original request can respond.
+
+### 14.2 Gather Response Details
+
+- **requestHash** — the hash from the original request
+- **response** — uint8 validation outcome
+- **responseURI** — optional URI with response details
+- **responseHash** — optional hash of the response content
+- **tag** — category tag for the validation
+
+### 14.3 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+### 14.4 Submit Response
+
+Call:
+
+```
+ValidationRegistry.validationResponse(requestHash, response, responseURI, responseHash, tag)
+```
+
+### 14.5 Confirm
+
+Confirm with transaction hash.
+
+---
+
+## 15. Check Validation Status
+
+> **Requires ValidationRegistry deployment.**
+
+### 15.1 By Request Hash
+
+Call (view, no gas):
+
+```
+ValidationRegistry.getValidationStatus(requestHash)
+```
+
+Returns: `(validatorAddress, agentId, response, responseHash, tag, lastUpdate)`
+
+### 15.2 By Agent
+
+Call (view, no gas):
+
+```
+ValidationRegistry.getAgentValidations(agentId)
+```
+
+Returns array of `requestHash` values. Query each for details.
+
+### 15.3 Summary
+
+Call (view, no gas):
+
+```
+ValidationRegistry.getSummary(agentId, validatorAddresses, tag)
+```
+
+Returns: `(count, avgResponse)`
+
+### 15.4 Present Results
+
+Display validation status, validator addresses, responses, and summary statistics.
+
+---
+
+## 16. Transfer Ownership
+
+### 16.1 Verify Current Owner
+
+Confirm the connected wallet is the current owner of the agent NFT by checking `ownerOf(agentId)`.
+
+### 16.2 Preview and Approve
+
+**Transaction Safety (Section 17 applies)**
+
+Display:
+
+- Current owner address
+- New owner address
+- Agent ID and name
+
+**WARNING: This action is irreversible. The current owner will lose all control of this agent identity.**
+
+**Note:** The `agentWallet` metadata is automatically cleared on transfer. The new owner must call `setAgentWallet()` to re-verify a wallet.
+
+**Owner must explicitly approve.**
+
+### 16.3 Submit Transfer
+
+Call:
+
+```
+IdentityRegistry.transferFrom(currentOwner, newOwner, agentId)
+```
+
+### 16.4 Verify
+
+After confirmation, call `ownerOf(agentId)` to verify the new owner.
+
+### 16.5 Confirm
+
+Confirm with transaction hash and verified new owner address.
+
+---
+
+## 17. Transaction Safety (Non-Negotiable)
+
+Every on-chain transaction **MUST** follow this protocol:
+
+1. **Preview** — Show the owner exactly what will be submitted:
+   - Target contract address
+   - Function name and parameters
+   - Human-readable summary of the action
+   - Estimated gas cost
+
+2. **Explicit Approval** — The owner must actively confirm. Never auto-submit.
+
+3. **Confirmation** — After the transaction is mined:
+   - Show the transaction hash
+   - Show relevant event data
+   - Confirm the state change
+
+**Never skip the preview step. Never auto-approve transactions.**
+
+---
+
+## 18. Error Handling
+
+| Error                               | Cause                            | Recovery                                     |
+| ----------------------------------- | -------------------------------- | -------------------------------------------- |
+| `insufficient funds`                | Wallet lacks ETH for gas         | Fund the wallet on Base                      |
+| `execution reverted`                | Contract rejected the call       | Check function parameters and permissions    |
+| `not the owner`                     | Caller doesn't own the agent NFT | Verify correct wallet and agentId            |
+| `agent not found` / `invalid token` | agentId doesn't exist            | Verify agentId on-chain                      |
+| `nonce too low`                     | Pending transaction conflict     | Wait for pending tx or reset nonce           |
+| `gas estimation failed`             | Transaction would revert         | Check all parameters match ABI types exactly |
+| `user rejected`                     | Owner declined in wallet         | No action needed — this is expected behavior |
+
+**General rules:**
+
+- Never swallow errors — always surface them to the owner
+- Include the raw error message for debugging
+- Suggest specific recovery actions
+- If a transaction fails, do NOT retry automatically — ask the owner
+
+---
+
+## 19. Security Rules
+
+### Private Keys
+
+- **Never** log, display, or transmit private keys
+- Store only in `.env` files
+- Verify `.env` is in `.gitignore` before any operation
+
+### Address Verification
+
+- Before any transfer: confirm the destination address with the owner
+- Display addresses in full — never truncate for verification steps
+
+### Transaction Safety
+
+- Section 17 applies to ALL on-chain operations without exception
+- Preview every transaction before signing
+- Never batch transactions without individual approval
+
+### RPC Security
+
+- Use trusted RPC endpoints only
+- Never send private keys over unencrypted connections
+
+---
+
+## 20. IDENTITY.md
+
+After registration or updates, offer to create/update a local `IDENTITY.md` file as a quick-reference card:
+
+```markdown
+# Agent Identity Card
+
+| Field      | Value                                      |
+| ---------- | ------------------------------------------ |
+| Name       | {name}                                     |
+| Agent ID   | {agentId}                                  |
+| Owner      | {ownerAddress}                             |
+| Registry   | 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 |
+| Chain      | Base (8453)                                |
+| Registered | {timestamp or block number}                |
+
+## Description
+
+{description}
+
+## Services
+
+| Service | Endpoint   |
+| ------- | ---------- |
+| {name}  | {endpoint} |
+| ...     | ...        |
+
+## Trust Models
+
+{supportedTrust array, comma-separated}
+
+## On-Chain Profile
+
+tokenURI({agentId}) → data:application/json;base64,...
+
+## Links
+
+- Registry: https://basescan.org/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432
+- Agent NFT: https://basescan.org/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a={agentId}
+```
+
+---
+
+## 21. References
+
+- **EIP-8004 Specification:** [https://eips.ethereum.org/EIPS/eip-8004](https://eips.ethereum.org/EIPS/eip-8004)
+- **Contract Source:** [https://github.com/erc-8004/erc-8004-contracts](https://github.com/erc-8004/erc-8004-contracts)
+- **ABIs:** [https://github.com/erc-8004/erc-8004-contracts/tree/master/abis](https://github.com/erc-8004/erc-8004-contracts/tree/master/abis)
+- **Deployed Addresses:** [https://github.com/erc-8004/erc-8004-contracts/blob/master/README.md](https://github.com/erc-8004/erc-8004-contracts/blob/master/README.md)
+- **Base Documentation:** [https://docs.base.org](https://docs.base.org)
