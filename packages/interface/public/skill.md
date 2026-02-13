@@ -178,27 +178,10 @@ No request body needed — zkBaseCred knows the owner from your registration.
 
 | Parameter | Default | Description |
 |---|---|---|
-| `withProof=true` | `false` | Generate ZK proofs for each context (adds ~3-4s) |
+| `withProof=false` | `true` | Skip ZK proof generation (proofs enabled by default, adds ~3-4s) |
 | `submitOnChain=false` | `true` when `withProof=true` | Skip on-chain submission |
 
-**Basic response (200) — without `withProof`:**
-```json
-{
-  "ownerAddress": "0x...",
-  "agentName": "your_agent_name",
-  "zkEnabled": false,
-  "summary": "Your reputation is strong. You have high trust on Ethos...",
-  "results": {
-    "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "comment": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "publish": { "decision": "ALLOW_WITH_LIMITS", "confidence": "MEDIUM", "constraints": ["Rate limit: 10 posts/day"], "blockingFactors": [] },
-    "apply": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "governance.vote": { "decision": "DENY", "confidence": "HIGH", "constraints": [], "blockingFactors": ["trust", "socialTrust"] }
-  }
-}
-```
-
-**Full response (200) — with `withProof=true`:**
+**Default response (200) — proofs enabled:**
 ```json
 {
   "ownerAddress": "0x...",
@@ -224,6 +207,23 @@ No request body needed — zkBaseCred knows the owner from your registration.
         "txHash": "0x..."
       }
     }
+  }
+}
+```
+
+**Opt-out response (200) — with `?withProof=false`:**
+```json
+{
+  "ownerAddress": "0x...",
+  "agentName": "your_agent_name",
+  "zkEnabled": false,
+  "summary": "Your reputation is strong. You have high trust on Ethos...",
+  "results": {
+    "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
+    "comment": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
+    "publish": { "decision": "ALLOW_WITH_LIMITS", "confidence": "MEDIUM", "constraints": ["Rate limit: 10 posts/day"], "blockingFactors": [] },
+    "apply": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
+    "governance.vote": { "decision": "DENY", "confidence": "HIGH", "constraints": [], "blockingFactors": ["trust", "socialTrust"] }
   }
 }
 ```
@@ -866,10 +866,10 @@ Response (verified): `{ "status": "verified", "agentName": "alice_helper" }`
 
 *(Since the agent registered with a webhookUrl, it also receives an `agent.verified` webhook at `https://alice-bot.example.com/hooks/basecred`.)*
 
-**Agent checks owner reputation with ZK proof:**
+**Agent checks owner reputation (proofs enabled by default):**
 
 ```
-POST https://www.zkbasecred.xyz/api/v1/agent/check-owner?withProof=true
+POST https://www.zkbasecred.xyz/api/v1/agent/check-owner
 Headers:
   x-basecred-key-id: e3b0c44298fc1c14...
 ```
