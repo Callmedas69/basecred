@@ -28,7 +28,14 @@
   ],
   "scripts": {
     "menu": "node scripts/menu.js",
-    "set-wallet": "node scripts/set-agent-wallet.js"
+    "set-wallet": "node scripts/set-agent-wallet.js",
+    "summary": "node scripts/summary.js",
+    "register": "node scripts/register.js",
+    "update": "node scripts/update.js",
+    "feedback": "node scripts/feedback.js",
+    "revoke": "node scripts/revoke.js",
+    "respond": "node scripts/respond.js",
+    "transfer": "node scripts/transfer.js"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
