@@ -11,7 +11,7 @@ export const maxDuration = 120
  * No body needed — ownerAddress is derived from the API key.
  *
  * Query params:
- *   ?withProof=true          — Generate ZK proofs for each context (adds ~3-4s)
+ *   ?withProof=false          — Skip ZK proof generation (default: true)
  *   ?submitOnChain=false      — Skip on-chain submission (default: true when withProof=true)
  */
 export async function POST(req: NextRequest) {
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse query flags — pass raw options to use case (business logic decides what to do)
-    const withProof = req.nextUrl.searchParams.get("withProof") === "true"
+    const withProof = req.nextUrl.searchParams.get("withProof") !== "false"
     const submitOnChain = req.nextUrl.searchParams.get("submitOnChain") !== "false"
 
     // 90s timeout — proof gen (~4s) + on-chain submission (~15-25s for 5 contexts)
