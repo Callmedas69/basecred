@@ -1,8 +1,19 @@
 {
   "name": "@basecred/openclaw-agent-skill",
-  "version": "0.2.0",
-  "description": "OpenClaw skill for checking human reputation via zkBaseCred",
+  "version": "2.0.1",
+  "description": "OpenClaw skill for registering and managing AI agent identities on-chain via ERC-8004",
   "license": "MIT",
+  "keywords": [
+    "erc-8004",
+    "openclaw",
+    "agent",
+    "identity",
+    "base",
+    "on-chain",
+    "erc-721",
+    "reputation",
+    "basecred"
+  ],
   "author": "BaseCred",
   "repository": {
     "type": "git",
@@ -16,17 +27,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://www.zkbasecred.xyz",
-  "keywords": [
-    "openclaw",
-    "agent",
-    "skill",
-    "reputation",
-    "basecred",
-    "zkbasecred",
-    "ethos",
-    "farcaster",
-    "talent-protocol",
-    "neynar"
-  ]
+  "homepage": "https://www.zkbasecred.xyz"
 }
