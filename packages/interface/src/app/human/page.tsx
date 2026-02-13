@@ -36,7 +36,7 @@ import {
 import { DECISION_REGISTRY_ABI } from "@basecred/contracts/abi";
 import {
   ONCHAIN_CONTRACTS,
-  BASE_SEPOLIA_CHAIN_ID,
+  BASE_CHAIN_ID,
 } from "@/lib/onChainContracts";
 
 const DECISION_REGISTRY_ADDRESS = ONCHAIN_CONTRACTS.find(
@@ -140,13 +140,13 @@ export default function HumanPage() {
   const evaluatingRef = useRef<Set<string>>(new Set());
 
   const { writeContractAsync } = useWriteContract();
-  const isWrongChain = chainId !== BASE_SEPOLIA_CHAIN_ID;
+  const isWrongChain = chainId !== BASE_CHAIN_ID;
 
   // Watch for transaction confirmation
   const { data: txReceipt, error: txReceiptError } =
     useWaitForTransactionReceipt({
       hash: pendingTx?.hash,
-      chainId: BASE_SEPOLIA_CHAIN_ID,
+      chainId: BASE_CHAIN_ID,
     });
 
   // Handle receipt arrival
@@ -198,7 +198,7 @@ export default function HumanPage() {
     address: DECISION_REGISTRY_ADDRESS,
     abi: DECISION_REGISTRY_ABI,
     functionName: "restricted",
-    chainId: BASE_SEPOLIA_CHAIN_ID,
+    chainId: BASE_CHAIN_ID,
   });
 
   // Check if connected wallet is authorized (only relevant if restricted)
@@ -207,7 +207,7 @@ export default function HumanPage() {
     abi: DECISION_REGISTRY_ABI,
     functionName: "authorizedSubmitters",
     args: address ? [address] : undefined,
-    chainId: BASE_SEPOLIA_CHAIN_ID,
+    chainId: BASE_CHAIN_ID,
     query: { enabled: !!address && isRestricted === true },
   });
 
@@ -441,7 +441,7 @@ export default function HumanPage() {
           proofC,
           pubSignals,
         ],
-        chainId: BASE_SEPOLIA_CHAIN_ID,
+        chainId: BASE_CHAIN_ID,
       });
 
       // Step 3: Wait for confirmation via useWaitForTransactionReceipt hook
@@ -697,7 +697,7 @@ export default function HumanPage() {
                       ) : isWrongChain ? (
                         <Button
                           onClick={() =>
-                            switchChain({ chainId: BASE_SEPOLIA_CHAIN_ID })
+                            switchChain({ chainId: BASE_CHAIN_ID })
                           }
                           className="bg-amber-600 text-white hover:bg-amber-700"
                         >

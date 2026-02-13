@@ -68,7 +68,10 @@
       "WebFetch(domain:eips.ethereum.org)",
       "Bash(python3:*)",
       "WebFetch(domain:base-sepolia.basescan.org)",
-      "WebFetch(domain:sepolia.basescan.org)"
+      "WebFetch(domain:sepolia.basescan.org)",
+      "Bash(forge build:*)",
+      "Bash(forge script:*)",
+      "Bash(npx docusaurus:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

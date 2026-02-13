@@ -11,9 +11,9 @@ import { defineChain } from "viem"
 // Chain Configuration
 // =============================================================================
 
-const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || "84532")
-const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://sepolia.base.org"
-const explorerUrl = process.env.NEXT_PUBLIC_BLOCK_EXPLORER_URL || "https://sepolia.basescan.org"
+const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || "8453")
+const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://mainnet.base.org"
+const explorerUrl = process.env.NEXT_PUBLIC_BLOCK_EXPLORER_URL || "https://basescan.org"
 
 export const CHAIN_CONFIG = {
   id: chainId,
@@ -29,7 +29,7 @@ export const CHAIN_CONFIG = {
 
 export const targetChain = defineChain({
   id: chainId,
-  name: process.env.NEXT_PUBLIC_CHAIN_NAME || "Base Sepolia",
+  name: process.env.NEXT_PUBLIC_CHAIN_NAME || "Base",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
     default: { http: [rpcUrl] },

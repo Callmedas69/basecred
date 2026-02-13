@@ -154,6 +154,9 @@ export function Navbar() {
             <div className="font-bold text-2xl md:text-5xl tracking-[-0.08em] text-foreground select-none">
               zkBasecred
             </div>
+            <span className="ml-1.5 self-center rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] md:text-xs font-medium text-amber-600 leading-none">
+              beta
+            </span>
           </Link>
 
           {/* Desktop nav */}
