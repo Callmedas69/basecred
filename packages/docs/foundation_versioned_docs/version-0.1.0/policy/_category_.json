@@ -1,0 +1,8 @@
+{
+  "label": "Policy",
+  "position": 2,
+  "link": {
+    "type": "doc",
+    "id": "policy/intro"
+  }
+}

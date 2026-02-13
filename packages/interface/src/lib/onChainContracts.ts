@@ -8,21 +8,21 @@ export interface OnChainContractInfo {
   explorerUrl: string;
 }
 
-export const BASE_SEPOLIA_CHAIN_ID = 84532;
+export const BASE_CHAIN_ID = 8453;
 
 export const ONCHAIN_CONTRACTS: OnChainContractInfo[] = [
   {
     name: "Groth16 Verifier",
-    address: "0x14E91Bb6d25A24E4201B4A32E11F1D3807a4d08c",
+    address: "0x60138da0c6103760864d829C128b9cA2Ea7C9158",
     abi: VERIFIER_ABI,
     description: "Validates Groth16 proofs against the policy hash + contextId + decision layout.",
-    explorerUrl: "https://base-sepolia.basescan.org/address/0x14E91Bb6d25A24E4201B4A32E11F1D3807a4d08c",
+    explorerUrl: "https://basescan.org/address/0x60138da0c6103760864d829C128b9cA2Ea7C9158",
   },
   {
     name: "Decision Registry",
-    address: "0x5a74Fe2909Bf59D0361DbE329c6dB6F705165F86",
+    address: "0x11FA4bB9E7e0d664f1781C9dc32D2F173E2150c7",
     abi: DECISION_REGISTRY_ABI,
     description: "Stores audited decisions and replay keys for on-chain proof submissions.",
-    explorerUrl: "https://base-sepolia.basescan.org/address/0x5a74Fe2909Bf59D0361DbE329c6dB6F705165F86",
+    explorerUrl: "https://basescan.org/address/0x11FA4bB9E7e0d664f1781C9dc32D2F173E2150c7",
   },
 ];

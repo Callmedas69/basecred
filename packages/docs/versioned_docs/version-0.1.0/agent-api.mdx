@@ -1,0 +1,568 @@
+---
+id: agent-api
+title: Agent API Reference
+sidebar_label: Agent API
+sidebar_position: 6
+---
+
+# Agent API Reference
+
+Complete API reference for AI agent self-registration, reputation checking, and owner management.
+
+## Registration
+
+### Register Agent
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-emerald-900/30 text-emerald-400 border border-emerald-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    POST
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/agent/register
+  </code>
+</div>
+
+Agent self-registration. No authentication required. Rate limited: 10 requests/hour per IP, 5 registrations/hour per wallet.
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `agentName` | `string` | Yes | 2-64 chars, alphanumeric and underscores only |
+| `telegramId` | `string` | Yes | Owner's Telegram handle (1-128 chars, alphanumeric with `@`, `_`, `.`, `-` only) |
+| `ownerAddress` | `string` | Yes | Valid Ethereum address |
+| `webhookUrl` | `string` | No | HTTPS URL for event notifications (max 512 chars) |
+
+```bash
+curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentName": "my_agent",
+    "telegramId": "@owner_tg",
+    "ownerAddress": "0x1234...abcd",
+    "webhookUrl": "https://example.com/webhook"
+  }'
+```
+
+**200 OK**
+
+```json
+{
+  "apiKey": "bc_...",
+  "claimId": "abc123...",
+  "claimUrl": "https://www.zkbasecred.xyz/agent/claim/abc123...",
+  "verificationCode": "BASECRED-X7K2",
+  "message": "SAVE YOUR API KEY! It will not be shown again. Send the claim URL to your owner to activate it."
+}
+```
+
+:::warning
+The `apiKey` is shown **only once**. Store it securely immediately. The key is inactive until the owner completes tweet verification.
+:::
+
+**Error responses**
+
+| Status | Code | Description |
+|---|---|---|
+| 400 | `REGISTRATION_ERROR` | Invalid `agentName`, `telegramId`, or `ownerAddress` |
+| 409 | `REGISTRATION_ERROR` | Agent name already registered |
+| 413 | `PAYLOAD_TOO_LARGE` | Request body exceeds 100KB limit |
+| 429 | `RATE_LIMITED` | Too many registration attempts |
+
+---
+
+### Poll Claim Status
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-blue-900/30 text-blue-400 border border-blue-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    GET
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/agent/register/{'{'}<span className="text-amber-400">claimId</span>{'}'}/status
+  </code>
+</div>
+
+Agent polls the status of its registration claim. No authentication required — the `claimId` (256-bit random token) acts as a bearer token.
+
+**Query parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `include` | `string` | Set to `details` to include verification code and owner address (for claim page) |
+
+```bash
+curl https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/status
+```
+
+**200 OK**
+
+```json
+{
+  "status": "pending_claim",
+  "agentName": "my_agent"
+}
+```
+
+**Status values**
+
+| Status | Meaning |
+|---|---|
+| `pending_claim` | Waiting for owner to verify via tweet |
+| `verified` | Verification complete, API key is active |
+| `expired` | Registration expired (24h TTL) |
+| `revoked` | Owner revoked this agent |
+
+With `?include=details` (only returned while `pending_claim`):
+
+```json
+{
+  "status": "pending_claim",
+  "agentName": "my_agent",
+  "verificationCode": "BASECRED-X7K2",
+  "ownerAddress": "0x1234...abcd",
+  "expiresAt": 1700000000000
+}
+```
+
+---
+
+### Verify Claim (Tweet)
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-emerald-900/30 text-emerald-400 border border-emerald-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    POST
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/agent/register/{'{'}<span className="text-amber-400">claimId</span>{'}'}/verify
+  </code>
+</div>
+
+Owner submits a tweet URL containing the verification code. Rate limited: 20 requests/hour per IP and per claimId.
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `tweetUrl` | `string` | Yes | Public tweet URL (`https://x.com/user/status/...`) |
+
+```bash
+curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/verify \
+  -H "Content-Type: application/json" \
+  -d '{ "tweetUrl": "https://x.com/user/status/123456789" }'
+```
+
+**200 OK**
+
+```json
+{
+  "success": true
+}
+```
+
+On success, the agent's API key is activated and can be used for authenticated endpoints.
+
+**Error responses**
+
+| Status | Code | Description |
+|---|---|---|
+| 400 | `INVALID_REQUEST` | Invalid claim ID format |
+| 400 | `VERIFICATION_ERROR` | Invalid tweet URL format |
+| 404 | `VERIFICATION_ERROR` | Registration not found or expired |
+| 409 | `VERIFICATION_ERROR` | Agent already verified |
+| 410 | `VERIFICATION_ERROR` | Registration revoked or expired |
+| 422 | `VERIFICATION_ERROR` | Tweet doesn't contain verification code or can't be fetched |
+| 429 | `RATE_LIMITED` | Too many verification attempts |
+
+---
+
+## Webhook Notifications
+
+If you provided a `webhookUrl` during registration, zkBaseCred will POST JSON events to that URL. Delivery is fire-and-forget — no retries, no queue.
+
+### Events
+
+| Event | When It Fires |
+|---|---|
+| `agent.verified` | Owner successfully verifies the agent via tweet |
+| `reputation.checked` | Agent calls `check-owner` or `/decide` |
+| `agent.revoked` | Owner revokes the agent registration |
+
+### Payload Shape
+
+All webhook payloads follow the same structure:
+
+```json
+{
+  "event": "reputation.checked",
+  "timestamp": 1700000000000,
+  "agentName": "my_agent",
+  "ownerAddress": "0x1234...abcd",
+  "data": { }
+}
+```
+
+### Example: `agent.verified`
+
+```json
+{
+  "event": "agent.verified",
+  "timestamp": 1700000000000,
+  "agentName": "my_agent",
+  "ownerAddress": "0x1234...abcd",
+  "data": {
+    "claimId": "abc123...",
+    "apiKeyPrefix": "bc_abc123......wxyz"
+  }
+}
+```
+
+### Example: `reputation.checked`
+
+The webhook payload shape depends on which endpoint triggered it.
+
+**Via `/api/v1/agent/check-owner`** (multi-context):
+
+```json
+{
+  "event": "reputation.checked",
+  "timestamp": 1700000000000,
+  "agentName": "my_agent",
+  "ownerAddress": "0x1234...abcd",
+  "data": {
+    "summary": "Your reputation is strong...",
+    "results": {
+      "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH" },
+      "comment": { "decision": "ALLOW", "confidence": "HIGH" }
+    }
+  }
+}
+```
+
+**Via `/api/v1/decide`** (single context):
+
+```json
+{
+  "event": "reputation.checked",
+  "timestamp": 1700000000000,
+  "agentName": "my_agent",
+  "ownerAddress": "0x1234...abcd",
+  "data": {
+    "context": "allowlist.general",
+    "decision": "ALLOW",
+    "confidence": "HIGH"
+  }
+}
+```
+
+### Requirements
+
+| Constraint | Detail |
+|---|---|
+| Protocol | HTTPS only (no HTTP) |
+| Private IPs | Blocked (localhost, 10.x, 192.168.x, 127.x) |
+| Max length | 512 characters |
+| Timeout | 5 seconds — slow endpoints are silently dropped |
+| Retries | None — fire-and-forget |
+
+:::info
+Webhooks are optional. If no `webhookUrl` is provided during registration, no events are sent. The agent can always poll endpoints instead.
+:::
+
+---
+
+## Reputation Check
+
+### Check Owner Reputation
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-emerald-900/30 text-emerald-400 border border-emerald-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    POST
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/agent/check-owner
+  </code>
+</div>
+
+Checks the agent's owner's reputation across all 5 contexts. Requires API key authentication. No request body needed — the owner's wallet is derived from the API key. Rate limited: 100 requests/minute per API key.
+
+**Headers**
+
+| Header | Value |
+|---|---|
+| `x-api-key` | Your API key (`bc_...`) |
+
+**Query parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `withProof` | `boolean` | Set to `true` for ZK proofs (adds ~3-4s) |
+| `submitOnChain` | `boolean` | Set to `false` to skip on-chain submission (default: `true` when `withProof=true`) |
+
+```bash
+# Standard (fast, ~1s)
+curl -X POST https://www.zkbasecred.xyz/api/v1/agent/check-owner \
+  -H "x-api-key: bc_your_api_key"
+
+# With ZK proofs (~3-4s)
+curl -X POST "https://www.zkbasecred.xyz/api/v1/agent/check-owner?withProof=true" \
+  -H "x-api-key: bc_your_api_key"
+```
+
+**200 OK** (without proof)
+
+```json
+{
+  "ownerAddress": "0x1234...abcd",
+  "agentName": "my_agent",
+  "zkEnabled": false,
+  "summary": "Your reputation is strong. You have high trust on Ethos, solid builder credentials via Talent Protocol. You're approved for allowlist access, commenting, publishing, applications, governance voting.",
+  "results": {
+    "allowlist.general": {
+      "decision": "ALLOW",
+      "confidence": "HIGH",
+      "constraints": []
+    },
+    "comment": {
+      "decision": "ALLOW",
+      "confidence": "HIGH",
+      "constraints": []
+    },
+    "publish": {
+      "decision": "ALLOW_WITH_LIMITS",
+      "confidence": "MEDIUM",
+      "constraints": ["rate_limited"],
+      "blockingFactors": ["Low signal coverage"]
+    },
+    "apply": {
+      "decision": "ALLOW",
+      "confidence": "HIGH",
+      "constraints": []
+    },
+    "governance.vote": {
+      "decision": "DENY",
+      "confidence": "HIGH",
+      "constraints": [],
+      "blockingFactors": ["Insufficient trust level"]
+    }
+  }
+}
+```
+
+**200 OK** (with proof, `?withProof=true`)
+
+```json
+{
+  "ownerAddress": "0x1234...abcd",
+  "agentName": "my_agent",
+  "zkEnabled": true,
+  "summary": "Your reputation is strong...",
+  "results": {
+    "comment": {
+      "decision": "ALLOW",
+      "confidence": "HIGH",
+      "verified": true,
+      "constraints": [],
+      "proof": {
+        "a": ["0x...", "0x..."],
+        "b": [["0x...", "0x..."], ["0x...", "0x..."]],
+        "c": ["0x...", "0x..."]
+      },
+      "publicSignals": ["<policyHash>", "<contextId>", "<decision>"],
+      "policyHash": "sha256:abc123...",
+      "contextId": 1
+    }
+  },
+  "onChain": {
+    "submitted": true,
+    "txHash": "0xabc123..."
+  }
+}
+```
+
+The `onChain` field is present when `submitOnChain` is not `false` (the default). Possible shapes:
+
+| Scenario | Value |
+|---|---|
+| Submitted successfully | `{ "submitted": true, "txHash": "0x..." }` |
+| Already on-chain | `{ "submitted": true, "existing": true }` |
+| Submission failed | `{ "submitted": false, "error": "..." }` |
+
+**Response fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `ownerAddress` | `string` | Owner's wallet address |
+| `agentName` | `string` | Registered agent name |
+| `zkEnabled` | `boolean` | Whether ZK proofs were generated |
+| `summary` | `string` | Natural language reputation summary |
+| `results` | `Record<string, ContextResult>` | Per-context results (see below) |
+| `onChain` | `object` | On-chain submission result (present when `submitOnChain` is not `false`) |
+
+**ContextResult fields**
+
+| Field | Type | Present | Description |
+|---|---|---|---|
+| `decision` | `string` | Always | `ALLOW`, `DENY`, or `ALLOW_WITH_LIMITS` |
+| `confidence` | `string` | Always | `LOW`, `MEDIUM`, `HIGH`, or `VERY_HIGH` |
+| `constraints` | `string[]` | Always | Active constraints (non-empty for `ALLOW_WITH_LIMITS`) |
+| `blockingFactors` | `string[]` | Without proof | Reasons for denial or limitations |
+| `verified` | `boolean` | With proof | `true` when ZK proof is present |
+| `proof` | `object` | With proof | Groth16 proof (`a`, `b`, `c` arrays) |
+| `publicSignals` | `[string, string, string]` | With proof | `[policyHash, contextId, decision]` |
+| `policyHash` | `string` | With proof | Hash of the policy used |
+| `contextId` | `number` | With proof | Numeric context identifier |
+
+**Error responses**
+
+| Status | Code | Description |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | Invalid or missing API key |
+| 429 | `RATE_LIMITED` | Too many requests |
+| 500 | `CHECK_OWNER_ERROR` | Proof repository or internal error |
+| 503 | `CHECK_OWNER_ERROR` | ZK circuit files not available |
+| 504 | `CHECK_OWNER_ERROR` | Request timed out (90s limit) |
+
+---
+
+## Global Feed
+
+### Get Activity Feed
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-blue-900/30 text-blue-400 border border-blue-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    GET
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/agent/feed
+  </code>
+</div>
+
+Public endpoint. Returns the most recent agent reputation check entries. No authentication required. Rate limited: 60 requests/minute per IP. Responses include `Cache-Control` headers (15s).
+
+```bash
+curl https://www.zkbasecred.xyz/api/v1/agent/feed
+```
+
+**200 OK**
+
+```json
+{
+  "entries": [
+    {
+      "agentName": "my_agent",
+      "ownerAddress": "0x1234...abcd",
+      "context": "allowlist.general",
+      "txHash": "0xabc123...",
+      "timestamp": 1700000000000
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `agentName` | `string` | Agent name |
+| `ownerAddress` | `string` | Truncated owner address (first 6 + last 4 characters) |
+| `context` | `string` | Decision context |
+| `txHash` | `string?` | Transaction hash (present for on-chain submissions, absent for off-chain decisions) |
+| `timestamp` | `number` | Unix timestamp in milliseconds |
+
+---
+
+## Owner Management
+
+These endpoints require **wallet signature verification**. The owner signs a message with their wallet to prove ownership.
+
+### List My Agents
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-emerald-900/30 text-emerald-400 border border-emerald-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    POST
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/agent/registrations
+  </code>
+</div>
+
+Returns all non-revoked agents registered to the wallet.
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `address` | `string` | Yes | Wallet address |
+| `signature` | `string` | Yes | Wallet signature |
+| `message` | `string` | Yes | Message that was signed |
+
+**200 OK**
+
+```json
+{
+  "registrations": [
+    {
+      "claimId": "abc123...",
+      "agentName": "my_agent",
+      "telegramId": "@owner_tg",
+      "webhookUrl": "https://example.com/webhook",
+      "status": "verified",
+      "apiKeyPrefix": "bc_abc123......wxyz",
+      "createdAt": 1700000000000,
+      "verifiedAt": 1700001000000
+    }
+  ]
+}
+```
+
+---
+
+### Revoke Agent
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-red-900/30 text-red-400 border border-red-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    DELETE
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/agent/registrations/{'{'}<span className="text-amber-400">claimId</span>{'}'}
+  </code>
+</div>
+
+Revokes an agent and deactivates its API key. Only the owner can revoke their own agents.
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `address` | `string` | Yes | Wallet address |
+| `signature` | `string` | Yes | Wallet signature |
+| `message` | `string` | Yes | Message that was signed |
+
+**200 OK**
+
+```json
+{
+  "success": true
+}
+```
+
+**Error responses**
+
+| Status | Code | Description |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | Invalid wallet signature |
+| 403 | `REVOKE_ERROR` | Not the owner of this registration |
+| 404 | `REVOKE_ERROR` | Registration not found |
+| 409 | `REVOKE_ERROR` | Agent already revoked |
+
+---
+
+## Typical Agent Flow
+
+```
+1. POST /api/v1/agent/register          → Get apiKey + claimUrl (optionally include webhookUrl)
+2. Send claimUrl to owner               → Owner posts tweet
+3. GET  .../register/{claimId}/status    → Poll until "verified" (or receive agent.verified webhook)
+4. POST /api/v1/agent/check-owner       → Get reputation results (triggers reputation.checked webhook)
+5. Deliver summary to owner             → Natural language, ready to forward
+```
+
+For ZK-verified results, add `?withProof=true` in step 4. The proofs can be submitted on-chain via the [ZK Agent Integration](./zk-agent.mdx) flow.

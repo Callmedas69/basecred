@@ -1,0 +1,291 @@
+---
+sidebar_position: 3
+---
+
+# Integration Guide
+
+> Connect your application to BaseCred with zero friction.
+
+## 01. REST API
+
+The easiest way to consume BaseCred signals is via the REST API. All endpoints accept and return JSON.
+
+### Endpoint: Discovery
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-blue-900/30 text-blue-400 border border-blue-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    GET
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/contexts
+  </code>
+</div>
+
+Returns the list of available decision contexts.
+
+```bash
+curl https://www.zkbasecred.xyz/api/v1/contexts
+```
+
+**200 OK**
+
+```json
+{
+  "contexts": [
+    "allowlist.general",
+    "apply",
+    "comment",
+    "publish",
+    "governance.vote"
+  ]
+}
+```
+
+### Endpoint: Decision
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-emerald-900/30 text-emerald-400 border border-emerald-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    POST
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/decide
+  </code>
+</div>
+
+Evaluates a subject's reputation for a given context and returns a decision with explanation. Rate limited: 100 requests/minute per API key (when using `x-api-key` header).
+
+```bash
+curl -X POST https://www.zkbasecred.xyz/api/v1/decide \
+  -H "Content-Type: application/json" \
+  -d '{"subject": "0xYourAddress", "context": "allowlist.general"}'
+```
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `subject` | `string` | Yes | Wallet address or identifier to evaluate |
+| `context` | `string` | Yes | Decision context (from `/api/v1/contexts`) |
+
+**200 OK**
+
+```json
+{
+  "decision": "ALLOW",
+  "confidence": "HIGH",
+  "constraints": [],
+  "retryAfter": null,
+  "ruleIds": ["ethos-trust-high", "neynar-social-check"],
+  "version": "1.0.0",
+  "explain": [
+    "Trust level: HIGH",
+    "Social trust: HIGH",
+    "Eligible for allowlist.general based on reputation signals."
+  ],
+  "subjectHash": "0xabc123...",
+  "profile": { ... },
+  "signals": {
+    "trust": "HIGH",
+    "socialTrust": "HIGH",
+    "builder": "EXPERT",
+    "creator": "BUILDER",
+    "recencyDays": 5,
+    "spamRisk": "NEUTRAL",
+    "signalCoverage": 1.0
+  },
+  "policyHash": "sha256:abc123..."
+}
+```
+
+The response also includes the `x-policy-hash` header when a policy is found.
+
+**Response fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `decision` | `"ALLOW" \| "DENY" \| "ALLOW_WITH_LIMITS"` | The access decision |
+| `confidence` | `"LOW" \| "MEDIUM" \| "HIGH" \| "VERY_HIGH"` | Confidence level |
+| `constraints` | `string[]` | Constraints applied (non-empty for `ALLOW_WITH_LIMITS`) |
+| `retryAfter` | `number \| null` | Seconds before retrying, if applicable |
+| `ruleIds` | `string[]` | IDs of rules that contributed to the decision |
+| `version` | `string` | Engine version |
+| `explain` | `string[]` | Human-readable decision explanation |
+| `signals` | `NormalizedSignals` | Normalized reputation signals (see below) |
+| `policyHash` | `string` | Hash of the policy used for this context |
+
+**NormalizedSignals**
+
+| Field | Type | Description |
+|---|---|---|
+| `trust` | `"VERY_LOW" \| "LOW" \| "NEUTRAL" \| "HIGH" \| "VERY_HIGH"` | Aggregated trust (from Ethos) |
+| `socialTrust` | `"VERY_LOW" \| "LOW" \| "NEUTRAL" \| "HIGH" \| "VERY_HIGH"` | Social legitimacy (from Neynar) |
+| `builder` | `"EXPLORER" \| "BUILDER" \| "EXPERT" \| "ELITE"` | Technical credibility (from Talent) |
+| `creator` | `"EXPLORER" \| "BUILDER" \| "EXPERT" \| "ELITE"` | Content credibility (from Talent) |
+| `recencyDays` | `number` | Days since last activity |
+| `spamRisk` | `"VERY_LOW" \| "LOW" \| "NEUTRAL" \| "HIGH" \| "VERY_HIGH"` | Spam risk indicator |
+| `signalCoverage` | `number` | Percentage of signals fetched (0–1) |
+
+**Error responses**
+
+| Status | Code | Description |
+|---|---|---|
+| 400 | `INVALID_REQUEST` | Missing or invalid `subject` / `context` |
+| 413 | `PAYLOAD_TOO_LARGE` | Request body exceeds 100KB |
+| 429 | `RATE_LIMITED` | Too many requests per API key |
+| 500 | `INTERNAL_ERROR` | Server error |
+
+### Endpoint: Decide with ZK Proof
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-purple-900/30 text-purple-400 border border-purple-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    POST
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/decide-with-proof
+  </code>
+</div>
+
+Evaluates a subject and generates a Groth16 ZK proof alongside the decision. The proof can be verified on-chain without revealing the raw reputation scores.
+
+```bash
+curl -X POST https://www.zkbasecred.xyz/api/v1/decide-with-proof \
+  -H "Content-Type: application/json" \
+  -d '{"subject": "0xYourAddress", "context": "allowlist.general"}'
+```
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `subject` | `string` | Yes | Wallet address or identifier to evaluate |
+| `context` | `string` | Yes | Decision context (from `/api/v1/contexts`) |
+
+**200 OK**
+
+```json
+{
+  "decision": "ALLOW",
+  "signals": {
+    "trust": "HIGH",
+    "socialTrust": "HIGH",
+    "builder": "EXPERT",
+    "creator": "BUILDER",
+    "recencyDays": 5,
+    "spamRisk": "NEUTRAL",
+    "signalCoverage": 1.0
+  },
+  "proof": {
+    "a": ["0x...", "0x..."],
+    "b": [["0x...", "0x..."], ["0x...", "0x..."]],
+    "c": ["0x...", "0x..."]
+  },
+  "publicSignals": ["<policyHash>", "<contextId>", "<decision>"],
+  "policyHash": "sha256:abc123...",
+  "contextId": 0,
+  "explain": [
+    "Trust level: HIGH",
+    "Social trust: HIGH",
+    "Eligible for allowlist.general based on reputation signals."
+  ]
+}
+```
+
+**Response fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `decision` | `"ALLOW" \| "DENY" \| "ALLOW_WITH_LIMITS"` | The access decision |
+| `signals` | `NormalizedSignals` | Normalized reputation signals |
+| `proof` | `{ a, b, c }` | Groth16 proof (contract-ready format) |
+| `publicSignals` | `[string, string, string]` | `[policyHash, contextId, decision]` |
+| `policyHash` | `string` | Hash of the policy used |
+| `contextId` | `number` | Numeric context identifier |
+| `explain` | `string[]` | Human-readable explanation |
+
+**Error responses**
+
+| Status | Code | Description |
+|---|---|---|
+| 400 | `INVALID_REQUEST` | Missing or invalid `subject` / `context` |
+| 404 | `POLICY_NOT_FOUND` | No policy for the requested context |
+| 503 | `ZK_NOT_CONFIGURED` | Circuit files not available on the server |
+| 500 | `INTERNAL_ERROR` | Server error |
+
+### Endpoint: ZK Agent
+
+<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
+  <span className="bg-amber-900/30 text-amber-400 border border-amber-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
+    POST
+  </span>
+  <code className="text-zinc-300">
+    /api/v1/agent/decide
+  </code>
+</div>
+
+For agent-submitted proofs and on-chain submission, see [ZK Agent Integration](./zk-agent.mdx) and [ZK Contracts](./zk-contracts.mdx). Successful responses include the `x-policy-hash` header.
+
+## 02. CLIENT EXAMPLES
+
+### JavaScript / TypeScript
+
+```typescript
+interface DecisionResponse {
+  decision: "ALLOW" | "DENY" | "ALLOW_WITH_LIMITS";
+  confidence: "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH";
+  constraints: string[];
+  explain: string[];
+  signals: {
+    trust: string;
+    socialTrust: string;
+    builder: string;
+    creator: string;
+    recencyDays: number;
+    spamRisk: string;
+    signalCoverage: number;
+  };
+  policyHash: string;
+}
+
+const checkReputation = async (address: string): Promise<DecisionResponse> => {
+  const response = await fetch("https://www.zkbasecred.xyz/api/v1/decide", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      subject: address,
+      context: "allowlist.general",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`BaseCred API error: ${response.status}`);
+  }
+
+  const data: DecisionResponse = await response.json();
+
+  if (data.decision === "ALLOW") {
+    // Grant access
+  }
+
+  return data;
+};
+```
+
+### Python
+
+```python
+import requests
+
+def check_reputation(address: str) -> dict:
+    response = requests.post(
+        "https://www.zkbasecred.xyz/api/v1/decide",
+        json={"subject": address, "context": "allowlist.general"},
+    )
+    response.raise_for_status()
+
+    data = response.json()
+
+    if data["decision"] == "ALLOW":
+        print(f"User {address} is allowed!")
+
+    return data
+```

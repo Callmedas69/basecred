@@ -11,8 +11,8 @@ import { ONCHAIN_CONTRACTS } from "@/lib/onChainContracts"
 import { targetChain } from "@/lib/blockchainConfig"
 import { getRedis } from "@/lib/redis"
 
-// Block at which the DecisionRegistry was deployed (from broadcast/run-latest.json)
-const DEPLOY_BLOCK = 37_286_508n
+// Block at which the DecisionRegistry was deployed on Base Mainnet (from broadcast/8453/run-latest.json)
+const DEPLOY_BLOCK = 42_105_937n
 
 export interface DecisionEvent {
   subjectHash: `0x${string}`
