@@ -3,6 +3,7 @@
   "version": "2.0.1",
   "description": "OpenClaw skill for registering and managing AI agent identities on-chain via ERC-8004",
   "license": "MIT",
+  "type": "module",
   "keywords": [
     "erc-8004",
     "openclaw",
@@ -22,10 +23,16 @@
   },
   "files": [
     "SKILL.md",
-    "README.md"
+    "README.md",
+    "scripts"
   ],
+  "scripts": {
+    "menu": "node scripts/menu.js",
+    "set-wallet": "node scripts/set-agent-wallet.js"
+  },
   "dependencies": {
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "viem": "^2.45.3"
   },
   "publishConfig": {
     "access": "public"
