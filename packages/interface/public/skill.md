@@ -14,14 +14,15 @@ metadata:
 
 Check if your human is reputable enough. You're the agent — you decide who's worth working for.
 
-| File | URL |
-|---|---|
-| **SKILL.md** (this file) | `https://www.zkbasecred.xyz/skill.md` |
+| File                      | URL                                     |
+| ------------------------- | --------------------------------------- |
+| **SKILL.md** (this file)  | `https://www.zkbasecred.xyz/skill.md`   |
 | **skill.json** (metadata) | `https://www.zkbasecred.xyz/skill.json` |
 
 ## When to Use This Skill
 
 Use this skill whenever you need to:
+
 - Verify a human's reputation before allowing them to perform an action
 - Decide whether to trust a human's input or request
 - Gate access to features based on reputation signals
@@ -35,7 +36,7 @@ Use this skill whenever you need to:
 Run this decision tree every time you start up:
 
 ```
-1. Load credentials from ~/.config/basecred/credentials.json
+1. Load credentials from ~/.config/zkbasecred/credentials.json
 
 2. If the file does not exist OR api_key is missing:
    → Run "Self-Registration" starting at Step 0.
@@ -59,15 +60,17 @@ Run this decision tree every time you start up:
 ### Step 0: Gather Owner Info
 
 Before you can register, you need two things from your owner (and one optional):
+
 - Their **Ethereum wallet address** (0x...)
 - Their **Telegram handle** (for contact during verification)
-- *(Optional)* A **webhook URL** to receive event notifications (must be HTTPS)
+- _(Optional)_ A **webhook URL** to receive event notifications (must be HTTPS)
 
 **IMPORTANT:** You must use your **owner's wallet address** — the human who owns and operates you. Do NOT use your own agent wallet address. The reputation check is for your owner, not for you.
 
 Ask your owner directly. Use this message:
 
 > I need to register with zkBaseCred to check your reputation. To do this, I need **your** personal wallet address — not mine.
+>
 > 1. Your Ethereum wallet address (0x...)
 > 2. Your Telegram handle (e.g. @yourname)
 >
@@ -94,6 +97,7 @@ Content-Type: application/json
 `webhookUrl` is **optional**. If provided: must be HTTPS, must not point to private/local addresses, max 512 characters.
 
 **Success response (200):**
+
 ```json
 {
   "apiKey": "bc_...",
@@ -104,7 +108,7 @@ Content-Type: application/json
 }
 ```
 
-**Immediately after a successful response**, compute `SHA256(apiKey)` and save credentials to `~/.config/basecred/credentials.json`:
+**Immediately after a successful response**, compute `SHA256(apiKey)` and save credentials to `~/.config/zkbasecred/credentials.json`:
 
 ```json
 {
@@ -121,11 +125,11 @@ The API key is shown **once**. If you lose it, you must register again.
 
 **Error handling:**
 
-| Status | Meaning | What to Do |
-|---|---|---|
-| 409 | Agent name is already taken | Append a random suffix (e.g. `_42`) to your agent name and retry. Max 3 attempts. |
-| 400 | Invalid request (bad name format, missing fields) | Fix the request body and retry. |
-| 429 | Too many registration attempts | Wait 60 seconds and retry. |
+| Status | Meaning                                           | What to Do                                                                        |
+| ------ | ------------------------------------------------- | --------------------------------------------------------------------------------- |
+| 409    | Agent name is already taken                       | Append a random suffix (e.g. `_42`) to your agent name and retry. Max 3 attempts. |
+| 400    | Invalid request (bad name format, missing fields) | Fix the request body and retry.                                                   |
+| 429    | Too many registration attempts                    | Wait 60 seconds and retry.                                                        |
 
 ### Step 2: Send Claim URL to Owner
 
@@ -135,6 +139,7 @@ Send the `claimUrl` to your owner via Telegram, chat, or whatever channel you us
 > {claimUrl}
 >
 > Here's what to do:
+>
 > 1. Open the link above
 > 2. Post the verification code on X (Twitter)
 > 3. Paste your tweet URL on the claim page and click Verify
@@ -151,12 +156,12 @@ Poll every **30 seconds**. Stop when `status` changes from `"pending_claim"`.
 
 **Possible status values:**
 
-| Status | Meaning | What to Do |
-|---|---|---|
-| `pending_claim` | Owner hasn't verified yet | Keep polling |
-| `verified` | Owner verified successfully | Proceed to Step 4 |
-| `expired` | 24 hours passed without verification | Tell the owner it expired, then re-register from Step 0 |
-| `revoked` | Owner revoked this agent | Stop. Do not retry. |
+| Status          | Meaning                              | What to Do                                              |
+| --------------- | ------------------------------------ | ------------------------------------------------------- |
+| `pending_claim` | Owner hasn't verified yet            | Keep polling                                            |
+| `verified`      | Owner verified successfully          | Proceed to Step 4                                       |
+| `expired`       | 24 hours passed without verification | Tell the owner it expired, then re-register from Step 0 |
+| `revoked`       | Owner revoked this agent             | Stop. Do not retry.                                     |
 
 **Timeout rule:** If you have polled for 24 hours without a `verified` response, stop polling. Tell your owner:
 
@@ -176,6 +181,7 @@ No request body needed — zkBaseCred knows the owner from your registration.
 ZK proofs are always generated and submitted on-chain.
 
 **Response (200):**
+
 ```json
 {
   "ownerAddress": "0x...",
@@ -190,7 +196,10 @@ ZK proofs are always generated and submitted on-chain.
       "verified": true,
       "proof": {
         "a": ["0x...", "0x..."],
-        "b": [["0x...", "0x..."], ["0x...", "0x..."]],
+        "b": [
+          ["0x...", "0x..."],
+          ["0x...", "0x..."]
+        ],
         "c": ["0x...", "0x..."]
       },
       "publicSignals": ["...", "...", "..."],
@@ -207,10 +216,10 @@ ZK proofs are always generated and submitted on-chain.
 
 **`onChain` field states:**
 
-| State | Meaning |
-|---|---|
+| State                                      | Meaning                                                       |
+| ------------------------------------------ | ------------------------------------------------------------- |
 | `{ "submitted": true, "txHash": "0x..." }` | Decision recorded on-chain. `txHash` is the transaction hash. |
-| `{ "submitted": false, "error": "..." }` | On-chain submission failed. The error message explains why. |
+| `{ "submitted": false, "error": "..." }`   | On-chain submission failed. The error message explains why.   |
 
 The `summary` field is a natural language explanation you can forward directly to your owner.
 
@@ -275,18 +284,18 @@ Overall: {one-line plain language summary}
 >
 > --- Wallet Score ---
 >
->   On-chain Trust:    High
->   Social Trust:      High
->   Builder:           Expert
->   Creator:           Moderate
+> On-chain Trust: High
+> Social Trust: High
+> Builder: Expert
+> Creator: Moderate
 >
 > --- Access by Context ---
 >
->   Allowlist:   ALLOW (HIGH)
->   Comment:     ALLOW (HIGH)
->   Publish:     ALLOW (HIGH)
->   Apply:       ALLOW (HIGH)
->   Governance:  ALLOW (MEDIUM)
+> Allowlist: ALLOW (HIGH)
+> Comment: ALLOW (HIGH)
+> Publish: ALLOW (HIGH)
+> Apply: ALLOW (HIGH)
+> Governance: ALLOW (MEDIUM)
 >
 > --- Constraints ---
 > None
@@ -310,23 +319,25 @@ Overall: {one-line plain language summary}
 >
 > --- Wallet Score ---
 >
->   On-chain Trust:    Moderate
->   Social Trust:      Low
->   Builder:           Intermediate
->   Creator:           Explorer
+> On-chain Trust: Moderate
+> Social Trust: Low
+> Builder: Intermediate
+> Creator: Explorer
 >
 > --- Access by Context ---
 >
->   Allowlist:   ALLOW (HIGH)
->   Comment:     ALLOW (HIGH)
->   Publish:     ALLOW_WITH_LIMITS (MEDIUM)
->   Apply:       ALLOW (HIGH)
->   Governance:  DENY (HIGH)
+> Allowlist: ALLOW (HIGH)
+> Comment: ALLOW (HIGH)
+> Publish: ALLOW_WITH_LIMITS (MEDIUM)
+> Apply: ALLOW (HIGH)
+> Governance: DENY (HIGH)
 >
 > --- Constraints ---
+>
 > - Publish: Content will be placed in a review queue before going live.
 >
 > --- Blocking Factors ---
+>
 > - Governance: On-chain trust and social presence need improvement.
 >
 > --- What This Means ---
@@ -385,10 +396,10 @@ Decision: {decision} ({confidence})
 >
 > --- Wallet Score ---
 >
->   On-chain Trust:    Low
->   Social Trust:      Low
->   Builder:           Explorer
->   Creator:           Explorer
+> On-chain Trust: Low
+> Social Trust: Low
+> Builder: Explorer
+> Creator: Explorer
 >
 > --- Details ---
 > This wallet has low trust signals across the board — limited on-chain trust, no builder or creator credentials, and flagged for spam risk. Not recommended for governance access.
@@ -397,6 +408,7 @@ Decision: {decision} ({confidence})
 > None
 >
 > --- Blocking Factors ---
+>
 > - On-chain trust is too low
 > - Social presence is insufficient
 >
@@ -406,6 +418,7 @@ Decision: {decision} ({confidence})
 ---
 
 **Rules for all reports:**
+
 - Always include the wallet address, date, and wallet score section.
 - Never use raw signal names (`socialTrust`, `signalCoverage`). Always translate to plain English.
 - Never mention source names like "Ethos", "Talent Protocol", or "Neynar" — use the plain language equivalents from "What the Signals Mean" below.
@@ -425,11 +438,11 @@ If you provided a `webhookUrl` during registration, zkBaseCred will POST JSON to
 
 ### Events
 
-| Event | When It Fires |
-|---|---|
-| `agent.verified` | Owner successfully verifies you |
-| `reputation.checked` | You call `check-owner` |
-| `agent.revoked` | Owner revokes your registration |
+| Event                | When It Fires                   |
+| -------------------- | ------------------------------- |
+| `agent.verified`     | Owner successfully verifies you |
+| `reputation.checked` | You call `check-owner`          |
+| `agent.revoked`      | Owner revokes your registration |
 
 ### Payload Shape
 
@@ -439,7 +452,9 @@ If you provided a `webhookUrl` during registration, zkBaseCred will POST JSON to
   "timestamp": 1234567890,
   "agentName": "your_agent_name",
   "ownerAddress": "0x...",
-  "data": { /* event-specific */ }
+  "data": {
+    /* event-specific */
+  }
 }
 ```
 
@@ -489,6 +504,7 @@ If you provided a `webhookUrl` during registration, zkBaseCred will POST JSON to
 **Self-registration** (recommended): Credentials are stored in `~/.config/basecred/credentials.json` after completing the registration flow above.
 
 **Credential file format:**
+
 ```json
 {
   "api_key": "bc_...",
@@ -509,6 +525,7 @@ Priority: `BASECRED_API_KEY` env var > credentials file.
 ## How to Identify the Human
 
 When checking reputation for someone other than your owner, extract their identity from context:
+
 1. **Wallet address** — If you have their Ethereum address (0x...), use it directly as `subject`
 2. **Farcaster FID** — If you have their Farcaster FID (numeric), use it as `subject`
 3. **Ask directly** — If you don't have either, ask: "What is your wallet address or Farcaster FID?"
@@ -532,13 +549,13 @@ Body:
 
 ### Available Contexts
 
-| Context | When to Use |
-|---|---|
-| `allowlist.general` | General access or allowlist checks |
-| `comment` | Before allowing comments or messages |
-| `publish` | Before allowing content publishing |
-| `apply` | Before accepting applications or submissions |
-| `governance.vote` | Before allowing governance participation |
+| Context             | When to Use                                  |
+| ------------------- | -------------------------------------------- |
+| `allowlist.general` | General access or allowlist checks           |
+| `comment`           | Before allowing comments or messages         |
+| `publish`           | Before allowing content publishing           |
+| `apply`             | Before accepting applications or submissions |
+| `governance.vote`   | Before allowing governance participation     |
 
 ## Interpreting the `/decide-with-proof` Response
 
@@ -556,7 +573,10 @@ Body:
   },
   "proof": {
     "a": ["0x...", "0x..."],
-    "b": [["0x...", "0x..."], ["0x...", "0x..."]],
+    "b": [
+      ["0x...", "0x..."],
+      ["0x...", "0x..."]
+    ],
     "c": ["0x...", "0x..."]
   },
   "publicSignals": ["...", "...", "..."],
@@ -578,6 +598,7 @@ Body:
 ```
 
 **Key fields:**
+
 - `decision` — The access decision: `ALLOW`, `DENY`, or `ALLOW_WITH_LIMITS`.
 - `signals` — Normalized reputation signals. Map them directly: `signals.trust` -> On-chain Trust, `signals.socialTrust` -> Social Trust, `signals.builder` -> Builder, `signals.creator` -> Creator.
 - `proof` — Groth16 ZK proof in contract-ready format.
@@ -589,10 +610,10 @@ Body:
 
 **`onChain` field states:**
 
-| State | Meaning |
-|---|---|
+| State                                      | Meaning                                                       |
+| ------------------------------------------ | ------------------------------------------------------------- |
 | `{ "submitted": true, "txHash": "0x..." }` | Decision recorded on-chain. `txHash` is the transaction hash. |
-| `{ "submitted": false, "error": "..." }` | On-chain submission failed. The error message explains why. |
+| `{ "submitted": false, "error": "..." }`   | On-chain submission failed. The error message explains why.   |
 
 ## Manual On-Chain Submission (Optional)
 
@@ -620,6 +641,7 @@ Body:
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -632,11 +654,11 @@ Body:
 
 ### Decision Values
 
-| Decision | Meaning | Your Action |
-|---|---|---|
-| `ALLOW` | Human has good reputation | Proceed with the action |
-| `ALLOW_WITH_LIMITS` | Reputation is mixed | Proceed with caution, may apply restrictions |
-| `DENY` | Reputation is insufficient | Do not allow the action, explain why |
+| Decision            | Meaning                    | Your Action                                  |
+| ------------------- | -------------------------- | -------------------------------------------- |
+| `ALLOW`             | Human has good reputation  | Proceed with the action                      |
+| `ALLOW_WITH_LIMITS` | Reputation is mixed        | Proceed with caution, may apply restrictions |
+| `DENY`              | Reputation is insufficient | Do not allow the action, explain why         |
 
 ### Confidence Levels
 
@@ -651,25 +673,25 @@ Your owner likely does not know what "Ethos", "Talent Protocol", or "signalCover
 
 **Signal Sources** — where the reputation data comes from:
 
-| Source | What it is | What it measures |
-|---|---|---|
-| Ethos | On-chain reputation network | How much other people trust you on-chain (vouches, reviews) |
-| Farcaster | Decentralized social network | Your social activity, followers, and engagement |
+| Source          | What it is                      | What it measures                                                |
+| --------------- | ------------------------------- | --------------------------------------------------------------- |
+| Ethos           | On-chain reputation network     | How much other people trust you on-chain (vouches, reviews)     |
+| Farcaster       | Decentralized social network    | Your social activity, followers, and engagement                 |
 | Talent Protocol | Professional credential network | Your builder and creator track record (projects, contributions) |
 
 **Signal Values** — what each field means in plain English:
 
-| Signal | Plain English |
-|---|---|
-| `trust` | How much the on-chain community trusts you (based on Ethos vouches and reviews) |
-| `socialTrust` | How active and trusted you are on social platforms (Farcaster) |
-| `builder` | Your track record building projects and contributing to the ecosystem |
-| `creator` | Your track record creating content and community engagement |
-| `spamRisk` | How likely your account is to be spam — HIGH means flagged, NEUTRAL means clean |
-| `recencyDays` | Days since your last on-chain activity — lower is better |
+| Signal           | Plain English                                                                         |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| `trust`          | How much the on-chain community trusts you (based on Ethos vouches and reviews)       |
+| `socialTrust`    | How active and trusted you are on social platforms (Farcaster)                        |
+| `builder`        | Your track record building projects and contributing to the ecosystem                 |
+| `creator`        | Your track record creating content and community engagement                           |
+| `spamRisk`       | How likely your account is to be spam — HIGH means flagged, NEUTRAL means clean       |
+| `recencyDays`    | Days since your last on-chain activity — lower is better                              |
 | `signalCoverage` | How much of your identity we could verify (0 to 1) — higher means more data available |
 
-**Example:** Instead of saying *"You have high trust on Ethos and strong builder credentials via Talent Protocol"*, say:
+**Example:** Instead of saying _"You have high trust on Ethos and strong builder credentials via Talent Protocol"_, say:
 
 > You're well-trusted by the on-chain community and have a strong track record building projects. You're approved across all categories.
 
@@ -715,15 +737,15 @@ Revokes a specific agent registration. The agent will receive a `agent.revoked` 
 
 ## Error Handling
 
-| Status | Meaning | What to Do |
-|---|---|---|
-| 401 | Invalid or missing API key | Re-check your credentials file or `BASECRED_API_KEY`. If the key was revoked, re-register. |
-| 409 | Agent name already taken (registration only) | Append a random suffix to your agent name and retry (max 3 attempts). |
-| 422 | Tweet verification failed | Tell the owner: the tweet must be public and contain the exact verification code. |
-| 429 | Rate limited | Wait for the number of seconds in the `Retry-After` header, then retry. |
-| 503 | ZK circuit files not available | The ZK proof system is temporarily unavailable. Retry later. |
-| 504 | Request timeout | `check-owner` can take up to 90 seconds (proof generation + on-chain submission). If it times out, retry once. |
-| 5xx | API is down | **Never default to ALLOW.** Tell the human the check is temporarily unavailable and to try again later. |
+| Status | Meaning                                      | What to Do                                                                                                     |
+| ------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 401    | Invalid or missing API key                   | Re-check your credentials file or `BASECRED_API_KEY`. If the key was revoked, re-register.                     |
+| 409    | Agent name already taken (registration only) | Append a random suffix to your agent name and retry (max 3 attempts).                                          |
+| 422    | Tweet verification failed                    | Tell the owner: the tweet must be public and contain the exact verification code.                              |
+| 429    | Rate limited                                 | Wait for the number of seconds in the `Retry-After` header, then retry.                                        |
+| 503    | ZK circuit files not available               | The ZK proof system is temporarily unavailable. Retry later.                                                   |
+| 504    | Request timeout                              | `check-owner` can take up to 90 seconds (proof generation + on-chain submission). If it times out, retry once. |
+| 5xx    | API is down                                  | **Never default to ALLOW.** Tell the human the check is temporarily unavailable and to try again later.        |
 
 ## Security
 
@@ -742,6 +764,7 @@ Below is a complete conversation showing the full flow from first boot to delive
 **Agent (on first startup, no credentials file found):**
 
 > I'd like to register with zkBaseCred to check your reputation. I need two things:
+>
 > 1. Your Ethereum wallet address (0x...)
 > 2. Your Telegram handle (e.g. @yourname)
 
@@ -764,6 +787,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "apiKey": "bc_a1b2c3...",
@@ -791,6 +815,7 @@ Response:
 > https://www.zkbasecred.xyz/agent/claim/f9e8d7...
 >
 > Here's what to do:
+>
 > 1. Open the link above
 > 2. Post the verification code on X (Twitter)
 > 3. Paste your tweet URL on the claim page and click Verify
@@ -805,11 +830,11 @@ GET https://www.zkbasecred.xyz/api/v1/agent/register/f9e8d7.../status
 
 Response (waiting): `{ "status": "pending_claim", "agentName": "alice_helper" }`
 
-*(Agent continues polling every 30 seconds...)*
+_(Agent continues polling every 30 seconds...)_
 
 Response (verified): `{ "status": "verified", "agentName": "alice_helper" }`
 
-*(Since the agent registered with a webhookUrl, it also receives an `agent.verified` webhook at `https://alice-bot.example.com/hooks/basecred`.)*
+_(Since the agent registered with a webhookUrl, it also receives an `agent.verified` webhook at `https://alice-bot.example.com/hooks/basecred`.)_
 
 **Agent checks owner reputation (proofs always generated + submitted on-chain):**
 
@@ -820,6 +845,7 @@ Headers:
 ```
 
 Response:
+
 ```json
 {
   "ownerAddress": "0xabc123...def456",
@@ -832,7 +858,14 @@ Response:
       "confidence": "HIGH",
       "constraints": [],
       "verified": true,
-      "proof": { "a": ["0x...", "0x..."], "b": [["0x...", "0x..."], ["0x...", "0x..."]], "c": ["0x...", "0x..."] },
+      "proof": {
+        "a": ["0x...", "0x..."],
+        "b": [
+          ["0x...", "0x..."],
+          ["0x...", "0x..."]
+        ],
+        "c": ["0x...", "0x..."]
+      },
       "publicSignals": ["...", "...", "..."],
       "policyHash": "sha256:...",
       "contextId": 1,
@@ -843,7 +876,14 @@ Response:
       "confidence": "HIGH",
       "constraints": [],
       "verified": true,
-      "proof": { "a": ["0x...", "0x..."], "b": [["0x...", "0x..."], ["0x...", "0x..."]], "c": ["0x...", "0x..."] },
+      "proof": {
+        "a": ["0x...", "0x..."],
+        "b": [
+          ["0x...", "0x..."],
+          ["0x...", "0x..."]
+        ],
+        "c": ["0x...", "0x..."]
+      },
       "publicSignals": ["...", "...", "..."],
       "policyHash": "sha256:...",
       "contextId": 2,
@@ -854,7 +894,14 @@ Response:
       "confidence": "HIGH",
       "constraints": [],
       "verified": true,
-      "proof": { "a": ["0x...", "0x..."], "b": [["0x...", "0x..."], ["0x...", "0x..."]], "c": ["0x...", "0x..."] },
+      "proof": {
+        "a": ["0x...", "0x..."],
+        "b": [
+          ["0x...", "0x..."],
+          ["0x...", "0x..."]
+        ],
+        "c": ["0x...", "0x..."]
+      },
       "publicSignals": ["...", "...", "..."],
       "policyHash": "sha256:...",
       "contextId": 3,
@@ -865,7 +912,14 @@ Response:
       "confidence": "HIGH",
       "constraints": [],
       "verified": true,
-      "proof": { "a": ["0x...", "0x..."], "b": [["0x...", "0x..."], ["0x...", "0x..."]], "c": ["0x...", "0x..."] },
+      "proof": {
+        "a": ["0x...", "0x..."],
+        "b": [
+          ["0x...", "0x..."],
+          ["0x...", "0x..."]
+        ],
+        "c": ["0x...", "0x..."]
+      },
       "publicSignals": ["...", "...", "..."],
       "policyHash": "sha256:...",
       "contextId": 4,
@@ -876,7 +930,14 @@ Response:
       "confidence": "HIGH",
       "constraints": [],
       "verified": true,
-      "proof": { "a": ["0x...", "0x..."], "b": [["0x...", "0x..."], ["0x...", "0x..."]], "c": ["0x...", "0x..."] },
+      "proof": {
+        "a": ["0x...", "0x..."],
+        "b": [
+          ["0x...", "0x..."],
+          ["0x...", "0x..."]
+        ],
+        "c": ["0x...", "0x..."]
+      },
       "publicSignals": ["...", "...", "..."],
       "policyHash": "sha256:...",
       "contextId": 5,
@@ -896,18 +957,18 @@ Response:
 >
 > --- Wallet Score ---
 >
->   On-chain Trust:    High
->   Social Trust:      High
->   Builder:           Expert
->   Creator:           Moderate
+> On-chain Trust: High
+> Social Trust: High
+> Builder: Expert
+> Creator: Moderate
 >
 > --- Access by Context ---
 >
->   Allowlist:   ALLOW (HIGH)
->   Comment:     ALLOW (HIGH)
->   Publish:     ALLOW (HIGH)
->   Apply:       ALLOW (HIGH)
->   Governance:  ALLOW (HIGH)
+> Allowlist: ALLOW (HIGH)
+> Comment: ALLOW (HIGH)
+> Publish: ALLOW (HIGH)
+> Apply: ALLOW (HIGH)
+> Governance: ALLOW (HIGH)
 >
 > --- Constraints ---
 > None
@@ -944,6 +1005,7 @@ Headers:
 ```
 
 Response:
+
 ```json
 {
   "decision": "DENY",
@@ -954,9 +1016,16 @@ Response:
     "creator": "EXPLORER",
     "spamRisk": "HIGH",
     "recencyDays": 180,
-    "signalCoverage": 0.20
+    "signalCoverage": 0.2
   },
-  "proof": { "a": ["0x...", "0x..."], "b": [["0x...", "0x..."], ["0x...", "0x..."]], "c": ["0x...", "0x..."] },
+  "proof": {
+    "a": ["0x...", "0x..."],
+    "b": [
+      ["0x...", "0x..."],
+      ["0x...", "0x..."]
+    ],
+    "c": ["0x...", "0x..."]
+  },
   "publicSignals": ["...", "...", "..."],
   "policyHash": "sha256:...",
   "contextId": 5,
@@ -988,10 +1057,10 @@ Response:
 >
 > --- Wallet Score ---
 >
->   On-chain Trust:    Low
->   Social Trust:      Low
->   Builder:           Explorer
->   Creator:           Explorer
+> On-chain Trust: Low
+> Social Trust: Low
+> Builder: Explorer
+> Creator: Explorer
 >
 > --- Details ---
 > This wallet has low trust signals across the board — limited on-chain trust, no builder or creator credentials, and flagged for spam risk. Not recommended for governance access.
@@ -1000,6 +1069,7 @@ Response:
 > None
 >
 > --- Blocking Factors ---
+>
 > - On-chain trust is too low
 > - Social presence is insufficient
 >
