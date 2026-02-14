@@ -49,7 +49,7 @@ The `profileFetcher` pattern allows you to control how profile data is sourced â
 | `DecisionOutput` | Full engine output. See [Response Schema](./schema). |
 | `NormalizedSignals` | Normalized signal values consumed by the rule engine. |
 | `Tier` | `"VERY_LOW" \| "LOW" \| "MEDIUM" \| "HIGH" \| "VERY_HIGH"` |
-| `Capability` | `"NONE" \| "LOW" \| "MEDIUM" \| "HIGH"` |
+| `Capability` | `"EXPLORER" \| "BUILDER" \| "EXPERT" \| "ELITE"` |
 | `ConfidenceTier` | `"LOW" \| "MEDIUM" \| "HIGH" \| "VERY_HIGH"` |
 | `DecisionContext` | Valid context strings (see below). |
 | `DecideUseCaseInput` | Input shape for `executeDecision`. |

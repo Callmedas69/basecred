@@ -28,16 +28,16 @@ function tierGte(a: Tier, b: Tier): boolean {
 
 ## Capabilities (Ordered)
 
-Used for `builder`, `creator`. Documented here with the same ordering semantics as in the rule catalog (e.g. EXPERT, ADVANCED, INTERMEDIATE, NONE).
+Used for `builder`, `creator`.
 
 ```ts
-type Capability = "NONE" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+type Capability = "EXPLORER" | "BUILDER" | "EXPERT" | "ELITE";
 
 const CAPABILITY_ORDER: Record<Capability, number> = {
-  NONE: 0,
-  INTERMEDIATE: 1,
-  ADVANCED: 2,
-  EXPERT: 3,
+  EXPLORER: 0,
+  BUILDER: 1,
+  EXPERT: 2,
+  ELITE: 3,
 };
 
 function capabilityGte(a: Capability, b: Capability): boolean {
@@ -60,7 +60,3 @@ function capabilityGte(a: Capability, b: Capability): boolean {
   return CAPABILITY_ORDER[a] >= CAPABILITY_ORDER[b];
 }
 ```
-
-:::note Implementation
-The codebase may use different enum names (e.g. EXPLORER, BUILDER, ELITE). The ordering semantics and rule logic align with the catalog in [Rules](./rules).
-:::

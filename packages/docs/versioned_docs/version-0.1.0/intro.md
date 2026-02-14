@@ -39,5 +39,5 @@ If you are building an **AI agent** (e.g. OpenClaw), see the [OpenClaw Integrati
 If you are integrating a ZK agent flow, see the [ZK Agent Integration](./zk-agent.mdx) page for policy hashes and proof payload examples.
 
 :::tip Quick Start
-If running locally, visit `http://localhost:3000/human` to see live data.
+Visit [zkbasecred.xyz/human](https://www.zkbasecred.xyz/human) to see live data.
 :::

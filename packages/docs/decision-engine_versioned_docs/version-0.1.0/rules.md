@@ -62,12 +62,12 @@ _Granting full access based on merit._
 
 | ID                       | Context             | Condition (Summary)                                                                  | Confidence Δ |
 | :----------------------- | :------------------ | :----------------------------------------------------------------------------------- | :----------- |
-| `allow_strong_builder`   | `allowlist.general` | `builder` is EXPERT **OR** (`builder` ≥ ADVANCED **AND** `socialTrust` ≥ HIGH)       | +30          |
-| `allow_strong_creator`   | `allowlist.general` | `creator` is EXPERT **OR** (`creator` ≥ ADVANCED **AND** `socialTrust` ≥ HIGH)       | +30          |
+| `allow_strong_builder`   | `allowlist.general` | `builder` is ELITE **OR** (`builder` ≥ EXPERT **AND** `socialTrust` ≥ HIGH)       | +30          |
+| `allow_strong_creator`   | `allowlist.general` | `creator` is ELITE **OR** (`creator` ≥ EXPERT **AND** `socialTrust` ≥ HIGH)       | +30          |
 | `allow_high_trust`       | `allowlist.general` | `trust` ≥ HIGH **AND** `socialTrust` ≥ HIGH                                          | +25          |
 | `allow_comment_trusted`  | `comment`           | `trust` ≥ NEUTRAL **AND** `socialTrust` ≥ NEUTRAL                                    | +15          |
-| `allow_publish_verified` | `publish`           | `trust` ≥ HIGH **AND** `socialTrust` ≥ HIGH **AND** (builder/creator ≥ INTERMEDIATE) | +25          |
-| `allow_apply_qualified`  | `apply`             | `trust` ≥ NEUTRAL **AND** (builder/creator ≥ ADVANCED)                              | +20          |
+| `allow_publish_verified` | `publish`           | `trust` ≥ HIGH **AND** `socialTrust` ≥ HIGH **AND** (builder/creator ≥ BUILDER) | +25          |
+| `allow_apply_qualified`  | `apply`             | `trust` ≥ NEUTRAL **AND** (builder/creator ≥ EXPERT)                              | +20          |
 | `allow_governance_vote`  | `governance.vote`   | `trust` ≥ HIGH **AND** `socialTrust` ≥ NEUTRAL **AND** `recencyDays` ≤ 30            | +20          |
 
 ---
@@ -79,8 +79,8 @@ _Granting restricted access._
 | ID                          | Context             | Condition (Summary)                                           | Decision              | Confidence Δ |
 | :-------------------------- | :------------------ | :------------------------------------------------------------ | :-------------------- | :----------- |
 | `probation_inactive`        | `allowlist.general` | `trust` ≥ NEUTRAL **AND** `recencyDays` > 14                 | **ALLOW_WITH_LIMITS** | -10          |
-| `probation_new_user`        | `allowlist.general` | `trust` ≥ NEUTRAL **AND** `socialTrust` ≥ NEUTRAL (No skills)  | **ALLOW_WITH_LIMITS** | -15          |
-| `probation_mixed_signals`   | `allowlist.general` | `trust` ≥ HIGH **AND** `socialTrust` < NEUTRAL                | **ALLOW_WITH_LIMITS** | -10          |
+| `probation_new_user`        | `allowlist.general` | `trust` ≥ NEUTRAL **AND** `socialTrust` ≥ NEUTRAL **AND** builder=EXPLORER **AND** creator=EXPLORER  | **ALLOW_WITH_LIMITS** | 0          |
+| `probation_mixed_signals`   | `allowlist.general` | `trust` ≥ HIGH **AND** `socialTrust` ≥ LOW                | **ALLOW_WITH_LIMITS** | -10          |
 | `limit_comment_new`         | `comment`           | `trust` ≥ LOW **AND** `signalCoverage` ≥ 0.5                  | **ALLOW_WITH_LIMITS** | -5           |
 | `limit_publish_unverified`  | `publish`           | `trust` ≥ NEUTRAL **AND** `socialTrust` ≥ NEUTRAL             | **ALLOW_WITH_LIMITS** | -10          |
 | `limit_governance_inactive` | `governance.vote`   | `trust` ≥ HIGH **AND** `recencyDays` (30-90]                  | **ALLOW_WITH_LIMITS** | -15          |

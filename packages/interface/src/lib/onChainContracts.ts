@@ -20,9 +20,9 @@ export const ONCHAIN_CONTRACTS: OnChainContractInfo[] = [
   },
   {
     name: "Decision Registry",
-    address: "0x11FA4bB9E7e0d664f1781C9dc32D2F173E2150c7",
+    address: "0x8a8A3F95605F6980F6fFCC4C86110fe8d7b5E091",
     abi: DECISION_REGISTRY_ABI,
-    description: "Stores audited decisions and replay keys for on-chain proof submissions.",
-    explorerUrl: "https://basescan.org/address/0x11FA4bB9E7e0d664f1781C9dc32D2F173E2150c7",
+    description: "Stores audited decisions for on-chain proof submissions. Supports resubmission for updated decisions.",
+    explorerUrl: "https://basescan.org/address/0x8a8A3F95605F6980F6fFCC4C86110fe8d7b5E091",
   },
 ];

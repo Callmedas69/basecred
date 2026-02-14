@@ -3,7 +3,17 @@ sidebar_position: 1
 slug: overview
 ---
 
+import VersionBadges from '@site/src/components/VersionBadges';
+
 # Foundation Overview
+
+<VersionBadges
+  category="Foundation"
+  version="0.1.0"
+  updated="Feb 14, 2026"
+  guidelinesLabel="Core Principles"
+  guidelinesUrl="/foundation/core-principles"
+/>
 
 This document defines the **non negotiable foundation of BaseCred**.
 

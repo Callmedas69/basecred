@@ -2,7 +2,17 @@
 sidebar_position: 1
 ---
 
+import VersionBadges from '@site/src/components/VersionBadges';
+
 # Decision Engine
+
+<VersionBadges
+  category="Decision Engine"
+  version="0.1.0"
+  updated="Feb 14, 2026"
+  guidelinesLabel="Foundation"
+  guidelinesUrl="/foundation/overview"
+/>
 
 The **BaseCred Decision Engine** determines _if_ an identity should be allowed to perform an action based on their reputation signals. It is designed to be **deterministic**, **context-aware**, and **explainable**.
 

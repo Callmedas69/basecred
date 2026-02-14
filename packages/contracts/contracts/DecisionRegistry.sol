@@ -82,7 +82,6 @@ contract DecisionRegistry {
         require(policyHash != bytes32(0), "Invalid policyHash");
 
         bytes32 key = keccak256(abi.encode(subjectHash, context, policyHash));
-        require(decisions[key].timestamp == 0, "Decision already submitted");
 
         bytes32 policyHashSignal = bytes32(publicSignals[POLICY_HASH_SIGNAL_INDEX]);
         require(policyHashSignal == policyHash, "Policy hash mismatch");

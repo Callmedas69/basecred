@@ -1,20 +1,21 @@
 /**
  * Decide with ZK Proof API
  *
- * Generates ZK proofs for reputation decisions.
+ * Generates ZK proofs for reputation decisions and auto-submits on-chain.
  *
  * Flow:
  * 1. Fetch SDK output (raw scores from Ethos, Neynar, Talent)
  * 2. Normalize signals using decision-engine normalizers
  * 3. Encode signals for circuit
  * 4. Generate ZK proof (circuit computes decision)
- * 5. Return decision, signals, and proof data
+ * 5. Auto-submit proof on-chain via relayer
+ * 6. Return decision, signals, proof data, and on-chain status
  */
 
 // Force Node.js runtime (required for snarkjs WASM operations)
 export const runtime = "nodejs"
-// ZK proof generation is CPU-intensive — allow up to 60s
-export const maxDuration = 60
+// ZK proof generation + on-chain submission — allow up to 90s
+export const maxDuration = 90
 
 import { NextRequest, NextResponse } from "next/server"
 import {
@@ -26,10 +27,15 @@ import {
     InMemoryPolicyRepository,
     listPolicies,
     type DecisionContext,
+    type Decision,
     type NormalizedSignals,
 } from "basecred-decision-engine"
 import { fetchLiveProfile } from "@/repositories/liveProfileRepository"
 import { generateProof, areCircuitFilesAvailable } from "@/lib/proofGenerator"
+import { submitDecisionOnChain } from "@/use-cases/submit-decision-onchain"
+import { createDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
+import { getRelayerPrivateKey } from "@/lib/serverConfig"
+import { logSubmissionFeed } from "@/use-cases/log-submission-feed"
 
 const policyRepository = new InMemoryPolicyRepository()
 
@@ -50,6 +56,11 @@ interface DecideWithProofResponse {
     policyHash: string
     contextId: number
     explain: string[]
+    onChain: {
+        submitted: boolean
+        txHash?: string
+        error?: string
+    }
 }
 
 export async function POST(req: NextRequest) {
@@ -133,6 +144,47 @@ export async function POST(req: NextRequest) {
         // 5. Build explanation based on decision and signals
         const explain = buildExplanation(proofResult.decision, signals, context)
 
+        // 6. Auto-submit on-chain
+        let onChain: DecideWithProofResponse["onChain"] = { submitted: false, error: "Relayer not configured" }
+
+        const relayerKey = getRelayerPrivateKey()
+        if (relayerKey) {
+            try {
+                const registryRepo = createDecisionRegistryRepository(relayerKey)
+                const output = await submitDecisionOnChain(
+                    {
+                        subject: body.subject,
+                        context,
+                        decision: proofResult.decision as Decision,
+                        policyHash: policy.policyHash,
+                        proof: proofResult.proof,
+                        publicSignals: proofResult.publicSignals,
+                    },
+                    { decisionRegistryRepository: registryRepo }
+                )
+                onChain = { submitted: true, txHash: output.transactionHash }
+            } catch (err: any) {
+                const reason = err.cause?.reason || err.shortMessage || err.message || ""
+                console.error(`[decide-with-proof] On-chain submit failed:`, reason)
+                onChain = { submitted: false, error: reason }
+            }
+        }
+
+        // 7. Log to global feed (best-effort)
+        const apiKeyHash = req.headers.get("x-basecred-key-id")
+        if (apiKeyHash && onChain.txHash) {
+            try {
+                await logSubmissionFeed({
+                    apiKeyHash,
+                    subject: body.subject,
+                    context,
+                    txHash: onChain.txHash,
+                })
+            } catch (err) {
+                console.error("[decide-with-proof] Feed logging failed:", err)
+            }
+        }
+
         const totalMs = performance.now() - t0
 
         console.log(
@@ -149,6 +201,7 @@ export async function POST(req: NextRequest) {
             policyHash: policy.policyHash,
             contextId,
             explain,
+            onChain,
         }
 
         return NextResponse.json(response)

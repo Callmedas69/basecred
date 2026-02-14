@@ -265,72 +265,22 @@ Webhooks are optional. If no `webhookUrl` is provided during registration, no ev
   </code>
 </div>
 
-Checks the agent's owner's reputation across all 5 contexts. Requires API key authentication. No request body needed — the owner's wallet is derived from the API key. Rate limited: 100 requests/minute per API key.
+Checks the agent's owner's reputation across all 5 contexts with ZK proof generation and on-chain submission. Requires API key authentication. No request body needed — the owner's wallet is derived from the API key. Rate limited: 100 requests/minute per API key.
+
+ZK proofs are **always generated** and **always submitted on-chain**. There is no opt-out — every call produces verifiable proofs and writes decisions to the DecisionRegistry.
 
 **Headers**
 
 | Header | Value |
 |---|---|
-| `x-api-key` | Your API key (`bc_...`) |
-
-**Query parameters**
-
-| Parameter | Type | Description |
-|---|---|---|
-| `withProof` | `boolean` | Set to `true` for ZK proofs (adds ~3-4s) |
-| `submitOnChain` | `boolean` | Set to `false` to skip on-chain submission (default: `true` when `withProof=true`) |
+| `x-basecred-key-id` | SHA-256 hash of your API key |
 
 ```bash
-# Standard (fast, ~1s)
 curl -X POST https://www.zkbasecred.xyz/api/v1/agent/check-owner \
-  -H "x-api-key: bc_your_api_key"
-
-# With ZK proofs (~3-4s)
-curl -X POST "https://www.zkbasecred.xyz/api/v1/agent/check-owner?withProof=true" \
-  -H "x-api-key: bc_your_api_key"
+  -H "x-basecred-key-id: <sha256_of_your_api_key>"
 ```
 
-**200 OK** (without proof)
-
-```json
-{
-  "ownerAddress": "0x1234...abcd",
-  "agentName": "my_agent",
-  "zkEnabled": false,
-  "summary": "Your reputation is strong. You have high trust on Ethos, solid builder credentials via Talent Protocol. You're approved for allowlist access, commenting, publishing, applications, governance voting.",
-  "results": {
-    "allowlist.general": {
-      "decision": "ALLOW",
-      "confidence": "HIGH",
-      "constraints": []
-    },
-    "comment": {
-      "decision": "ALLOW",
-      "confidence": "HIGH",
-      "constraints": []
-    },
-    "publish": {
-      "decision": "ALLOW_WITH_LIMITS",
-      "confidence": "MEDIUM",
-      "constraints": ["rate_limited"],
-      "blockingFactors": ["Low signal coverage"]
-    },
-    "apply": {
-      "decision": "ALLOW",
-      "confidence": "HIGH",
-      "constraints": []
-    },
-    "governance.vote": {
-      "decision": "DENY",
-      "confidence": "HIGH",
-      "constraints": [],
-      "blockingFactors": ["Insufficient trust level"]
-    }
-  }
-}
-```
-
-**200 OK** (with proof, `?withProof=true`)
+**200 OK**
 
 ```json
 {
@@ -351,22 +301,21 @@ curl -X POST "https://www.zkbasecred.xyz/api/v1/agent/check-owner?withProof=true
       },
       "publicSignals": ["<policyHash>", "<contextId>", "<decision>"],
       "policyHash": "sha256:abc123...",
-      "contextId": 1
+      "contextId": 1,
+      "onChain": {
+        "submitted": true,
+        "txHash": "0xabc123..."
+      }
     }
-  },
-  "onChain": {
-    "submitted": true,
-    "txHash": "0xabc123..."
   }
 }
 ```
 
-The `onChain` field is present when `submitOnChain` is not `false` (the default). Possible shapes:
+Each context result includes an `onChain` field with the submission status. Possible shapes:
 
 | Scenario | Value |
 |---|---|
 | Submitted successfully | `{ "submitted": true, "txHash": "0x..." }` |
-| Already on-chain | `{ "submitted": true, "existing": true }` |
 | Submission failed | `{ "submitted": false, "error": "..." }` |
 
 **Response fields**
@@ -375,10 +324,9 @@ The `onChain` field is present when `submitOnChain` is not `false` (the default)
 |---|---|---|
 | `ownerAddress` | `string` | Owner's wallet address |
 | `agentName` | `string` | Registered agent name |
-| `zkEnabled` | `boolean` | Whether ZK proofs were generated |
+| `zkEnabled` | `boolean` | Whether ZK proofs were generated (always `true`) |
 | `summary` | `string` | Natural language reputation summary |
 | `results` | `Record<string, ContextResult>` | Per-context results (see below) |
-| `onChain` | `object` | On-chain submission result (present when `submitOnChain` is not `false`) |
 
 **ContextResult fields**
 
@@ -387,12 +335,12 @@ The `onChain` field is present when `submitOnChain` is not `false` (the default)
 | `decision` | `string` | Always | `ALLOW`, `DENY`, or `ALLOW_WITH_LIMITS` |
 | `confidence` | `string` | Always | `LOW`, `MEDIUM`, `HIGH`, or `VERY_HIGH` |
 | `constraints` | `string[]` | Always | Active constraints (non-empty for `ALLOW_WITH_LIMITS`) |
-| `blockingFactors` | `string[]` | Without proof | Reasons for denial or limitations |
-| `verified` | `boolean` | With proof | `true` when ZK proof is present |
-| `proof` | `object` | With proof | Groth16 proof (`a`, `b`, `c` arrays) |
-| `publicSignals` | `[string, string, string]` | With proof | `[policyHash, contextId, decision]` |
-| `policyHash` | `string` | With proof | Hash of the policy used |
-| `contextId` | `number` | With proof | Numeric context identifier |
+| `verified` | `boolean` | Always | `true` when ZK proof is present |
+| `proof` | `object` | Always | Groth16 proof (`a`, `b`, `c` arrays) |
+| `publicSignals` | `[string, string, string]` | Always | `[policyHash, contextId, decision]` |
+| `policyHash` | `string` | Always | Hash of the policy used |
+| `contextId` | `number` | Always | Numeric context identifier |
+| `onChain` | `object` | Always | On-chain submission result (`submitted`, `txHash` or `error`) |
 
 **Error responses**
 
@@ -547,4 +495,4 @@ Revokes an agent and deactivates its API key. Only the owner can revoke their ow
 5. Deliver summary to owner             → Natural language, ready to forward
 ```
 
-For ZK-verified results, add `?withProof=true` in step 4. The proofs can be submitted on-chain via the [ZK Agent Integration](./zk-agent.mdx) flow.
+ZK proofs are always generated and submitted on-chain automatically in step 4. See the [ZK Agent Integration](./zk-agent.mdx) for details on proof format and on-chain contracts.

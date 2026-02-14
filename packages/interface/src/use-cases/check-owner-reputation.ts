@@ -59,7 +59,6 @@ interface ContextResult {
   onChain?: {
     submitted: boolean
     txHash?: string
-    existing?: boolean
     error?: string
   }
 }
@@ -179,14 +178,9 @@ export async function checkOwnerReputation(
           )
           result.onChain = { submitted: true, txHash: output.transactionHash }
         } catch (err: any) {
-          // viem wraps revert reasons in nested error structures
           const reason = err.cause?.reason || err.shortMessage || err.message || ""
-          if (reason.includes("already submitted")) {
-            result.onChain = { submitted: true, existing: true }
-          } else {
-            console.error(`On-chain submit failed for ${contextKey}:`, reason)
-            result.onChain = { submitted: false, error: reason }
-          }
+          console.error(`On-chain submit failed for ${contextKey}:`, reason)
+          result.onChain = { submitted: false, error: reason }
         }
       }
     } else {
