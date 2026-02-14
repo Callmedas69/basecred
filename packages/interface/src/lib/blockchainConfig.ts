@@ -12,7 +12,17 @@ import { defineChain } from "viem"
 // =============================================================================
 
 const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || "8453")
-const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || "https://mainnet.base.org"
+
+// Build RPC URL: prefer Alchemy (server-side, more reliable) over public Base RPC.
+// ALCHEMY_RPC_URL + ALCHEMY_API_KEY are server-only env vars (not NEXT_PUBLIC_).
+const alchemyBase = process.env.ALCHEMY_RPC_URL
+const alchemyKey = process.env.ALCHEMY_API_KEY
+const alchemyUrl = alchemyBase && alchemyKey ? `${alchemyBase}${alchemyKey}` : undefined
+
+const rpcUrl = alchemyUrl
+    || process.env.NEXT_PUBLIC_RPC_URL
+    || "https://mainnet.base.org"
+
 const explorerUrl = process.env.NEXT_PUBLIC_BLOCK_EXPLORER_URL || "https://basescan.org"
 
 export const CHAIN_CONFIG = {

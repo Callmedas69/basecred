@@ -39,18 +39,54 @@ export class ContractRevertError extends AppError {
 }
 
 /**
+ * Extract the real revert reason from a viem error chain.
+ *
+ * Viem maps RPC error code -32000 to "Missing or invalid parameters" which
+ * hides the actual contract revert reason. This walks the error chain to
+ * find the real message from the RPC response (e.g. "Invalid proof",
+ * "Policy hash mismatch", etc).
+ */
+export function extractRevertReason(err: unknown): string {
+  if (!(err instanceof Error)) return String(err)
+
+  // Try to use viem's BaseError.walk() if available
+  if ("walk" in err && typeof (err as any).walk === "function") {
+    const inner = (err as any).walk()
+    if (inner && inner !== err) {
+      if ("details" in inner && typeof inner.details === "string" && inner.details.length > 0) {
+        return inner.details
+      }
+      if ("data" in inner && typeof inner.data === "string" && inner.data.startsWith("0x")) {
+        return `revert data: ${inner.data}`
+      }
+    }
+  }
+
+  // Shallow fallback for non-BaseError viem errors
+  const cause = (err as any).cause
+  if (cause?.details) return cause.details
+  if (cause?.reason) return cause.reason
+
+  return (err as any).shortMessage || err.message
+}
+
+/**
  * Maps an unknown error to an AppError with the appropriate status code.
  * Use this in API catch blocks instead of substring matching.
  */
 export function toAppError(error: unknown): AppError {
   if (error instanceof AppError) return error
 
-  const message = error instanceof Error ? error.message : "Unknown error"
+  const message = extractRevertReason(error)
 
-  // Viem wraps revert reasons
+  // Check if this looks like a contract revert
   const viemError = error as { shortMessage?: string; cause?: { reason?: string } }
-  if (viemError?.shortMessage?.includes("revert") || viemError?.cause?.reason) {
-    return new ContractRevertError(viemError.cause?.reason || viemError.shortMessage || message)
+  if (
+    viemError?.shortMessage?.includes("revert") ||
+    viemError?.cause?.reason ||
+    message.startsWith("revert data:")
+  ) {
+    return new ContractRevertError(message)
   }
 
   return new AppError(message, 500, "INTERNAL_ERROR")
