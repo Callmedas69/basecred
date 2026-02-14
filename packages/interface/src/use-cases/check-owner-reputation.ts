@@ -5,9 +5,9 @@
  * 1. Looks up the owner's wallet from the API key
  * 2. Fetches the owner's profile once
  * 3. Runs the decision engine for ALL 5 contexts
- * 4. Optionally generates ZK proofs for each context (withProof=true)
+ * 4. Generates ZK proofs for each context
  * 5. Builds a natural language summary
- * 6. Logs activity + pushes to global feed (fire-and-forget)
+ * 6. Logs activity + pushes to global feed (awaited)
  */
 
 import {
@@ -201,11 +201,13 @@ export async function checkOwnerReputation(
   // 7. Build natural language summary
   const summary = buildReputationSummary(signals, results)
 
-  // 8. Log activity + push to global feed (best-effort, non-blocking)
+  // 8. Log activity + push to global feed (awaited — fast Redis ops, must complete before Vercel terminates)
   const activityRepo = deps?.activityRepository ?? createActivityRepository()
-  logActivitiesAndFeed(activityRepo, ownerAddress, agentName, keyRecord.keyPrefix, results).catch(
-    (err) => console.error("[check-owner-reputation] Activity/feed logging failed:", err)
-  )
+  try {
+    await logActivitiesAndFeed(activityRepo, ownerAddress, agentName, keyRecord.keyPrefix, results)
+  } catch (err) {
+    console.error("[check-owner-reputation] Activity/feed logging failed:", err)
+  }
 
   // 9. Fire webhook if registration has a webhookUrl (best-effort, non-blocking)
   if (registration?.webhookUrl) {
@@ -226,10 +228,12 @@ export async function checkOwnerReputation(
     }).catch((err) => console.error("[check-owner-reputation] Webhook delivery failed:", err))
   }
 
-  // Record usage (best-effort, non-blocking)
-  keyRepo.recordUsage(apiKeyHash).catch((err) =>
+  // Record usage (awaited — must complete before Vercel terminates)
+  try {
+    await keyRepo.recordUsage(apiKeyHash)
+  } catch (err) {
     console.error("[check-owner-reputation] Usage recording failed:", err)
-  )
+  }
 
   return { ownerAddress, agentName, zkEnabled: withProof, summary, results }
 }

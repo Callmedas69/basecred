@@ -18,7 +18,7 @@ const SECURITY_HEADERS = {
 }
 
 /**
- * API key auth middleware for /api/v1/decide and /api/v1/agent/check-owner.
+ * API key auth middleware for /api/v1/decide-with-proof, /api/v1/agent/check-owner, and /api/v1/agent/submit.
  *
  * Accepts two auth methods for non-browser clients:
  * - x-api-key: raw API key (bc_...) — hashed server-side, then validated against Redis
@@ -108,5 +108,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/v1/decide", "/api/v1/decide-with-proof", "/api/v1/agent/check-owner"],
+  matcher: ["/api/v1/decide-with-proof", "/api/v1/agent/check-owner", "/api/v1/agent/submit"],
 }

@@ -8,7 +8,7 @@ import { getRedis } from "@/lib/redis"
 
 // Pre-configured limiters for each endpoint type
 const limiters = {
-  /** /api/v1/decide, /api/v1/agent/check-owner — per API key */
+  /** /api/v1/agent/check-owner, /api/v1/decide-with-proof — per API key */
   apiKey: () =>
     new Ratelimit({
       redis: getRedis(),

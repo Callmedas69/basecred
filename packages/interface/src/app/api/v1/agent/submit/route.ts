@@ -5,6 +5,7 @@ import { createDecisionRegistryRepository } from "@/repositories/decisionRegistr
 import { submitDecisionOnChain } from "@/use-cases/submit-decision-onchain"
 import { requireRelayerPrivateKey } from "@/lib/serverConfig"
 import { toAppError } from "@/lib/errors"
+import { logSubmissionFeed } from "@/use-cases/log-submission-feed"
 
 // =============================================================================
 // Request Validation Schema
@@ -52,6 +53,15 @@ export type SubmitRequest = z.infer<typeof submitRequestSchema>
 
 export async function POST(req: NextRequest) {
     try {
+        // API key required (validated by middleware, forwarded via x-basecred-key-id)
+        const apiKeyHash = req.headers.get("x-basecred-key-id")
+        if (!apiKeyHash) {
+            return NextResponse.json(
+                { code: "UNAUTHORIZED", message: "API key required" },
+                { status: 401 }
+            )
+        }
+
         const relayerPrivateKey = requireRelayerPrivateKey()
 
         // Parse and validate request body
@@ -88,6 +98,18 @@ export async function POST(req: NextRequest) {
                 decisionRegistryRepository,
             }
         )
+
+        // Log to global feed (awaited — must complete before Vercel terminates)
+        try {
+            await logSubmissionFeed({
+                apiKeyHash,
+                subject,
+                context,
+                txHash: result.transactionHash,
+            })
+        } catch (err) {
+            console.error("[agent/submit] Feed logging failed:", err)
+        }
 
         return NextResponse.json({
             success: true,
