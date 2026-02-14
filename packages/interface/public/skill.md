@@ -173,15 +173,9 @@ Headers:
 ```
 
 No request body needed — zkBaseCred knows the owner from your registration.
+ZK proofs are always generated and submitted on-chain.
 
-**Query parameters (optional):**
-
-| Parameter | Default | Description |
-|---|---|---|
-| `withProof=false` | `true` | Skip ZK proof generation (proofs enabled by default, adds ~3-4s) |
-| `submitOnChain=false` | `true` when `withProof=true` | Skip on-chain submission |
-
-**Default response (200) — proofs enabled:**
+**Response (200):**
 ```json
 {
   "ownerAddress": "0x...",
@@ -207,23 +201,6 @@ No request body needed — zkBaseCred knows the owner from your registration.
         "txHash": "0x..."
       }
     }
-  }
-}
-```
-
-**Opt-out response (200) — with `?withProof=false`:**
-```json
-{
-  "ownerAddress": "0x...",
-  "agentName": "your_agent_name",
-  "zkEnabled": false,
-  "summary": "Your reputation is strong. You have high trust on Ethos...",
-  "results": {
-    "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "comment": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "publish": { "decision": "ALLOW_WITH_LIMITS", "confidence": "MEDIUM", "constraints": ["Rate limit: 10 posts/day"], "blockingFactors": [] },
-    "apply": { "decision": "ALLOW", "confidence": "HIGH", "constraints": [], "blockingFactors": [] },
-    "governance.vote": { "decision": "DENY", "confidence": "HIGH", "constraints": [], "blockingFactors": ["trust", "socialTrust"] }
   }
 }
 ```
@@ -281,15 +258,15 @@ Overall: {one-line plain language summary}
  See "What the Signals Mean" section for translation rules.}
 
 --- On-Chain Proof ---
-{If withProof was used and onChain.txHash exists:
+{If onChain.txHash exists:
   "Verified with zero-knowledge proof. Transaction: {txHash}"
  If onChain.existing is true:
   "Previously recorded on-chain."
- If no proof was requested:
-  "Off-chain check only. No on-chain record."}
+ If onChain.error exists:
+  "On-chain submission failed: {error}"}
 ```
 
-**Where to get wallet scores:** The `check-owner` response includes a `summary` field that describes the scores in text. Extract the trust, social, builder, and creator levels from the summary. If you also call `/decide` for individual contexts, the `signals` object has the exact values.
+**Where to get wallet scores:** The `check-owner` response includes a `summary` field that describes the scores in text. Extract the trust, social, builder, and creator levels from the summary. If you also call `/decide-with-proof` for individual contexts, the `signals` object has the exact values.
 
 **Example — all ALLOW, with proof:**
 
@@ -326,7 +303,7 @@ Overall: {one-line plain language summary}
 > --- On-Chain Proof ---
 > Verified with zero-knowledge proof. Transaction: 0xabc123...
 
-**Example — mixed results, without proof:**
+**Example — mixed results:**
 
 > zkBaseCred Reputation Report
 > Wallet: 0xABC123...DEF456
@@ -359,7 +336,7 @@ Overall: {one-line plain language summary}
 > You're trusted for most activities, but governance voting requires a stronger reputation. To improve: build your on-chain trust through community participation and increase your social presence on Farcaster.
 >
 > --- On-Chain Proof ---
-> Off-chain check only. No on-chain record.
+> Verified with zero-knowledge proof. Transaction: 0xdef789...
 
 ---
 
@@ -392,11 +369,12 @@ Decision: {decision} ({confidence})
 {If non-empty blockingFactors, list them with plain English. Otherwise: "None"}
 
 --- On-Chain Proof ---
-{If submitted on-chain: "Recorded on-chain. Transaction: {txHash}"
- Otherwise: "Off-chain check only."}
+{Use /decide-with-proof → /agent/submit to record on-chain.
+ If submitted: "Recorded on-chain. Transaction: {txHash}"
+ If not yet submitted: "Use /agent/submit to record this decision on-chain."}
 ```
 
-**Where to get wallet scores:** The `/decide` response includes a `signals` object with exact values. The `/decide-with-proof` response also includes `signals`. Map them directly: `signals.trust` -> On-chain Trust, `signals.socialTrust` -> Social Trust, `signals.builder` -> Builder, `signals.creator` -> Creator.
+**Where to get wallet scores:** The `/decide-with-proof` response includes a `signals` object with exact values. Map them directly: `signals.trust` -> On-chain Trust, `signals.socialTrust` -> Social Trust, `signals.builder` -> Builder, `signals.creator` -> Creator.
 
 **Example — DENY with on-chain proof:**
 
@@ -452,7 +430,7 @@ If you provided a `webhookUrl` during registration, zkBaseCred will POST JSON to
 | Event | When It Fires |
 |---|---|
 | `agent.verified` | Owner successfully verifies you |
-| `reputation.checked` | You call `check-owner` or `/decide` |
+| `reputation.checked` | You call `check-owner` |
 | `agent.revoked` | Owner revokes your registration |
 
 ### Payload Shape
@@ -539,10 +517,10 @@ When checking reputation for someone other than your owner, extract their identi
 
 ## How to Check Reputation (Individual Context)
 
-Use this for checking ANY wallet's reputation in a specific context — not just your owner's. This is the basic off-chain check.
+Use this for checking ANY wallet's reputation in a specific context — not just your owner's. Returns a decision with ZK proof that can be submitted on-chain via `/agent/submit`.
 
 ```
-POST https://www.zkbasecred.xyz/api/v1/decide
+POST https://www.zkbasecred.xyz/api/v1/decide-with-proof
 Headers:
   x-basecred-key-id: <your-api-key-id>
   Content-Type: application/json
@@ -564,19 +542,11 @@ Body:
 | `apply` | Before accepting applications or submissions |
 | `governance.vote` | Before allowing governance participation |
 
-## Interpreting the `/decide` Response
+## Interpreting the `/decide-with-proof` Response
 
 ```json
 {
   "decision": "ALLOW",
-  "confidence": "HIGH",
-  "constraints": [],
-  "blockingFactors": [],
-  "accessStatus": "eligible",
-  "subjectHash": "0x...",
-  "ruleIds": ["allow_default"],
-  "version": "1.0",
-  "profile": { /* raw profile data */ },
   "signals": {
     "trust": "HIGH",
     "socialTrust": "HIGH",
@@ -586,15 +556,33 @@ Body:
     "recencyDays": 3,
     "signalCoverage": 0.85
   },
-  "policyHash": "sha256:..."
+  "proof": {
+    "a": ["0x...", "0x..."],
+    "b": [["0x...", "0x..."], ["0x...", "0x..."]],
+    "c": ["0x...", "0x..."]
+  },
+  "publicSignals": ["...", "...", "..."],
+  "policyHash": "sha256:...",
+  "contextId": 2,
+  "explain": [
+    "Trust level: HIGH",
+    "Social trust: HIGH",
+    "Builder capability: EXPERT",
+    "Creator capability: MODERATE",
+    "Signal coverage: 85%",
+    "Eligible for comment based on reputation signals."
+  ]
 }
 ```
 
 **Key fields:**
-- `constraints` — Restrictions applied when decision is `ALLOW_WITH_LIMITS` (e.g. `["rate_limited"]`). Empty for `ALLOW` and `DENY`.
-- `blockingFactors` — Signal names that blocked approval (e.g. `["trust", "socialTrust"]`). Empty when decision is `ALLOW`.
-- `profile` and `signals` — Included for transparency. `profile` contains raw data from Ethos, Farcaster, and Talent Protocol.
-- `policyHash` — Returned both in the response body and the `x-policy-hash` response header.
+- `decision` — The access decision: `ALLOW`, `DENY`, or `ALLOW_WITH_LIMITS`.
+- `signals` — Normalized reputation signals. Map them directly: `signals.trust` -> On-chain Trust, `signals.socialTrust` -> Social Trust, `signals.builder` -> Builder, `signals.creator` -> Creator.
+- `proof` — Groth16 ZK proof in contract-ready format. Pass this to `/agent/submit` to record on-chain.
+- `publicSignals` — Public inputs for the proof: `[policyHash, contextId, decision]`.
+- `policyHash` — Hash of the policy used for this context.
+- `contextId` — Numeric context identifier.
+- `explain` — Human-readable explanation of the decision.
 
 ## How to Check Reputation with ZK Proof + On-Chain
 
@@ -776,8 +764,8 @@ Revokes a specific agent registration. The agent will receive a `agent.revoked` 
 | 409 | Agent name already taken (registration only) | Append a random suffix to your agent name and retry (max 3 attempts). |
 | 422 | Tweet verification failed | Tell the owner: the tweet must be public and contain the exact verification code. |
 | 429 | Rate limited | Wait for the number of seconds in the `Retry-After` header, then retry. |
-| 503 | ZK circuit files not available | The ZK proof system is temporarily unavailable. Use `/decide` (without proof) as a fallback, or retry later. |
-| 504 | Request timeout | `check-owner` with `withProof=true` can take up to 90 seconds. If it times out, retry once. If it fails again, use `check-owner` without proof. |
+| 503 | ZK circuit files not available | The ZK proof system is temporarily unavailable. Retry later. |
+| 504 | Request timeout | `check-owner` can take up to 90 seconds (proof generation + on-chain submission). If it times out, retry once. |
 | 5xx | API is down | **Never default to ALLOW.** Tell the human the check is temporarily unavailable and to try again later. |
 
 ## Security
@@ -866,7 +854,7 @@ Response (verified): `{ "status": "verified", "agentName": "alice_helper" }`
 
 *(Since the agent registered with a webhookUrl, it also receives an `agent.verified` webhook at `https://alice-bot.example.com/hooks/basecred`.)*
 
-**Agent checks owner reputation (proofs enabled by default):**
+**Agent checks owner reputation (proofs always generated + submitted on-chain):**
 
 ```
 POST https://www.zkbasecred.xyz/api/v1/agent/check-owner

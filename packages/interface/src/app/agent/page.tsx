@@ -232,7 +232,7 @@ function QuickStart() {
           </AccordionTrigger>
           <AccordionContent className="px-4">
             <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-              {`curl -X POST https://www.zkbasecred.xyz/api/v1/decide \\
+              {`curl -X POST https://www.zkbasecred.xyz/api/v1/decide-with-proof \\
   -H "x-api-key: bc_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{"subject":"0x...","context":"comment"}'`}

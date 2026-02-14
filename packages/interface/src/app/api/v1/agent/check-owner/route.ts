@@ -2,17 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { checkOwnerReputation, CheckOwnerReputationError } from "@/use-cases/check-owner-reputation"
 import { checkRateLimit } from "@/lib/rateLimit"
 
-// Required for snarkjs WASM when withProof=true
+// Required for snarkjs WASM proof generation
 export const runtime = "nodejs"
 export const maxDuration = 120
 
 /**
  * POST /api/v1/agent/check-owner — Agent checks owner's reputation (API key auth via middleware)
  * No body needed — ownerAddress is derived from the API key.
- *
- * Query params:
- *   ?withProof=false          — Skip ZK proof generation (default: true)
- *   ?submitOnChain=false      — Skip on-chain submission (default: true when withProof=true)
+ * Always generates ZK proofs and submits on-chain.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -33,14 +30,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Parse query flags — pass raw options to use case (business logic decides what to do)
-    const withProof = req.nextUrl.searchParams.get("withProof") !== "false"
-    const submitOnChain = req.nextUrl.searchParams.get("submitOnChain") !== "false"
-
     // 90s timeout — proof gen (~4s) + on-chain submission (~15-25s for 5 contexts)
     const TIMEOUT_MS = 90_000
     const result = await Promise.race([
-      checkOwnerReputation(apiKeyHash, { withProof, submitOnChain }),
+      checkOwnerReputation(apiKeyHash, { withProof: true, submitOnChain: true }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new CheckOwnerReputationError("Request timed out", 504)), TIMEOUT_MS)
       ),

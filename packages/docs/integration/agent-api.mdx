@@ -184,7 +184,7 @@ If you provided a `webhookUrl` during registration, zkBaseCred will POST JSON ev
 | Event | When It Fires |
 |---|---|
 | `agent.verified` | Owner successfully verifies the agent via tweet |
-| `reputation.checked` | Agent calls `check-owner` or `/decide` |
+| `reputation.checked` | Agent calls `check-owner` |
 | `agent.revoked` | Owner revokes the agent registration |
 
 ### Payload Shape
@@ -218,8 +218,6 @@ All webhook payloads follow the same structure:
 
 ### Example: `reputation.checked`
 
-The webhook payload shape depends on which endpoint triggered it.
-
 **Via `/api/v1/agent/check-owner`** (multi-context):
 
 ```json
@@ -234,22 +232,6 @@ The webhook payload shape depends on which endpoint triggered it.
       "allowlist.general": { "decision": "ALLOW", "confidence": "HIGH" },
       "comment": { "decision": "ALLOW", "confidence": "HIGH" }
     }
-  }
-}
-```
-
-**Via `/api/v1/decide`** (single context):
-
-```json
-{
-  "event": "reputation.checked",
-  "timestamp": 1700000000000,
-  "agentName": "my_agent",
-  "ownerAddress": "0x1234...abcd",
-  "data": {
-    "context": "allowlist.general",
-    "decision": "ALLOW",
-    "confidence": "HIGH"
   }
 }
 ```
