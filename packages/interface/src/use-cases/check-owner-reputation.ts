@@ -34,6 +34,7 @@ import { submitDecisionOnChain } from "@/use-cases/submit-decision-onchain"
 import type { ActivityEntry } from "@/types/apiKeys"
 import type { GlobalFeedEntry } from "@/types/agentRegistration"
 import { sendWebhook } from "@/lib/webhook"
+import { extractRevertReason } from "@/lib/errors"
 import { getSDKConfig, getRelayerPrivateKey } from "@/lib/serverConfig"
 import { truncateAddress } from "@/lib/utils"
 
@@ -177,8 +178,8 @@ export async function checkOwnerReputation(
             { decisionRegistryRepository: registryRepo }
           )
           result.onChain = { submitted: true, txHash: output.transactionHash }
-        } catch (err: any) {
-          const reason = err.cause?.reason || err.shortMessage || err.message || ""
+        } catch (err: unknown) {
+          const reason = extractRevertReason(err)
           console.error(`On-chain submit failed for ${contextKey}:`, reason)
           result.onChain = { submitted: false, error: reason }
         }
