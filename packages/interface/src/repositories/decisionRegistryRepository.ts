@@ -126,6 +126,11 @@ export function createDecisionRegistryRepository(
 
     const registryAddress = getRegistryAddress()
 
+    // Track nonce locally for sequential batch submissions.
+    // viem's auto-nonce races when multiple txs are sent without waiting
+    // for confirmations — the RPC returns the same nonce for back-to-back calls.
+    let managedNonce: number | undefined = undefined
+
     return {
         async submitDecision(params: DecisionSubmissionParams): Promise<Hash> {
             if (!walletClient || !account) {
@@ -134,34 +139,67 @@ export function createDecisionRegistryRepository(
                 )
             }
 
-            try {
-                const { request } = await publicClient.simulateContract({
-                    address: registryAddress,
-                    abi: DECISION_REGISTRY_ABI,
-                    functionName: "submitDecision",
-                    args: [
-                        params.subjectHash,
-                        params.context,
-                        params.decision,
-                        params.policyHash,
-                        params.a,
-                        params.b,
-                        params.c,
-                        params.publicSignals,
-                    ],
-                    account,
+            // Initialize nonce on first call (or after a failure reset)
+            if (managedNonce === undefined) {
+                managedNonce = await publicClient.getTransactionCount({
+                    address: account.address,
+                    blockTag: "pending",
                 })
-
-                const hash = await walletClient.writeContract(request as any)
-                return hash
-            } catch (err: unknown) {
-                // Extract the real revert reason from viem's error chain.
-                // Viem wraps RPC -32000 errors as "Missing or invalid parameters"
-                // which hides the actual contract revert reason (e.g. "Invalid proof").
-                const reason = extractRevertReason(err)
-                console.error(`[Registry] submitDecision failed: ${reason}`)
-                throw err
             }
+
+            // Simulate with one retry for transient RPC errors.
+            // Base public RPC occasionally returns "Missing or invalid parameters"
+            // (viem wraps RPC -32000) on valid calls — a retry usually succeeds.
+            const { request } = await retrySimulate(publicClient, {
+                address: registryAddress,
+                abi: DECISION_REGISTRY_ABI,
+                functionName: "submitDecision" as const,
+                args: [
+                    params.subjectHash,
+                    params.context,
+                    params.decision,
+                    params.policyHash,
+                    params.a,
+                    params.b,
+                    params.c,
+                    params.publicSignals,
+                ],
+                account,
+            })
+
+            // Submit with explicit nonce to prevent race conditions
+            let hash: Hash
+            try {
+                hash = await walletClient.writeContract({
+                    ...request,
+                    nonce: managedNonce,
+                } as any)
+            } catch (writeErr: unknown) {
+                // Nonce state is uncertain — reset so next call re-fetches
+                managedNonce = undefined
+                const reason = extractRevertReason(writeErr)
+                console.error(`[Registry] writeContract failed: ${reason}`)
+                throw writeErr
+            }
+
+            // Nonce consumed (even if tx later reverts on-chain)
+            managedNonce++
+
+            // Wait for tx confirmation before returning.
+            // This ensures the RPC node's state is fresh for the next submission.
+            try {
+                await publicClient.waitForTransactionReceipt({
+                    hash,
+                    confirmations: 1,
+                    timeout: 30_000,
+                })
+            } catch {
+                // Receipt wait failed (timeout or on-chain revert) but tx was submitted.
+                // Nonce was already incremented. Return the hash — caller handles errors.
+                console.warn(`[Registry] receipt wait failed for ${hash}, tx was submitted`)
+            }
+
+            return hash
         },
 
         async getDecision(
@@ -217,4 +255,53 @@ export function createDecisionRegistryRepository(
             return result as boolean
         },
     }
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Retry simulateContract once for transient RPC errors.
+ *
+ * Base public RPC occasionally returns -32000 "Missing or invalid parameters"
+ * on perfectly valid calls. Alchemy is more reliable but can also hiccup.
+ * One retry with a 1s delay handles the common case.
+ */
+async function retrySimulate(
+    client: ReturnType<typeof createPublicClient>,
+    params: Parameters<ReturnType<typeof createPublicClient>["simulateContract"]>[0],
+    maxAttempts = 2,
+): Promise<{ request: any }> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+            return await client.simulateContract(params)
+        } catch (err: unknown) {
+            if (attempt < maxAttempts - 1 && isTransientRpcError(err)) {
+                console.warn(
+                    `[Registry] simulateContract transient error (attempt ${attempt + 1}), retrying in 1s...`
+                )
+                await new Promise((r) => setTimeout(r, 1000))
+                continue
+            }
+            throw err
+        }
+    }
+    throw new Error("unreachable")
+}
+
+/**
+ * Detect transient RPC errors that are worth retrying.
+ */
+function isTransientRpcError(err: unknown): boolean {
+    const message = err instanceof Error ? err.message : String(err)
+    const shortMessage = (err as any)?.shortMessage || ""
+    const combined = `${message} ${shortMessage}`.toLowerCase()
+    return (
+        combined.includes("missing or invalid parameters") ||
+        combined.includes("timeout") ||
+        combined.includes("rate limit") ||
+        combined.includes("request failed") ||
+        combined.includes("internal json-rpc error")
+    )
 }
