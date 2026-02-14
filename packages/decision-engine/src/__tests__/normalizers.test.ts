@@ -26,8 +26,8 @@ describe("normalizeEthosTrust", () => {
     it("should map scores to correct tiers", () => {
         expect(normalizeEthosTrust({ data: { score: 2300 } })).toBe("VERY_HIGH")
         expect(normalizeEthosTrust({ data: { score: 1700 } })).toBe("HIGH")
-        expect(normalizeEthosTrust({ data: { score: 1300 } })).toBe("NEUTRAL")
-        expect(normalizeEthosTrust({ data: { score: 900 } })).toBe("LOW")
+        expect(normalizeEthosTrust({ data: { score: 1000 } })).toBe("NEUTRAL")
+        expect(normalizeEthosTrust({ data: { score: 700 } })).toBe("LOW")
         expect(normalizeEthosTrust({ data: { score: 100 } })).toBe("VERY_LOW")
     })
 })

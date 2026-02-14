@@ -38,10 +38,10 @@ export interface FarcasterProfile {
  * Based on `farcaster.data.userScore` (0-1 scale).
  */
 const SOCIAL_TRUST_THRESHOLDS = {
-    VERY_HIGH: 0.9,
-    HIGH: 0.7,
-    NEUTRAL: 0.4,
-    LOW: 0.2,
+    VERY_HIGH: 0.85,
+    HIGH: 0.6,
+    NEUTRAL: 0.3,
+    LOW: 0.15,
     // Below LOW → VERY_LOW
 } as const
 
@@ -50,10 +50,10 @@ const SOCIAL_TRUST_THRESHOLDS = {
  * Inverse of quality score (high quality = low spam risk).
  */
 const SPAM_RISK_THRESHOLDS = {
-    VERY_LOW: 0.8,   // high quality = very low spam risk
-    LOW: 0.6,
-    NEUTRAL: 0.4,
-    HIGH: 0.2,
+    VERY_LOW: 0.7,   // high quality = very low spam risk
+    LOW: 0.5,
+    NEUTRAL: 0.3,
+    HIGH: 0.15,
     // Below HIGH → VERY_HIGH spam risk
 } as const
 

@@ -537,13 +537,13 @@ function getConstraintsForRule(rule) {
 
 // src/engine/normalizers/ethos.ts
 var ETHOS_THRESHOLDS = {
-  VERY_HIGH: 2200,
+  VERY_HIGH: 1800,
   // Distinguished+
-  HIGH: 1600,
+  HIGH: 1250,
   // Established - Exemplary
-  NEUTRAL: 1200,
+  NEUTRAL: 900,
   // Neutral - Known
-  LOW: 800
+  LOW: 550
   // Questionable
   // Below LOW → VERY_LOW (Untrusted)
 };
@@ -567,18 +567,18 @@ function isEthosAvailable(profile) {
 
 // src/engine/normalizers/neynar.ts
 var SOCIAL_TRUST_THRESHOLDS = {
-  VERY_HIGH: 0.9,
-  HIGH: 0.7,
-  NEUTRAL: 0.4,
-  LOW: 0.2
+  VERY_HIGH: 0.85,
+  HIGH: 0.6,
+  NEUTRAL: 0.3,
+  LOW: 0.15
   // Below LOW → VERY_LOW
 };
 var SPAM_RISK_THRESHOLDS = {
-  VERY_LOW: 0.8,
+  VERY_LOW: 0.7,
   // high quality = very low spam risk
-  LOW: 0.6,
-  NEUTRAL: 0.4,
-  HIGH: 0.2
+  LOW: 0.5,
+  NEUTRAL: 0.3,
+  HIGH: 0.15
   // Below HIGH → VERY_HIGH spam risk
 };
 function normalizeNeynarSocialTrust(profile) {
@@ -614,9 +614,9 @@ function isNeynarAvailable(profile) {
 
 // src/engine/normalizers/talent.ts
 var TALENT_THRESHOLDS = {
-  BUILDER: 80,
-  EXPERT: 170,
-  ELITE: 250
+  BUILDER: 60,
+  EXPERT: 140,
+  ELITE: 220
 };
 function normalizeScoreToCapability(score) {
   if (score >= TALENT_THRESHOLDS.ELITE) return "ELITE";

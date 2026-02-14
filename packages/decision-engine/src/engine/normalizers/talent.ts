@@ -37,15 +37,15 @@ export interface TalentProfile {
 /**
  * Talent → Capability thresholds
  *
- * Explorer : 0–79
- * Builder  : 80–169
- * Expert   : 170–249
- * Elite    : 250+
+ * Explorer : 0–59
+ * Builder  : 60–139
+ * Expert   : 140–219
+ * Elite    : 220+
  */
 const TALENT_THRESHOLDS = {
-    BUILDER: 80,
-    EXPERT: 170,
-    ELITE: 250,
+    BUILDER: 60,
+    EXPERT: 140,
+    ELITE: 220,
 } as const
 
 // ============================================================================
