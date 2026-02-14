@@ -89,6 +89,10 @@ curl -X POST https://www.zkbasecred.xyz/api/v1/decide-with-proof \
   "publicSignals": ["<policyHash>", "<contextId>", "<decision>"],
   "policyHash": "sha256:abc123...",
   "contextId": 0,
+  "onChain": {
+    "submitted": true,
+    "txHash": "0xabc123..."
+  },
   "explain": [
     "Trust level: HIGH",
     "Social trust: HIGH",
@@ -107,6 +111,7 @@ curl -X POST https://www.zkbasecred.xyz/api/v1/decide-with-proof \
 | `publicSignals` | `[string, string, string]` | `[policyHash, contextId, decision]` |
 | `policyHash` | `string` | Hash of the policy used |
 | `contextId` | `number` | Numeric context identifier |
+| `onChain` | `{ submitted, txHash?, error? }` | On-chain submission result |
 | `explain` | `string[]` | Human-readable explanation |
 
 **Error responses**
@@ -117,19 +122,6 @@ curl -X POST https://www.zkbasecred.xyz/api/v1/decide-with-proof \
 | 404 | `POLICY_NOT_FOUND` | No policy for the requested context |
 | 503 | `ZK_NOT_CONFIGURED` | Circuit files not available on the server |
 | 500 | `INTERNAL_ERROR` | Server error |
-
-### Endpoint: ZK Agent
-
-<div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-4">
-  <span className="bg-amber-900/30 text-amber-400 border border-amber-900/50 text-xs font-bold px-2 py-0.5 rounded mr-2">
-    POST
-  </span>
-  <code className="text-zinc-300">
-    /api/v1/agent/decide
-  </code>
-</div>
-
-For agent-submitted proofs and on-chain submission, see [ZK Agent Integration](./zk-agent.mdx) and [ZK Contracts](./zk-contracts.mdx). Successful responses include the `x-policy-hash` header.
 
 ## 02. CLIENT EXAMPLES
 

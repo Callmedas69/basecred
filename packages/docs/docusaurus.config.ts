@@ -84,21 +84,19 @@ const config: Config = {
           label: "Integration",
         },
         {
-          type: "docsVersionDropdown",
+          to: "/integration/agent-api",
+          label: "Agent API",
           position: "right",
-          dropdownActiveClassDisabled: true,
         },
         {
-          type: "docsVersionDropdown",
+          to: "/integration/sdk",
+          label: "SDK",
           position: "right",
-          docsPluginId: "foundation",
-          dropdownActiveClassDisabled: true,
         },
         {
-          type: "docsVersionDropdown",
+          to: "/integration/schema",
+          label: "Schema",
           position: "right",
-          docsPluginId: "decision-engine",
-          dropdownActiveClassDisabled: true,
         },
         {
           href: "https://github.com/GeoartStudio/basecred",

@@ -210,7 +210,6 @@ ZK proofs are always generated and submitted on-chain.
 | State | Meaning |
 |---|---|
 | `{ "submitted": true, "txHash": "0x..." }` | Decision recorded on-chain. `txHash` is the transaction hash. |
-| `{ "submitted": true, "existing": true }` | Decision was already on-chain from a previous submission. |
 | `{ "submitted": false, "error": "..." }` | On-chain submission failed. The error message explains why. |
 
 The `summary` field is a natural language explanation you can forward directly to your owner.
@@ -260,8 +259,6 @@ Overall: {one-line plain language summary}
 --- On-Chain Proof ---
 {If onChain.txHash exists:
   "Verified with zero-knowledge proof. Transaction: {txHash}"
- If onChain.existing is true:
-  "Previously recorded on-chain."
  If onChain.error exists:
   "On-chain submission failed: {error}"}
 ```
@@ -369,9 +366,10 @@ Decision: {decision} ({confidence})
 {If non-empty blockingFactors, list them with plain English. Otherwise: "None"}
 
 --- On-Chain Proof ---
-{Use /decide-with-proof → /agent/submit to record on-chain.
- If submitted: "Recorded on-chain. Transaction: {txHash}"
- If not yet submitted: "Use /agent/submit to record this decision on-chain."}
+{If onChain.txHash exists:
+  "Recorded on-chain. Transaction: {txHash}"
+ If onChain.error exists:
+  "On-chain submission failed: {error}"}
 ```
 
 **Where to get wallet scores:** The `/decide-with-proof` response includes a `signals` object with exact values. Map them directly: `signals.trust` -> On-chain Trust, `signals.socialTrust` -> Social Trust, `signals.builder` -> Builder, `signals.creator` -> Creator.
@@ -517,7 +515,7 @@ When checking reputation for someone other than your owner, extract their identi
 
 ## How to Check Reputation (Individual Context)
 
-Use this for checking ANY wallet's reputation in a specific context — not just your owner's. Returns a decision with ZK proof that can be submitted on-chain via `/agent/submit`.
+Use this for checking ANY wallet's reputation in a specific context — not just your owner's. Returns a decision with ZK proof, automatically submitted on-chain.
 
 ```
 POST https://www.zkbasecred.xyz/api/v1/decide-with-proof
@@ -571,73 +569,34 @@ Body:
     "Creator capability: MODERATE",
     "Signal coverage: 85%",
     "Eligible for comment based on reputation signals."
-  ]
+  ],
+  "onChain": {
+    "submitted": true,
+    "txHash": "0x..."
+  }
 }
 ```
 
 **Key fields:**
 - `decision` — The access decision: `ALLOW`, `DENY`, or `ALLOW_WITH_LIMITS`.
 - `signals` — Normalized reputation signals. Map them directly: `signals.trust` -> On-chain Trust, `signals.socialTrust` -> Social Trust, `signals.builder` -> Builder, `signals.creator` -> Creator.
-- `proof` — Groth16 ZK proof in contract-ready format. Pass this to `/agent/submit` to record on-chain.
+- `proof` — Groth16 ZK proof in contract-ready format.
 - `publicSignals` — Public inputs for the proof: `[policyHash, contextId, decision]`.
 - `policyHash` — Hash of the policy used for this context.
 - `contextId` — Numeric context identifier.
 - `explain` — Human-readable explanation of the decision.
+- `onChain` — On-chain submission status. See `onChain` field states below.
 
-## How to Check Reputation with ZK Proof + On-Chain
+**`onChain` field states:**
 
-For checking third-party wallets with ZK proof generation and on-chain recording, use the two-step flow:
+| State | Meaning |
+|---|---|
+| `{ "submitted": true, "txHash": "0x..." }` | Decision recorded on-chain. `txHash` is the transaction hash. |
+| `{ "submitted": false, "error": "..." }` | On-chain submission failed. The error message explains why. |
 
-### Step 1: Generate proof via `/decide-with-proof`
+## Manual On-Chain Submission (Optional)
 
-```
-POST https://www.zkbasecred.xyz/api/v1/decide-with-proof
-Headers:
-  x-basecred-key-id: <your-api-key-id>
-  Content-Type: application/json
-
-Body:
-{
-  "subject": "0x...",
-  "context": "governance.vote"
-}
-```
-
-**Response (200):**
-```json
-{
-  "decision": "ALLOW",
-  "signals": {
-    "trust": "HIGH",
-    "socialTrust": "HIGH",
-    "builder": "EXPERT",
-    "creator": "MODERATE",
-    "spamRisk": "NEUTRAL",
-    "recencyDays": 3,
-    "signalCoverage": 0.85
-  },
-  "proof": {
-    "a": ["0x...", "0x..."],
-    "b": [["0x...", "0x..."], ["0x...", "0x..."]],
-    "c": ["0x...", "0x..."]
-  },
-  "publicSignals": ["...", "...", "..."],
-  "policyHash": "sha256:...",
-  "contextId": 5,
-  "explain": [
-    "Trust level: HIGH",
-    "Social trust: HIGH",
-    "Builder capability: EXPERT",
-    "Creator capability: MODERATE",
-    "Signal coverage: 85%",
-    "Eligible for governance.vote based on reputation signals."
-  ]
-}
-```
-
-### Step 2: Submit on-chain via `/agent/submit`
-
-Take the proof data from Step 1 and submit it on-chain:
+`/decide-with-proof` auto-submits on-chain. You do **not** need a separate step. However, if you need to re-submit a proof manually (e.g., the auto-submit failed), you can use `/agent/submit`:
 
 ```
 POST https://www.zkbasecred.xyz/api/v1/agent/submit
@@ -670,8 +629,6 @@ Body:
   "policyHashBytes32": "0x..."
 }
 ```
-
-The `transactionHash` is the on-chain proof that this decision was recorded.
 
 ### Decision Values
 
@@ -972,7 +929,7 @@ Response:
 
 > Can you check the reputation of 0x7890...ABCD before I let them into my DAO? I want it on-chain.
 
-**Agent generates proof:**
+**Agent checks reputation (proof generated + auto-submitted on-chain in one call):**
 
 ```
 POST https://www.zkbasecred.xyz/api/v1/decide-with-proof
@@ -1012,36 +969,11 @@ Response:
     "Last activity: 180 days ago",
     "Signal coverage: 20%",
     "High spam risk detected."
-  ]
-}
-```
-
-**Agent submits on-chain:**
-
-```
-POST https://www.zkbasecred.xyz/api/v1/agent/submit
-Headers:
-  x-basecred-key-id: e3b0c44298fc1c14...
-  Content-Type: application/json
-
-{
-  "subject": "0x7890...ABCD",
-  "context": "governance.vote",
-  "decision": "DENY",
-  "policyHash": "sha256:...",
-  "proof": { "a": ["0x...", "0x..."], "b": [["0x...", "0x..."], ["0x...", "0x..."]], "c": ["0x...", "0x..."] },
-  "publicSignals": ["...", "...", "..."]
-}
-```
-
-Response:
-```json
-{
-  "success": true,
-  "transactionHash": "0xfeed42...",
-  "subjectHash": "0x...",
-  "contextBytes32": "0x...",
-  "policyHashBytes32": "0x..."
+  ],
+  "onChain": {
+    "submitted": true,
+    "txHash": "0xfeed42..."
+  }
 }
 ```
 

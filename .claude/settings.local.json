@@ -71,7 +71,11 @@
       "WebFetch(domain:sepolia.basescan.org)",
       "Bash(forge build:*)",
       "Bash(forge script:*)",
-      "Bash(npx docusaurus:*)"
+      "Bash(npx docusaurus:*)",
+      "Bash(forge test:*)",
+      "Bash(source .env.local:*)",
+      "Bash(VERIFIER_ADDRESS=0x60138da0c6103760864d829C128b9cA2Ea7C9158 forge script:*)",
+      "Bash(DEPLOYER_PRIVATE_KEY=0xbcdc57f47aaaa332d0e15f67167a6068a098a649792b464ae676d3a7bc9af8dc VERIFIER_ADDRESS=0x60138da0c6103760864d829C128b9cA2Ea7C9158 forge script scripts/DeployRegistry.s.sol --rpc-url https://mainnet.base.org --broadcast)"
     ]
   },
   "enableAllProjectMcpServers": true,
