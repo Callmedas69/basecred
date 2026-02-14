@@ -35,6 +35,7 @@ import { generateProof, areCircuitFilesAvailable } from "@/lib/proofGenerator"
 import { submitDecisionOnChain } from "@/use-cases/submit-decision-onchain"
 import { createDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
 import { getRelayerPrivateKey } from "@/lib/serverConfig"
+import { extractRevertReason } from "@/lib/errors"
 import { logSubmissionFeed } from "@/use-cases/log-submission-feed"
 
 const policyRepository = new InMemoryPolicyRepository()
@@ -163,9 +164,9 @@ export async function POST(req: NextRequest) {
                     { decisionRegistryRepository: registryRepo }
                 )
                 onChain = { submitted: true, txHash: output.transactionHash }
-            } catch (err: any) {
-                const reason = err.cause?.reason || err.shortMessage || err.message || ""
-                console.error(`[decide-with-proof] On-chain submit failed:`, reason)
+            } catch (err: unknown) {
+                const reason = extractRevertReason(err)
+                console.error(`[decide-with-proof] On-chain submit failed for ${context}: ${reason}`)
                 onChain = { submitted: false, error: reason }
             }
         }

@@ -15,6 +15,7 @@ import { privateKeyToAccount } from "viem/accounts"
 import { DECISION_REGISTRY_ABI } from "@basecred/contracts/abi"
 import { ONCHAIN_CONTRACTS } from "@/lib/onChainContracts"
 import { targetChain } from "@/lib/blockchainConfig"
+import { extractRevertReason } from "@/lib/errors"
 
 // =============================================================================
 // Types
@@ -133,25 +134,34 @@ export function createDecisionRegistryRepository(
                 )
             }
 
-            const { request } = await publicClient.simulateContract({
-                address: registryAddress,
-                abi: DECISION_REGISTRY_ABI,
-                functionName: "submitDecision",
-                args: [
-                    params.subjectHash,
-                    params.context,
-                    params.decision,
-                    params.policyHash,
-                    params.a,
-                    params.b,
-                    params.c,
-                    params.publicSignals,
-                ],
-                account,
-            })
+            try {
+                const { request } = await publicClient.simulateContract({
+                    address: registryAddress,
+                    abi: DECISION_REGISTRY_ABI,
+                    functionName: "submitDecision",
+                    args: [
+                        params.subjectHash,
+                        params.context,
+                        params.decision,
+                        params.policyHash,
+                        params.a,
+                        params.b,
+                        params.c,
+                        params.publicSignals,
+                    ],
+                    account,
+                })
 
-            const hash = await walletClient.writeContract(request as any)
-            return hash
+                const hash = await walletClient.writeContract(request as any)
+                return hash
+            } catch (err: unknown) {
+                // Extract the real revert reason from viem's error chain.
+                // Viem wraps RPC -32000 errors as "Missing or invalid parameters"
+                // which hides the actual contract revert reason (e.g. "Invalid proof").
+                const reason = extractRevertReason(err)
+                console.error(`[Registry] submitDecision failed: ${reason}`)
+                throw err
+            }
         },
 
         async getDecision(
