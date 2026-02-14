@@ -702,7 +702,7 @@ export default function HumanPage() {
                           className="bg-amber-600 text-white hover:bg-amber-700"
                         >
                           <AlertCircle className="w-4 h-4 mr-2" />
-                          Switch to Base Sepolia
+                          Switch to Base
                         </Button>
                       ) : (
                         (() => {

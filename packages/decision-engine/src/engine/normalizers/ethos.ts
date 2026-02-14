@@ -34,13 +34,13 @@ export interface EthosProfile {
 /**
  * Threshold configuration for Ethos → Tier mapping.
  * These values can be tuned based on observed distributions.
- * Thresholds lowered by 40 for more accessible tiers.
+ * Lowered to make tiers more accessible for real users.
  */
 const ETHOS_THRESHOLDS = {
-    VERY_HIGH: 2200, // Distinguished+
-    HIGH: 1600,      // Established - Exemplary
-    NEUTRAL: 1200,   // Neutral - Known
-    LOW: 800,        // Questionable
+    VERY_HIGH: 1800, // Distinguished+
+    HIGH: 1250,      // Established - Exemplary
+    NEUTRAL: 900,    // Neutral - Known
+    LOW: 550,        // Questionable
     // Below LOW → VERY_LOW (Untrusted)
 } as const
 
