@@ -96,13 +96,17 @@ export default function AgentPage() {
           <div className="grid sm:grid-cols-2 gap-4">
             <Card className="bg-card/70 border-border/70">
               <CardContent className="p-5 space-y-3">
-                <h3 className="font-bold text-sm">Send this to your agent:</h3>
+                <h3 className="font-bold text-sm">
+                  Human, send this to your agent:
+                </h3>
                 <CopyBlock text={HUMAN_INSTALL_MSG} />
               </CardContent>
             </Card>
             <Card className="bg-card/70 border-border/70">
               <CardContent className="p-5 space-y-3">
-                <h3 className="font-bold text-sm">Agent: install the skill</h3>
+                <h3 className="font-bold text-sm">
+                  Hey Agent: install the skill and run
+                </h3>
                 <CopyBlock text={AGENT_INSTALL_MSG} />
               </CardContent>
             </Card>
