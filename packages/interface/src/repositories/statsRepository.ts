@@ -6,9 +6,9 @@
  */
 
 import { createPublicClient, http } from "viem"
+import { base } from "viem/chains"
 import { DECISION_REGISTRY_ABI } from "@basecred/contracts/abi"
 import { ONCHAIN_CONTRACTS } from "@/lib/onChainContracts"
-import { targetChain } from "@/lib/blockchainConfig"
 import { getRedis } from "@/lib/redis"
 
 // Block at which the DecisionRegistry was deployed on Base Mainnet (from broadcast/8453/run-latest.json)
@@ -36,9 +36,10 @@ function getRegistryAddress(): `0x${string}` {
 }
 
 export function createStatsRepository(): IStatsRepository {
+  // Use Base public RPC for event scanning — Alchemy Free tier limits eth_getLogs to 10 blocks
   const publicClient = createPublicClient({
-    chain: targetChain,
-    transport: http(),
+    chain: base,
+    transport: http("https://mainnet.base.org"),
   })
 
   const registryAddress = getRegistryAddress()
