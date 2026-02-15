@@ -21,6 +21,13 @@ export {
 } from "./normalizers"
 export type { UnifiedProfileData } from "./normalizers"
 
+// Progression & Explainability
+export {
+    resolveBlockingFactors,
+    deriveBlockingFactorsForContext,
+} from "./progression"
+export type { BlockingFactorSnapshot } from "./progression"
+
 // Rules
 export {
     FALLBACK_RULES,

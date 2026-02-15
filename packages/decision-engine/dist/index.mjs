@@ -700,6 +700,52 @@ function calculateRecencyDays(profile) {
   return 0;
 }
 
+// src/engine/progression.ts
+function deriveAccessStatus(decision, options = {}) {
+  if (decision === "ALLOW") {
+    return "eligible";
+  }
+  if (decision === "ALLOW_WITH_LIMITS") {
+    return "limited";
+  }
+  if (options.isHardDeny) {
+    return "blocked";
+  }
+  return "not_ready";
+}
+function resolveBlockingFactors(signals) {
+  return {
+    // Trust is considered ready when not at the very bottom tier
+    trust: signals.trust !== "VERY_LOW",
+    // Social trust is ready when not below NEUTRAL
+    socialTrust: signals.socialTrust !== "VERY_LOW",
+    // Builder/creator considered ready from mid-tier upwards
+    builder: signals.builder !== "EXPLORER",
+    creator: signals.creator !== "EXPLORER",
+    // Spam risk is acceptable when not in the top risk tiers
+    spamRisk: signals.spamRisk !== "VERY_HIGH" && signals.spamRisk !== "HIGH",
+    // Signal coverage is considered ready when we have most signals
+    signalCoverage: signals.signalCoverage >= 0.8
+  };
+}
+var CONTEXT_REQUIREMENTS = {
+  "allowlist.general": ["trust", "builder", "creator"],
+  apply: ["trust"],
+  comment: ["spamRisk", "socialTrust"],
+  publish: ["creator", "spamRisk"],
+  "governance.vote": ["trust", "socialTrust"]
+};
+function deriveBlockingFactorsForContext(context, snapshot) {
+  const requiredFactors = CONTEXT_REQUIREMENTS[context] ?? [];
+  const blocking = [];
+  for (const factor of requiredFactors) {
+    if (!snapshot[factor]) {
+      blocking.push(factor);
+    }
+  }
+  return blocking;
+}
+
 // src/policies/hash.ts
 import { createHash as createHash2 } from "crypto";
 function computePolicyHash(input) {
@@ -798,52 +844,6 @@ var InMemoryPolicyRepository = class {
     return this.policies.get(context) ?? null;
   }
 };
-
-// src/engine/progression.ts
-function deriveAccessStatus(decision, options = {}) {
-  if (decision === "ALLOW") {
-    return "eligible";
-  }
-  if (decision === "ALLOW_WITH_LIMITS") {
-    return "limited";
-  }
-  if (options.isHardDeny) {
-    return "blocked";
-  }
-  return "not_ready";
-}
-function resolveBlockingFactors(signals) {
-  return {
-    // Trust is considered ready when not at the very bottom tier
-    trust: signals.trust !== "VERY_LOW",
-    // Social trust is ready when not below NEUTRAL
-    socialTrust: signals.socialTrust !== "VERY_LOW",
-    // Builder/creator considered ready from mid-tier upwards
-    builder: signals.builder !== "EXPLORER",
-    creator: signals.creator !== "EXPLORER",
-    // Spam risk is acceptable when not in the top risk tiers
-    spamRisk: signals.spamRisk !== "VERY_HIGH" && signals.spamRisk !== "HIGH",
-    // Signal coverage is considered ready when we have most signals
-    signalCoverage: signals.signalCoverage >= 0.8
-  };
-}
-var CONTEXT_REQUIREMENTS = {
-  "allowlist.general": ["trust", "builder", "creator"],
-  apply: ["trust"],
-  comment: ["spamRisk", "socialTrust"],
-  publish: ["creator", "spamRisk"],
-  "governance.vote": ["trust", "socialTrust"]
-};
-function deriveBlockingFactorsForContext(context, snapshot) {
-  const requiredFactors = CONTEXT_REQUIREMENTS[context] ?? [];
-  const blocking = [];
-  for (const factor of requiredFactors) {
-    if (!snapshot[factor]) {
-      blocking.push(factor);
-    }
-  }
-  return blocking;
-}
 
 // src/use-cases/decide.ts
 async function executeDecision(input, profileFetcher) {
@@ -982,6 +982,7 @@ export {
   decodeContextId,
   decodeDecision,
   decodeTier,
+  deriveBlockingFactorsForContext,
   encodeCapability,
   encodeContextId,
   encodeDecision,
@@ -999,6 +1000,7 @@ export {
   normalizeSignals,
   policyHashToBytes32,
   policyHashToFieldElement,
+  resolveBlockingFactors,
   signalCoverageToBps,
   snarkjsProofToContract,
   snarkjsSignalsToContract,

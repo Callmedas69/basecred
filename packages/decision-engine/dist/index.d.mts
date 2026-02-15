@@ -810,6 +810,46 @@ declare function normalizeSignals(profile: UnifiedProfileData): NormalizedSignal
 declare function calculateSignalCoverage(profile: UnifiedProfileData): number;
 
 /**
+ * Progression & Explainability Layer
+ *
+ * This module provides a non-decisional, retail-facing interpretation of
+ * authoritative engine outputs. It MUST NOT change rule thresholds, ordering,
+ * or core decision behavior.
+ */
+
+/**
+ * Snapshot of high-level readiness factors.
+ *
+ * This intentionally avoids exposing raw scores or tiers. Instead it reports
+ * whether a factor is currently in a "ready" state for access progression.
+ */
+interface BlockingFactorSnapshot {
+    trust: boolean;
+    socialTrust: boolean;
+    builder: boolean;
+    creator: boolean;
+    spamRisk: boolean;
+    signalCoverage: boolean;
+}
+/**
+ * Resolve global blocking-factor readiness from normalized signals.
+ *
+ * This function does NOT apply thresholds for decisions. It only reports
+ * whether each factor is currently considered ready (true) or blocking (false)
+ * at a coarse level suitable for UX.
+ */
+declare function resolveBlockingFactors(signals: NormalizedSignals): BlockingFactorSnapshot;
+/**
+ * Derive a list of context-aware blocking factors from a global snapshot.
+ *
+ * Only factors that:
+ * - are required for the given context, and
+ * - are currently not ready
+ * will be returned.
+ */
+declare function deriveBlockingFactorsForContext(context: DecisionContext, snapshot: BlockingFactorSnapshot): string[];
+
+/**
  * Rule Registry
  *
  * Central export point for all rule sets.
@@ -929,4 +969,4 @@ interface ListPoliciesUseCaseDependencies {
 }
 declare function listPolicies(deps: ListPoliciesUseCaseDependencies): Promise<PolicyDefinition[]>;
 
-export { ALL_RULES, type AccessStatus, BASE_CONFIDENCE, BN254_FIELD_ORDER, CAPABILITY_ORDER, CONTEXT_ID_MAP, type Capability, type CircuitSignals, type ConfidenceTier, type ContractProof, type ContractProofStrings, DECISION_VALUE_MAP, DEFAULT_SIGNALS, type DSLCondition, type DSLOperator, type DSLRule, type DecideRequest, type DecideUseCaseInput, type DecideUseCaseOutput, type DecideWithProofUseCaseDependencies, type DecideWithProofUseCaseInput, type DecideWithProofUseCaseOutput, type Decision, type DecisionContext, type DecisionError, type DecisionExplanation, type DecisionLog, type DecisionOutput, ENGINE_VERSION, InMemoryPolicyRepository, type ListPoliciesUseCaseDependencies, type NormalizedSignals, type PartialSignals, type PolicyDefinition, type PolicyRepository, type ProofPayload, type ProofPublicInputs, type ProofVerifier, type Rule, type Ruleset, type RulesetMetadata, type SnarkjsProof, TIER_ORDER, type Tier, type UnifiedProfileData, VALID_CONTEXTS, type VerifiedProof, bpsToSignalCoverage, calculateSignalCoverage, capabilityGt, capabilityGte, capabilityLt, capabilityLte, contextToBytes32, contractProofToStrings, decide, decodeCapability, decodeContextId, decodeDecision, decodeTier, encodeCapability, encodeContextId, encodeDecision, encodeSignalsForCircuit, encodeTier, executeDecision, executeDecisionWithProof, getAllContexts, getRuleById, getRulesForContext, isPolicyHashValidFieldElement, isValidBytes32, listPolicies, mapConfidence, normalizeSignals, policyHashToBytes32, policyHashToFieldElement, signalCoverageToBps, snarkjsProofToContract, snarkjsSignalsToContract, stringProofToContract, stripPolicyHashPrefix, subjectToBytes32, tierGt, tierGte, tierLt, tierLte, validateDecideRequest };
+export { ALL_RULES, type AccessStatus, BASE_CONFIDENCE, BN254_FIELD_ORDER, type BlockingFactorSnapshot, CAPABILITY_ORDER, CONTEXT_ID_MAP, type Capability, type CircuitSignals, type ConfidenceTier, type ContractProof, type ContractProofStrings, DECISION_VALUE_MAP, DEFAULT_SIGNALS, type DSLCondition, type DSLOperator, type DSLRule, type DecideRequest, type DecideUseCaseInput, type DecideUseCaseOutput, type DecideWithProofUseCaseDependencies, type DecideWithProofUseCaseInput, type DecideWithProofUseCaseOutput, type Decision, type DecisionContext, type DecisionError, type DecisionExplanation, type DecisionLog, type DecisionOutput, ENGINE_VERSION, InMemoryPolicyRepository, type ListPoliciesUseCaseDependencies, type NormalizedSignals, type PartialSignals, type PolicyDefinition, type PolicyRepository, type ProofPayload, type ProofPublicInputs, type ProofVerifier, type Rule, type Ruleset, type RulesetMetadata, type SnarkjsProof, TIER_ORDER, type Tier, type UnifiedProfileData, VALID_CONTEXTS, type VerifiedProof, bpsToSignalCoverage, calculateSignalCoverage, capabilityGt, capabilityGte, capabilityLt, capabilityLte, contextToBytes32, contractProofToStrings, decide, decodeCapability, decodeContextId, decodeDecision, decodeTier, deriveBlockingFactorsForContext, encodeCapability, encodeContextId, encodeDecision, encodeSignalsForCircuit, encodeTier, executeDecision, executeDecisionWithProof, getAllContexts, getRuleById, getRulesForContext, isPolicyHashValidFieldElement, isValidBytes32, listPolicies, mapConfidence, normalizeSignals, policyHashToBytes32, policyHashToFieldElement, resolveBlockingFactors, signalCoverageToBps, snarkjsProofToContract, snarkjsSignalsToContract, stringProofToContract, stripPolicyHashPrefix, subjectToBytes32, tierGt, tierGte, tierLt, tierLte, validateDecideRequest };
