@@ -56,12 +56,20 @@ describe("decide", () => {
             expect(result.ruleIds).toContain("deny_spam")
         })
 
-        it("should DENY when social trust is LOW", () => {
-            const signals = createSignals({ socialTrust: "LOW" })
+        it("should DENY when social trust is VERY_LOW", () => {
+            const signals = createSignals({ socialTrust: "VERY_LOW" })
             const result = decide(signals, "allowlist.general")
 
             expect(result.decision).toBe("DENY")
             expect(result.ruleIds).toContain("deny_low_social_trust")
+        })
+
+        it("should ALLOW_WITH_LIMITS when social trust is LOW (probation)", () => {
+            const signals = createSignals({ socialTrust: "LOW" })
+            const result = decide(signals, "allowlist.general")
+
+            expect(result.decision).toBe("ALLOW_WITH_LIMITS")
+            expect(result.ruleIds).toContain("probation_low_social")
         })
 
         it("should DENY when trust is VERY_LOW", () => {

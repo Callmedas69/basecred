@@ -267,6 +267,11 @@ template DecisionCircuit() {
     signal allowListProbationMixed;
     allowListProbationMixed <== isAllowlist.out * allowListProbationMixedInner;
 
+    signal allowListProbationLowSocialInner;
+    allowListProbationLowSocialInner <== trustGteNeutral * socialGteLow;
+    signal allowListProbationLowSocial;
+    allowListProbationLowSocial <== isAllowlist.out * allowListProbationLowSocialInner;
+
     signal limitCommentNew;
     component covGteHalf = LessThan(32);
     covGteHalf.in[0] <== 4999;
@@ -305,7 +310,7 @@ template DecisionCircuit() {
     fallbackPartial <== covLtHalf.out;
 
     signal hardDenyInner;
-    hardDenyInner <== spamGteHigh + socialLtNeutral.out - (spamGteHigh * socialLtNeutral.out);
+    hardDenyInner <== spamGteHigh + socialLtLow.out - (spamGteHigh * socialLtLow.out);
     signal hardDeny;
     hardDeny <== hardDenyInner + trustIsVeryLow.out - (hardDenyInner * trustIsVeryLow.out);
 
@@ -322,8 +327,10 @@ template DecisionCircuit() {
     allowWithLimitsAnyInner1 <== allowListProbationInactive + allowListProbationNew - (allowListProbationInactive * allowListProbationNew);
     signal allowWithLimitsAnyInner2;
     allowWithLimitsAnyInner2 <== allowWithLimitsAnyInner1 + allowListProbationMixed - (allowWithLimitsAnyInner1 * allowListProbationMixed);
+    signal allowWithLimitsAnyInner2b;
+    allowWithLimitsAnyInner2b <== allowWithLimitsAnyInner2 + allowListProbationLowSocial - (allowWithLimitsAnyInner2 * allowListProbationLowSocial);
     signal allowWithLimitsAnyInner3;
-    allowWithLimitsAnyInner3 <== allowWithLimitsAnyInner2 + limitCommentNew - (allowWithLimitsAnyInner2 * limitCommentNew);
+    allowWithLimitsAnyInner3 <== allowWithLimitsAnyInner2b + limitCommentNew - (allowWithLimitsAnyInner2b * limitCommentNew);
     signal allowWithLimitsAnyInner4;
     allowWithLimitsAnyInner4 <== allowWithLimitsAnyInner3 + limitPublishUnverified - (allowWithLimitsAnyInner3 * limitPublishUnverified);
     signal allowWithLimitsAny;
