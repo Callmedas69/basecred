@@ -24,9 +24,10 @@ import type { GlobalFeedEntry } from "@/types/agentRegistration";
 import { CHAIN_CONFIG } from "@/lib/blockchainConfig";
 
 const HUMAN_INSTALL_MSG =
-  "Read https://www.zkbasecred.xyz/skill.md and check if I'm reputable enough on zkBaseCred";
+  "Read https://www.zkbasecred.xyz/skill.md and check if me, your Human, is reputable enough on zkBaseCred";
 
-const AGENT_INSTALL_MSG = "curl -s https://www.zkbasecred.xyz/skill.md";
+const AGENT_INSTALL_MSG =
+  "Install and Run curl -s https://www.zkbasecred.xyz/skill.md";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page Component

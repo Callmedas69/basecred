@@ -22,8 +22,10 @@ export {
     getRulesForContext,
     getRuleById,
     getAllContexts,
+    resolveBlockingFactors,
+    deriveBlockingFactorsForContext,
 } from "./engine"
-export type { UnifiedProfileData } from "./engine"
+export type { UnifiedProfileData, BlockingFactorSnapshot } from "./engine"
 
 // Repositories
 export type { PolicyDefinition, PolicyRepository } from "./repositories"

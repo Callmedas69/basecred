@@ -26,9 +26,12 @@ import {
     VALID_CONTEXTS,
     InMemoryPolicyRepository,
     listPolicies,
+    resolveBlockingFactors,
+    deriveBlockingFactorsForContext,
     type DecisionContext,
     type Decision,
     type NormalizedSignals,
+    type ConfidenceTier,
 } from "basecred-decision-engine"
 import { fetchLiveProfile } from "@/repositories/liveProfileRepository"
 import { generateProof, areCircuitFilesAvailable } from "@/lib/proofGenerator"
@@ -47,6 +50,9 @@ interface DecideWithProofRequest {
 
 interface DecideWithProofResponse {
     decision: "ALLOW" | "DENY" | "ALLOW_WITH_LIMITS"
+    confidence: ConfidenceTier
+    constraints: string[]
+    blockingFactors?: string[]
     signals: NormalizedSignals
     proof: {
         a: [string, string]
@@ -142,10 +148,19 @@ export async function POST(req: NextRequest) {
         })
         const proofMs = performance.now() - tProof
 
-        // 5. Build explanation based on decision and signals
+        // 5. Derive confidence, constraints, and blocking factors
+        // ZK-verified decisions use "HIGH" confidence (same as check-owner ZK path)
+        const confidence: ConfidenceTier = "HIGH"
+        const constraints = deriveConstraintsForContext(proofResult.decision, context)
+        const blockingSnapshot = resolveBlockingFactors(signals)
+        const blockingFactors = proofResult.decision === "DENY"
+            ? deriveBlockingFactorsForContext(context, blockingSnapshot)
+            : undefined
+
+        // 6. Build explanation based on decision and signals
         const explain = buildExplanation(proofResult.decision, signals, context)
 
-        // 6. Auto-submit on-chain
+        // 7. Auto-submit on-chain
         let onChain: DecideWithProofResponse["onChain"] = { submitted: false, error: "Relayer not configured" }
 
         const relayerKey = getRelayerPrivateKey()
@@ -171,7 +186,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 7. Log to global feed (best-effort)
+        // 8. Log to global feed (best-effort)
         const apiKeyHash = req.headers.get("x-basecred-key-id")
         if (apiKeyHash && onChain.txHash) {
             try {
@@ -196,6 +211,9 @@ export async function POST(req: NextRequest) {
 
         const response: DecideWithProofResponse = {
             decision: proofResult.decision,
+            confidence,
+            constraints,
+            ...(blockingFactors !== undefined && { blockingFactors }),
             signals,
             proof: proofResult.proof,
             publicSignals: proofResult.publicSignals,
@@ -223,6 +241,28 @@ export async function POST(req: NextRequest) {
             { status: 500 }
         )
     }
+}
+
+/**
+ * Derive constraints for the ZK proof path.
+ *
+ * The ZK circuit doesn't return rule IDs, so we derive constraints
+ * from the decision + context, mirroring the decision engine rules.
+ */
+function deriveConstraintsForContext(
+    decision: string,
+    context: string
+): string[] {
+    if (decision !== "ALLOW_WITH_LIMITS") return []
+
+    const constraintMap: Record<string, string[]> = {
+        "allowlist.general": ["reduced_access"],
+        comment: ["rate_limited"],
+        publish: ["review_queue"],
+        "governance.vote": ["reduced_weight"],
+        apply: ["review_required"],
+    }
+    return constraintMap[context] ?? ["limited_access"]
 }
 
 /**

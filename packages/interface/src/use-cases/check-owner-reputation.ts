@@ -17,6 +17,8 @@ import {
   encodeContextId,
   InMemoryPolicyRepository,
   listPolicies,
+  resolveBlockingFactors,
+  deriveBlockingFactorsForContext,
   VALID_CONTEXTS,
   type NormalizedSignals,
   type ContractProofStrings,
@@ -69,6 +71,7 @@ export interface CheckOwnerReputationOutput {
   agentName: string
   zkEnabled: boolean
   summary: string
+  signals: NormalizedSignals
   results: Record<string, ContextResult>
 }
 
@@ -230,7 +233,7 @@ export async function checkOwnerReputation(
     console.error("[check-owner-reputation] Usage recording failed:", err)
   }
 
-  return { ownerAddress, agentName, zkEnabled: withProof, summary, results }
+  return { ownerAddress, agentName, zkEnabled: withProof, summary, signals, results }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -273,6 +276,9 @@ async function buildResultsWithProof(
   const policyRepository = new InMemoryPolicyRepository()
   const policies = await listPolicies({ policyRepository })
 
+  // Pre-compute blocking factors once for all contexts
+  const blockingSnapshot = resolveBlockingFactors(signals)
+
   const results: Record<string, ContextResult> = {}
 
   // Sequential — snarkjs WASM is CPU-bound, Promise.all adds no benefit
@@ -296,7 +302,10 @@ async function buildResultsWithProof(
       decision: proofResult.decision,
       confidence: "HIGH",
       verified: true,
-      constraints: [],
+      constraints: deriveConstraintsForContext(proofResult.decision, context),
+      blockingFactors: proofResult.decision === "DENY"
+        ? deriveBlockingFactorsForContext(context as DecisionContext, blockingSnapshot)
+        : undefined,
       proof: proofResult.proof,
       publicSignals: proofResult.publicSignals,
       policyHash: policy.policyHash,
@@ -305,6 +314,29 @@ async function buildResultsWithProof(
   }
 
   return results
+}
+
+/**
+ * Derive constraints for the ZK proof path.
+ *
+ * The ZK circuit doesn't return rule IDs, so we can't use `getConstraintsForRule`.
+ * Instead, derive constraints from the decision + context, mirroring the same
+ * constraint semantics used by the decision engine rules.
+ */
+function deriveConstraintsForContext(
+  decision: string,
+  context: string
+): string[] {
+  if (decision !== "ALLOW_WITH_LIMITS") return []
+
+  const constraintMap: Record<string, string[]> = {
+    "allowlist.general": ["reduced_access"],
+    comment: ["rate_limited"],
+    publish: ["review_queue"],
+    "governance.vote": ["reduced_weight"],
+    apply: ["review_required"],
+  }
+  return constraintMap[context] ?? ["limited_access"]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
