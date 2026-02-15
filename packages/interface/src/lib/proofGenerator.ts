@@ -137,10 +137,10 @@ function computeExpectedDecision(signals: CircuitSignals, contextId: number): nu
 
     // Hard deny checks
     const spamGteHigh = spamRisk >= 3
-    const socialLtNeutral = socialTrust < 2
+    const socialIsVeryLow = socialTrust === 0
     const trustIsVeryLow = trust === 0
 
-    if (spamGteHigh || socialLtNeutral || trustIsVeryLow) {
+    if (spamGteHigh || socialIsVeryLow || trustIsVeryLow) {
         return 0 // DENY
     }
 
@@ -222,6 +222,10 @@ function computeExpectedDecision(signals: CircuitSignals, contextId: number): nu
         }
         // Mixed signals probation: high trust but only low social
         if (trustGteHigh && socialGteLow) {
+            allowWithLimitsAny = true
+        }
+        // Low social probation: neutral trust with low social
+        if (trustGteNeutral && socialGteLow) {
             allowWithLimitsAny = true
         }
     }

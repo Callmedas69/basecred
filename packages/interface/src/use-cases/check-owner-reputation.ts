@@ -133,13 +133,7 @@ export async function checkOwnerReputation(
   // 4. Fetch owner profile once (config validated at startup via serverConfig)
   const config = getSDKConfig()
 
-  const rawProfile = await getUnifiedProfile(ownerAddress, config)
-  const profileData = {
-    ethos: (rawProfile.ethos as any) ?? null,
-    neynar: (rawProfile.farcaster as any) ?? null,
-    talent: (rawProfile.talent as any) ?? null,
-    lastActivityAt: null,
-  }
+  const profileData = await getUnifiedProfile(ownerAddress, config)
 
   // 5. Normalize signals once
   const signals = normalizeSignals(profileData)

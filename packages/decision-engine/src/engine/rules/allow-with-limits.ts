@@ -48,6 +48,15 @@ export const ALLOW_WITH_LIMITS_RULES: Rule[] = [
         reason: "High ability but mixed social signals - limited access",
         confidenceDelta: -10,
     },
+    {
+        id: "probation_low_social",
+        context: "allowlist.general",
+        when: (s) =>
+            tierGte(s.trust, "NEUTRAL") && tierGte(s.socialTrust, "LOW"),
+        decision: "ALLOW_WITH_LIMITS",
+        reason: "Low social trust — probationary access granted",
+        confidenceDelta: -15,
+    },
 
     // =========================================================================
     // Context: comment

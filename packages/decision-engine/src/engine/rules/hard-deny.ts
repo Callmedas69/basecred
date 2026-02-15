@@ -8,11 +8,10 @@
  */
 
 import type { Rule } from "../../types/rules"
-import { tierLt } from "../../types/tiers"
 
 /**
  * Hard-deny rules that fail fast on critical risk signals.
- * 
+ *
  * These rules apply to ALL contexts (context: "*").
  */
 export const HARD_DENY_RULES: Rule[] = [
@@ -27,7 +26,7 @@ export const HARD_DENY_RULES: Rule[] = [
     {
         id: "deny_low_social_trust",
         context: "*",
-        when: (s) => tierLt(s.socialTrust, "NEUTRAL"),
+        when: (s) => s.socialTrust === "VERY_LOW",
         decision: "DENY",
         reason: "Social trust below acceptable threshold",
         confidenceDelta: -100,

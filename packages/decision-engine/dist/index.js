@@ -354,7 +354,7 @@ var HARD_DENY_RULES = [
   {
     id: "deny_low_social_trust",
     context: "*",
-    when: (s) => tierLt(s.socialTrust, "NEUTRAL"),
+    when: (s) => s.socialTrust === "VERY_LOW",
     decision: "DENY",
     reason: "Social trust below acceptable threshold",
     confidenceDelta: -100
@@ -472,6 +472,14 @@ var ALLOW_WITH_LIMITS_RULES = [
     decision: "ALLOW_WITH_LIMITS",
     reason: "High ability but mixed social signals - limited access",
     confidenceDelta: -10
+  },
+  {
+    id: "probation_low_social",
+    context: "allowlist.general",
+    when: (s) => tierGte(s.trust, "NEUTRAL") && tierGte(s.socialTrust, "LOW"),
+    decision: "ALLOW_WITH_LIMITS",
+    reason: "Low social trust \u2014 probationary access granted",
+    confidenceDelta: -15
   },
   // =========================================================================
   // Context: comment
