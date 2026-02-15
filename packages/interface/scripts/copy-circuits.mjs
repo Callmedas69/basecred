@@ -14,13 +14,11 @@ const dest = join(root, 'circuits')
 const wasmSrc = join(contractsCircuits, 'build', 'DecisionCircuit_js', 'DecisionCircuit.wasm')
 const zkeySrc = join(contractsCircuits, 'circuit_final.zkey')
 
-if (!existsSync(wasmSrc)) {
-  console.error(`[prebuild] Circuit WASM not found at ${wasmSrc}. Run circuit build first.`)
-  process.exit(1)
-}
-if (!existsSync(zkeySrc)) {
-  console.error(`[prebuild] Circuit ZKey not found at ${zkeySrc}. Run circuit build first.`)
-  process.exit(1)
+if (!existsSync(wasmSrc) || !existsSync(zkeySrc)) {
+  console.warn(`[prebuild] Circuit files not found — skipping copy. ZK proof generation will be unavailable at runtime.`)
+  console.warn(`[prebuild]   WASM: ${wasmSrc} (${existsSync(wasmSrc) ? 'found' : 'missing'})`)
+  console.warn(`[prebuild]   ZKey: ${zkeySrc} (${existsSync(zkeySrc) ? 'found' : 'missing'})`)
+  process.exit(0)
 }
 
 mkdirSync(dest, { recursive: true })
