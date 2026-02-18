@@ -68,6 +68,11 @@ contract DecisionRegistry {
         verifier = IVerifier(verifierAddress);
     }
 
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Invalid owner");
+        owner = newOwner;
+    }
+
     function submitDecision(
         bytes32 subjectHash,
         bytes32 context,
