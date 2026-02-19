@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion, Variants } from "framer-motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   ArrowRight,
   Check,
+  Copy,
   X,
   Shield,
   Activity,
@@ -18,6 +20,8 @@ import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/Navbar";
 
 export default function Home() {
+  const [copied, setCopied] = useState(false);
+
   const container: Variants = {
     hidden: { opacity: 0 },
     show: {
@@ -72,6 +76,33 @@ export default function Home() {
             <b>generates zero-knowledge proofs</b>, verifiable reputation data
             for gating, moderation, rewards, or access control.
           </motion.p>
+
+          <motion.div variants={item} className="flex justify-center mb-12">
+            <div className="inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-muted/80 border border-border font-mono text-sm">
+              <Link
+                href="https://docs.zkbasecred.xyz/integration/agent-sdk"
+                target="_blank"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span className="text-teal-400 mr-1">$</span> npm i @basecred/agent-sdk
+              </Link>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText("npm i @basecred/agent-sdk");
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                aria-label="Copy install command"
+              >
+                {copied ? (
+                  <Check className="w-4 h-4 text-emerald-400" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+          </motion.div>
 
           <motion.div
             variants={item}

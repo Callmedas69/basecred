@@ -13,6 +13,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'openclaw',
         'agent-api',
+        'agent-sdk',
       ],
     },
     {

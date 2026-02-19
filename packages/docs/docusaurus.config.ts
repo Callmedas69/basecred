@@ -89,6 +89,11 @@ const config: Config = {
           position: "right",
         },
         {
+          to: "/integration/agent-sdk",
+          label: "Agent SDK",
+          position: "right",
+        },
+        {
           to: "/integration/sdk",
           label: "SDK",
           position: "right",
@@ -127,7 +132,7 @@ const config: Config = {
 
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} GeoartStudio. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} zkBasecred`,
     },
     prism: {
       theme: prismThemes.github,

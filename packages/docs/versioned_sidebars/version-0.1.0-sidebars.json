@@ -10,7 +10,8 @@
       "label": "AI Agents",
       "items": [
         "openclaw",
-        "agent-api"
+        "agent-api",
+        "agent-sdk"
       ]
     },
     {
