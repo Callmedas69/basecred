@@ -62,7 +62,7 @@ export async function executeDecisionWithProof(
     const isHardDeny = decision.ruleIds.some((id) => isHardDenyRule(id))
     const accessStatus = deriveAccessStatus(decision.decision, { isHardDeny })
     const blockingSnapshot = resolveBlockingFactors(verified.signals)
-    const blockingFactors = deriveBlockingFactorsForContext(input.context, blockingSnapshot)
+    const blockingFactors = deriveBlockingFactorsForContext(input.context, blockingSnapshot, verified.signals)
 
     const subjectHash = input.subject ? hashSubject(input.subject) : undefined
 

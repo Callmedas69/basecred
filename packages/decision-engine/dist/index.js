@@ -816,17 +816,37 @@ function resolveBlockingFactors(signals) {
   };
 }
 var CONTEXT_REQUIREMENTS = {
-  "allowlist.general": ["trust", "builder", "creator"],
-  apply: ["trust", "builder", "creator"],
-  comment: ["spamRisk", "socialTrust"],
-  publish: ["creator", "spamRisk"],
-  "governance.vote": ["trust", "socialTrust"]
+  "allowlist.general": ["trust", "socialTrust", "builder", "creator", "spamRisk"],
+  apply: ["trust", "socialTrust", "builder", "creator", "spamRisk"],
+  comment: ["trust", "socialTrust", "spamRisk"],
+  publish: ["trust", "socialTrust", "creator", "spamRisk"],
+  "governance.vote": ["trust", "socialTrust", "spamRisk"]
 };
-function deriveBlockingFactorsForContext(context, snapshot) {
+var CONTEXT_THRESHOLDS = {
+  "allowlist.general": {
+    trust: (s) => tierGte(s.trust, "NEUTRAL")
+  },
+  apply: {
+    trust: (s) => tierGte(s.trust, "NEUTRAL"),
+    builder: (s) => capabilityGte(s.builder, "EXPERT"),
+    creator: (s) => capabilityGte(s.creator, "EXPERT")
+  },
+  publish: {
+    trust: (s) => tierGte(s.trust, "NEUTRAL"),
+    socialTrust: (s) => tierGte(s.socialTrust, "NEUTRAL")
+  },
+  "governance.vote": {
+    trust: (s) => tierGte(s.trust, "HIGH"),
+    socialTrust: (s) => tierGte(s.socialTrust, "NEUTRAL")
+  }
+};
+function deriveBlockingFactorsForContext(context, snapshot, signals) {
   const requiredFactors = CONTEXT_REQUIREMENTS[context] ?? [];
+  const contextThresholds = CONTEXT_THRESHOLDS[context];
   const blocking = [];
   for (const factor of requiredFactors) {
-    if (!snapshot[factor]) {
+    const isReady = signals && contextThresholds?.[factor] ? contextThresholds[factor](signals) : snapshot[factor];
+    if (!isReady) {
       blocking.push(factor);
     }
   }
@@ -942,7 +962,8 @@ async function executeDecision(input, profileFetcher) {
   const blockingSnapshot = resolveBlockingFactors(signals);
   const blockingFactors = deriveBlockingFactorsForContext(
     input.context,
-    blockingSnapshot
+    blockingSnapshot,
+    signals
   );
   const subjectHash = hashSubject(input.subject);
   return {
@@ -1010,7 +1031,7 @@ async function executeDecisionWithProof(input, deps) {
   const isHardDeny = decision.ruleIds.some((id) => isHardDenyRule(id));
   const accessStatus = deriveAccessStatus(decision.decision, { isHardDeny });
   const blockingSnapshot = resolveBlockingFactors(verified.signals);
-  const blockingFactors = deriveBlockingFactorsForContext(input.context, blockingSnapshot);
+  const blockingFactors = deriveBlockingFactorsForContext(input.context, blockingSnapshot, verified.signals);
   const subjectHash = input.subject ? hashSubject2(input.subject) : void 0;
   return {
     ...decision,

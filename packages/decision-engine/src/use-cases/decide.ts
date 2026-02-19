@@ -70,7 +70,8 @@ export async function executeDecision(
     const blockingSnapshot = resolveBlockingFactors(signals)
     const blockingFactors = deriveBlockingFactorsForContext(
         input.context,
-        blockingSnapshot
+        blockingSnapshot,
+        signals
     )
 
     // Step 4: Hash subject for privacy-preserving logging

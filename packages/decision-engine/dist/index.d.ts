@@ -846,8 +846,11 @@ declare function resolveBlockingFactors(signals: NormalizedSignals): BlockingFac
  * - are required for the given context, and
  * - are currently not ready
  * will be returned.
+ *
+ * When `signals` is provided, context-specific threshold overrides are used
+ * for stricter factor checks (e.g. apply requires EXPERT builder, not just BUILDER).
  */
-declare function deriveBlockingFactorsForContext(context: DecisionContext, snapshot: BlockingFactorSnapshot): string[];
+declare function deriveBlockingFactorsForContext(context: DecisionContext, snapshot: BlockingFactorSnapshot, signals?: NormalizedSignals): string[];
 
 /**
  * Rule Registry

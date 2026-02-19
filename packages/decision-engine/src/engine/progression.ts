@@ -9,6 +9,7 @@
 import type { NormalizedSignals } from "../types/signals"
 import type { AccessStatus, DecisionContext } from "../types/decisions"
 import type { Decision } from "../types/rules"
+import { tierGte, capabilityGte } from "../types/tiers"
 
 // ============================================================================
 // Access Status Mapping
@@ -110,11 +111,39 @@ export function resolveBlockingFactors(
  * purely for explanation and progression and does not affect the rule engine.
  */
 export const CONTEXT_REQUIREMENTS: Record<DecisionContext, (keyof BlockingFactorSnapshot)[]> = {
-    "allowlist.general": ["trust", "builder", "creator"],
-    apply: ["trust", "builder", "creator"],
-    comment: ["spamRisk", "socialTrust"],
-    publish: ["creator", "spamRisk"],
-    "governance.vote": ["trust", "socialTrust"],
+    "allowlist.general": ["trust", "socialTrust", "builder", "creator", "spamRisk"],
+    apply: ["trust", "socialTrust", "builder", "creator", "spamRisk"],
+    comment: ["trust", "socialTrust", "spamRisk"],
+    publish: ["trust", "socialTrust", "creator", "spamRisk"],
+    "governance.vote": ["trust", "socialTrust", "spamRisk"],
+}
+
+/**
+ * Context-specific readiness overrides.
+ *
+ * When a context's rules require stricter thresholds than the global
+ * snapshot provides, define an override here. Each function returns
+ * true when the factor is "ready" for that specific context.
+ */
+const CONTEXT_THRESHOLDS: Partial<
+    Record<DecisionContext, Partial<Record<keyof BlockingFactorSnapshot, (s: NormalizedSignals) => boolean>>>
+> = {
+    "allowlist.general": {
+        trust: (s) => tierGte(s.trust, "NEUTRAL"),
+    },
+    apply: {
+        trust: (s) => tierGte(s.trust, "NEUTRAL"),
+        builder: (s) => capabilityGte(s.builder, "EXPERT"),
+        creator: (s) => capabilityGte(s.creator, "EXPERT"),
+    },
+    publish: {
+        trust: (s) => tierGte(s.trust, "NEUTRAL"),
+        socialTrust: (s) => tierGte(s.socialTrust, "NEUTRAL"),
+    },
+    "governance.vote": {
+        trust: (s) => tierGte(s.trust, "HIGH"),
+        socialTrust: (s) => tierGte(s.socialTrust, "NEUTRAL"),
+    },
 }
 
 // ============================================================================
@@ -128,17 +157,26 @@ export const CONTEXT_REQUIREMENTS: Record<DecisionContext, (keyof BlockingFactor
  * - are required for the given context, and
  * - are currently not ready
  * will be returned.
+ *
+ * When `signals` is provided, context-specific threshold overrides are used
+ * for stricter factor checks (e.g. apply requires EXPERT builder, not just BUILDER).
  */
 export function deriveBlockingFactorsForContext(
     context: DecisionContext,
-    snapshot: BlockingFactorSnapshot
+    snapshot: BlockingFactorSnapshot,
+    signals?: NormalizedSignals
 ): string[] {
     const requiredFactors = CONTEXT_REQUIREMENTS[context] ?? []
+    const contextThresholds = CONTEXT_THRESHOLDS[context]
 
     const blocking: string[] = []
 
     for (const factor of requiredFactors) {
-        if (!snapshot[factor]) {
+        const isReady = signals && contextThresholds?.[factor]
+            ? contextThresholds[factor]!(signals)
+            : snapshot[factor]
+
+        if (!isReady) {
             blocking.push(factor)
         }
     }

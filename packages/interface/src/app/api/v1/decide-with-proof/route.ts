@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
         const constraints = deriveConstraintsForContext(proofResult.decision, context)
         const blockingSnapshot = resolveBlockingFactors(signals)
         const blockingFactors = proofResult.decision === "DENY"
-            ? deriveBlockingFactorsForContext(context, blockingSnapshot)
+            ? deriveBlockingFactorsForContext(context, blockingSnapshot, signals)
             : undefined
 
         // 6. Build explanation based on decision and signals

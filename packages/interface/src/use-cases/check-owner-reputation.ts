@@ -298,7 +298,7 @@ async function buildResultsWithProof(
       verified: true,
       constraints: deriveConstraintsForContext(proofResult.decision, context),
       blockingFactors: proofResult.decision === "DENY"
-        ? deriveBlockingFactorsForContext(context as DecisionContext, blockingSnapshot)
+        ? deriveBlockingFactorsForContext(context as DecisionContext, blockingSnapshot, signals)
         : undefined,
       proof: proofResult.proof,
       publicSignals: proofResult.publicSignals,
