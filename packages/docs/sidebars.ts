@@ -4,6 +4,7 @@ const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     'intro',
     'context-vs-decision',
+    'contexts',
     'integration',
     'sdk',
     'schema',
