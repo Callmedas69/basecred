@@ -111,7 +111,7 @@ export function resolveBlockingFactors(
  */
 export const CONTEXT_REQUIREMENTS: Record<DecisionContext, (keyof BlockingFactorSnapshot)[]> = {
     "allowlist.general": ["trust", "builder", "creator"],
-    apply: ["trust"],
+    apply: ["trust", "builder", "creator"],
     comment: ["spamRisk", "socialTrust"],
     publish: ["creator", "spamRisk"],
     "governance.vote": ["trust", "socialTrust"],

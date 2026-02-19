@@ -738,7 +738,7 @@ function resolveBlockingFactors(signals) {
 }
 var CONTEXT_REQUIREMENTS = {
   "allowlist.general": ["trust", "builder", "creator"],
-  apply: ["trust"],
+  apply: ["trust", "builder", "creator"],
   comment: ["spamRisk", "socialTrust"],
   publish: ["creator", "spamRisk"],
   "governance.vote": ["trust", "socialTrust"]

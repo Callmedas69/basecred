@@ -96,7 +96,7 @@ describe("CONTEXT_REQUIREMENTS", () => {
         ])
         expect(CONTEXT_REQUIREMENTS.comment).toEqual(["spamRisk", "socialTrust"])
         expect(CONTEXT_REQUIREMENTS.publish).toEqual(["creator", "spamRisk"])
-        expect(CONTEXT_REQUIREMENTS.apply).toEqual(["trust"])
+        expect(CONTEXT_REQUIREMENTS.apply).toEqual(["trust", "builder", "creator"])
         expect(CONTEXT_REQUIREMENTS["governance.vote"]).toEqual(["trust", "socialTrust"])
     })
 })
@@ -119,6 +119,25 @@ describe("deriveBlockingFactorsForContext", () => {
         expect(factors).toContain("builder")
         expect(factors).toContain("creator")
         expect(factors).toHaveLength(3)
+    })
+
+    it("reports builder and creator as blocking for apply context", () => {
+        const snapshot = resolveBlockingFactors(
+            createSignals({
+                trust: "NEUTRAL",
+                builder: "EXPLORER",
+                creator: "EXPLORER",
+                socialTrust: "NEUTRAL",
+                spamRisk: "NEUTRAL",
+                signalCoverage: 0.9,
+            })
+        )
+
+        const factors = deriveBlockingFactorsForContext("apply", snapshot)
+        expect(factors).toContain("builder")
+        expect(factors).toContain("creator")
+        expect(factors).not.toContain("trust")
+        expect(factors).toHaveLength(2)
     })
 
     it("reflects spam and social trust for comment context", () => {
