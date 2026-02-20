@@ -14,7 +14,14 @@ const BTN =
 function WalletButton() {
   return (
     <ConnectButton.Custom>
-      {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+      {({
+        account,
+        chain,
+        openAccountModal,
+        openChainModal,
+        openConnectModal,
+        mounted,
+      }) => {
         const ready = mounted;
         const connected = ready && account && chain;
 
@@ -22,7 +29,11 @@ function WalletButton() {
           <div
             {...(!ready && {
               "aria-hidden": true,
-              style: { opacity: 0, pointerEvents: "none" as const, userSelect: "none" as const },
+              style: {
+                opacity: 0,
+                pointerEvents: "none" as const,
+                userSelect: "none" as const,
+              },
             })}
           >
             {!connected ? (
@@ -31,7 +42,11 @@ function WalletButton() {
               </button>
             ) : (
               <div className="flex items-center gap-2">
-                <button type="button" onClick={openChainModal} className={BTN + " px-2.5"}>
+                <button
+                  type="button"
+                  onClick={openChainModal}
+                  className={BTN + " px-2.5"}
+                >
                   {chain.hasIcon && chain.iconUrl && (
                     <img
                       src={chain.iconUrl}
@@ -41,7 +56,11 @@ function WalletButton() {
                   )}
                   <ChevronDown className="w-3.5 h-3.5" />
                 </button>
-                <button type="button" onClick={openAccountModal} className={BTN}>
+                <button
+                  type="button"
+                  onClick={openAccountModal}
+                  className={BTN}
+                >
                   {account.displayName}
                   <ChevronDown className="w-3.5 h-3.5" />
                 </button>
@@ -106,6 +125,7 @@ const NAV_LINKS: {
 }[] = [
   { href: "/human", label: "human", match: (p) => p === "/human" },
   { href: "/agent", label: "agent", match: (p) => p === "/agent" },
+  { href: "/usecases", label: "usecases", match: (p) => p === "/usecases" },
   { href: "/stats", label: "stats", match: (p) => p === "/stats" },
   {
     href: "http://docs.zkbasecred.xyz",
@@ -217,7 +237,9 @@ export function Navbar() {
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 translate-y-2",
               )}
-              style={{ transitionDelay: menuOpen ? `${75 * (i + 1)}ms` : "0ms" }}
+              style={{
+                transitionDelay: menuOpen ? `${75 * (i + 1)}ms` : "0ms",
+              }}
               onClick={() => setMenuOpen(false)}
               tabIndex={menuOpen ? 0 : -1}
               {...(link.external
@@ -234,7 +256,11 @@ export function Navbar() {
                 ? "opacity-100 translate-y-0"
                 : "opacity-0 translate-y-2",
             )}
-            style={{ transitionDelay: menuOpen ? `${75 * (NAV_LINKS.length + 1)}ms` : "0ms" }}
+            style={{
+              transitionDelay: menuOpen
+                ? `${75 * (NAV_LINKS.length + 1)}ms`
+                : "0ms",
+            }}
           >
             <WalletButton />
           </div>
