@@ -79,16 +79,13 @@ export default function Home() {
 
           <motion.div variants={item} className="flex justify-center mb-12">
             <div className="inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-muted/80 border border-border font-mono text-sm">
-              <Link
-                href="https://docs.zkbasecred.xyz/integration/agent-sdk"
-                target="_blank"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <span className="text-teal-400 mr-1">$</span> npm i @basecred/agent-sdk
-              </Link>
+              <span className="text-teal-400 mr-1">$</span> Install and Run curl
+              -s https://www.zkbasecred.xyz/skill.md
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText("npm i @basecred/agent-sdk");
+                  navigator.clipboard.writeText(
+                    "Install and Run curl -s https://www.zkbasecred.xyz/skill.md",
+                  );
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }}
