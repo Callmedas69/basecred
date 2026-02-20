@@ -36,4 +36,4 @@ Yes, given the same input signals. The engine is a pure function: same normalize
 
 ### Where are the contracts deployed?
 
-The `DecisionRegistry` contract is deployed on Base mainnet at [`0xde81CfD19B7Af704f17043789E8822352D9c179A`](https://basescan.org/address/0xde81CfD19B7Af704f17043789E8822352D9c179A). See the [ZK Contracts](./zk-contracts) page for ABI details and integration guidance.
+The `DecisionRegistry` contract is deployed on Base mainnet at [`0x694A54Bf1b7659e8A7e63CD8a45de378458659D8`](https://basescan.org/address/0x694A54Bf1b7659e8A7e63CD8a45de378458659D8). See the [ZK Contracts](./zk-contracts) page for ABI details and integration guidance.
