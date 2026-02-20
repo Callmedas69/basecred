@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
-import { Script } from "forge-std/Script.sol";
-import { console2 } from "forge-std/console2.sol";
+// DEPRECATED: Use DeployProxy.s.sol instead.
+// This script is kept for reference only.
 
-import { DecisionRegistry } from "../contracts/DecisionRegistry.sol";
+import {Script} from "forge-std/Script.sol";
+import {console2} from "forge-std/console2.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {DecisionRegistry} from "../contracts/DecisionRegistry.sol";
 
 contract DeployRegistry is Script {
     function run() external {
@@ -13,11 +16,17 @@ contract DeployRegistry is Script {
 
         vm.startBroadcast(deployerKey);
 
-        DecisionRegistry registry = new DecisionRegistry(verifierAddress);
+        DecisionRegistry implementation = new DecisionRegistry();
+        bytes memory initData = abi.encodeCall(
+            DecisionRegistry.initialize,
+            (verifierAddress, msg.sender)
+        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        DecisionRegistry registry = DecisionRegistry(address(proxy));
 
         vm.stopBroadcast();
 
         console2.log("Verifier (existing):", verifierAddress);
-        console2.log("DecisionRegistry:", address(registry));
+        console2.log("DecisionRegistry (proxy):", address(registry));
     }
 }
