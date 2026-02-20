@@ -7,7 +7,8 @@
     "typecheck": "pnpm -r typecheck",
     "dev": "pnpm --filter interface dev",
     "start": "pnpm --filter docs start",
-    "dev:all": "concurrently -n \"INTERFACE,DOCS\" -c \"cyan,magenta\" \"pnpm dev\" \"pnpm start\""
+    "dev:all": "concurrently -n \"INTERFACE,DOCS\" -c \"cyan,magenta\" \"pnpm dev\" \"pnpm start\"",
+    "prepare": "node -e \"const fs=require('fs'),s='scripts/pre-commit',d='.git/hooks/pre-commit';if(fs.existsSync(s)){fs.copyFileSync(s,d);try{fs.chmodSync(d,0o755)}catch(e){}}\""
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

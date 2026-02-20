@@ -132,6 +132,17 @@ Always:
 
 ---
 
+## Secrets Management (Non-Negotiable)
+
+- **NEVER** inline private keys in shell commands — use `--env-file` or load from `.env.local`
+- **NEVER** commit `.claude/`, `.env.local`, or any file containing real credentials
+- `.env.example` files must contain **ONLY** placeholder values, never real keys
+- `NEXT_PUBLIC_*` env vars are shipped to the browser — **never embed API keys** in them
+- All secret rotation must happen out-of-band, not through git commits
+- Pre-commit hook (`scripts/pre-commit`) blocks commits containing private key patterns
+
+---
+
 ## APPLICATION ARCHITECTURE RULES (NON-NEGOTIABLE)
 
 ### Core Architecture Flow
