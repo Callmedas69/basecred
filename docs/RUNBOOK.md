@@ -1,7 +1,7 @@
 # Runbook
 
 > Operational procedures for the BaseCred platform.
-> Last updated: 2026-02-06
+> Last updated: 2026-02-20
 
 ---
 
@@ -13,9 +13,20 @@
 | Documentation      | 4000 | Docusaurus 3.9    | `docs`               |
 | Decision Engine    | N/A  | TypeScript library | `basecred-decision-engine` |
 | SDK                | N/A  | TypeScript library | `basecred-sdk`       |
+| Agent SDK          | N/A  | TypeScript library | `@basecred/agent-sdk` |
+| ERC-8004 Scripts   | N/A  | Node.js scripts    | `@basecred/openclaw-8004` |
 | Smart Contracts    | N/A  | Solidity + Circom  | `@basecred/contracts`|
 
 **Primary Network**: Base (L2)
+
+### Deployed Contracts (Base Mainnet — 8453)
+
+| Contract                  | Address                                      | Type         |
+|---------------------------|----------------------------------------------|--------------|
+| Verifier                  | `0x708FB78d97b32250e302F33A1A81936C8B618625` | Standalone   |
+| DecisionRegistry (Proxy)  | `0x694A54Bf1b7659e8A7e63CD8a45de378458659D8` | UUPS Proxy   |
+
+The DecisionRegistry uses a **UUPS proxy pattern** (ERC-1967). The proxy address is permanent — only the implementation behind it can be upgraded by the owner.
 
 ---
 
@@ -37,6 +48,7 @@ pnpm typecheck
 pnpm --filter decision-engine test
 pnpm --filter interface test
 pnpm --filter sdk test
+pnpm --filter agent-sdk test
 ```
 
 ### 2. Deploy Interface (Next.js)
@@ -66,18 +78,30 @@ cd packages/sdk && npm publish
 
 The SDK is published as a public package (`publishConfig.access: "public"`).
 
-### 5. Deploy Smart Contracts
+### 5. Deploy Smart Contracts (UUPS Proxy)
 
-Contracts are deployed via Foundry scripts. Ensure:
-- `DEPLOYER_PRIVATE_KEY` is set in root `.env.local`
-- `BASE_SEPOLIA_RPC_URL` is configured
-- Foundry toolchain is installed (`foundryup.ps1`)
+Contracts use the UUPS proxy pattern and are deployed/upgraded via Foundry scripts.
+
+**Initial deployment** (new proxy + implementation):
 
 ```bash
 cd packages/contracts
 forge build
-forge script scripts/<DeployScript>.s.sol --rpc-url $BASE_SEPOLIA_RPC_URL --broadcast
+forge script scripts/DeployProxy.s.sol --rpc-url $BASE_RPC_URL --broadcast --env-file .env.local
 ```
+
+**Upgrade existing proxy** (new implementation only):
+
+```bash
+cd packages/contracts
+forge build
+forge script scripts/UpgradeRegistry.s.sol --rpc-url $BASE_RPC_URL --broadcast --env-file .env.local
+```
+
+Ensure:
+- `DEPLOYER_PRIVATE_KEY` is set in `.env.local` (never inline in commands)
+- Deployer address is the current proxy owner
+- The new implementation passes all tests before upgrading
 
 ### 6. ZK Circuit Deployment
 
@@ -140,10 +164,11 @@ pnpm --filter <pkg> build   # Rebuild specific package
 
 **Cause**: Wrong chain ID, missing contract addresses, or stale ABI.
 **Fix**:
-- Verify `.env.local` has correct contract addresses
-- Verify the interface is targeting Base network
+- Verify `.env.local` has correct RPC URLs
+- Verify the interface is targeting Base network (chain ID 8453)
 - Rebuild contract ABIs: `cd packages/contracts && forge build`
 - Copy updated ABIs from `packages/contracts/out/`
+- Ensure `packages/interface/src/lib/onChainContracts.ts` points to the correct proxy address
 
 ### 5. ZK proof generation fails
 
@@ -173,6 +198,15 @@ pnpm --filter sdk prepublish:check   # Review errors
 pnpm --filter sdk build              # Rebuild
 ```
 
+### 8. UUPS upgrade fails
+
+**Cause**: Deployer is not the proxy owner, or implementation is incompatible.
+**Fix**:
+- Verify the deployer address matches the current proxy owner on BaseScan
+- Ensure `renounceOwnership()` was never called (it reverts by design)
+- Verify the new implementation is storage-compatible with the previous version
+- Check Foundry broadcast logs in `packages/contracts/broadcast/`
+
 ---
 
 ## Rollback Procedures
@@ -195,12 +229,16 @@ pnpm --filter sdk build              # Rebuild
    ```
 2. Or publish a patch version with the fix.
 
-### Smart Contract Rollback
+### Smart Contract Rollback (UUPS)
 
-- Contracts are **immutable once deployed**.
-- Deploy a new version of the contract.
-- Update the interface to point to the new contract address.
-- If using upgradeable proxies (not default), use the upgrade mechanism.
+The DecisionRegistry uses a **UUPS proxy pattern**, which allows implementation upgrades:
+
+1. **To roll back**: Deploy the previous implementation contract and call `upgradeToAndCall` on the proxy.
+2. Use `UpgradeRegistry.s.sol` with the previous implementation's bytecode.
+3. Verify on BaseScan that the proxy now points to the correct implementation.
+4. The proxy address (`0x694A54Bf1b7659e8A7e63CD8a45de378458659D8`) does **not** change during upgrades.
+
+The Verifier contract is **immutable** — deploy a new one and call `setVerifier(newAddress)` on the registry if needed.
 
 ### Documentation Rollback
 

@@ -11,8 +11,8 @@ import { DECISION_REGISTRY_ABI } from "@basecred/contracts/abi"
 import { ONCHAIN_CONTRACTS } from "@/lib/onChainContracts"
 import { getRedis } from "@/lib/redis"
 
-// Block at which the DecisionRegistry was deployed on Base Mainnet (from broadcast/8453/run-latest.json)
-const DEPLOY_BLOCK = 42_105_937n
+// Block at which the DecisionRegistry proxy was deployed on Base Mainnet (from DeployProxy.s.sol/8453/run-latest.json)
+const DEPLOY_BLOCK = 42_367_644n
 
 export interface DecisionEvent {
   subjectHash: `0x${string}`

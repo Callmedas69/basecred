@@ -1,7 +1,7 @@
 # Contributing & Development Guide
 
 > Auto-generated from `package.json` and `.env.example` sources of truth.
-> Last updated: 2026-02-06
+> Last updated: 2026-02-20
 
 ---
 
@@ -19,14 +19,16 @@
 ```
 basecred/                         # Monorepo root (pnpm workspaces)
 ├── packages/
-│   ├── contracts/                # Solidity contracts + Circom ZK circuits
-│   ├── decision-engine/          # Reputation decision engine library
-│   ├── docs/                     # Docusaurus documentation site
-│   ├── interface/                # Next.js 15 frontend application
-│   └── sdk/                      # Public NPM SDK package
-├── docs/                         # Developer docs (CONTRIB, RUNBOOK)
-├── CLAUDE.md                     # Engineering rules & architecture
-└── CHANGELOG.md                  # Project changelog
+│   ├── agent-sdk/               # Agent SDK — type-safe client for BaseCred API
+│   ├── contracts/               # Solidity contracts (UUPS) + Circom ZK circuits
+│   ├── decision-engine/         # Reputation decision engine library
+│   ├── docs/                    # Docusaurus documentation site
+│   ├── erc8004/                 # OpenClaw ERC-8004 agent identity scripts
+│   ├── interface/               # Next.js 15 frontend application
+│   └── sdk/                     # Public NPM SDK package (basecred-sdk)
+├── docs/                        # Developer docs (CONTRIB, RUNBOOK)
+├── CLAUDE.md                    # Engineering rules & architecture
+└── CHANGELOG.md                 # Project changelog
 ```
 
 ---
@@ -45,18 +47,41 @@ Copy and fill in `.env.local` files for packages that need them:
 
 | Package           | Env File         | Required Variables                |
 |-------------------|------------------|-----------------------------------|
+| `interface`       | `.env.local`     | See interface env vars below      |
 | `sdk`             | `.env.local`     | `TALENT_API_KEY`                  |
-| `decision-engine` | `.env.local`     | (see package-specific config)     |
-| `interface`       | `.env.local`     | (see package-specific config)     |
+| `decision-engine` | `.env.local`     | `TALENT_API_KEY`                  |
 | Root              | `.env.local`     | `DEPLOYER_PRIVATE_KEY`, `BASE_SEPOLIA_RPC_URL`, `ZK_VKEY_PATH`, `ZK_ALLOW_PLAINTEXT_SIGNALS` |
 
-### Environment Variables Reference (from `.env.example`)
+### Environment Variables Reference
 
-| Variable         | Package | Purpose                                     | Format             |
-|------------------|---------|---------------------------------------------|--------------------|
-| `TALENT_API_KEY` | sdk     | Talent Protocol API key for builder credibility | String (API key) |
+#### Interface (`packages/interface/.env.example`)
+
+| Variable                              | Purpose                                          | Public? |
+|---------------------------------------|--------------------------------------------------|---------|
+| `ZK_ALLOW_PLAINTEXT_SIGNALS`          | Allow plaintext ZK signals (dev only)            | No      |
+| `TALENT_API_KEY`                      | Talent Protocol API key                          | No      |
+| `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` | WalletConnect project ID                       | Yes     |
+| `NEYNAR_API_KEY`                      | Neynar (Farcaster) API key                       | No      |
+| `ALCHEMY_API_KEY`                     | Alchemy API key for reliable Base RPC            | No      |
+| `ALCHEMY_RPC_URL`                     | Alchemy Base mainnet RPC endpoint                | No      |
+| `ETHOS_CLIENT_ID`                     | Ethos Network client identifier                  | No      |
+| `NEXT_PUBLIC_MAINNET_RPC_URL`         | Ethereum mainnet RPC (ENS resolution)            | Yes     |
+| `NEXT_PUBLIC_BASE_RPC_URL`            | Base mainnet RPC                                 | Yes     |
+| `NEXT_PUBLIC_URL`                     | Public URL of the deployed app                   | Yes     |
+
+#### SDK (`packages/sdk/.env.example`)
+
+| Variable         | Purpose                                          | Public? |
+|------------------|--------------------------------------------------|---------|
+| `TALENT_API_KEY` | Talent Protocol API key for builder credibility  | No      |
 
 > Ethos Network does not require an API key.
+
+#### Decision Engine (`packages/decision-engine/.env.example`)
+
+| Variable         | Purpose                                          | Public? |
+|------------------|--------------------------------------------------|---------|
+| `TALENT_API_KEY` | Talent Protocol API key                          | No      |
 
 ---
 
@@ -126,6 +151,31 @@ Copy and fill in `.env.local` files for packages that need them:
 | `test:watch`       | `pnpm --filter sdk test:watch`             | Run tests in watch mode              |
 | `prepublish:check` | `pnpm --filter sdk prepublish:check`       | Pre-publish validation               |
 
+### Package: `@basecred/agent-sdk`
+
+| Script      | Command                                      | Description                          |
+|-------------|----------------------------------------------|--------------------------------------|
+| `build`     | `pnpm --filter agent-sdk build`              | Build with tsup (CJS + ESM + DTS)   |
+| `dev`       | `pnpm --filter agent-sdk dev`                | Build in watch mode                  |
+| `test`      | `pnpm --filter agent-sdk test`               | Run tests with Vitest                |
+| `test:watch`| `pnpm --filter agent-sdk test:watch`         | Run tests in watch mode              |
+| `typecheck` | `pnpm --filter agent-sdk typecheck`          | Type-check without emitting          |
+| `clean`     | `pnpm --filter agent-sdk clean`              | Remove dist/ directory               |
+
+### Package: `@basecred/openclaw-8004` (erc8004)
+
+| Script       | Command                                       | Description                          |
+|--------------|-----------------------------------------------|--------------------------------------|
+| `menu`       | `pnpm --filter erc8004 menu`                  | Interactive agent management menu    |
+| `set-wallet` | `pnpm --filter erc8004 set-wallet`            | Set agent wallet                     |
+| `summary`    | `pnpm --filter erc8004 summary`               | View agent summary                   |
+| `register`   | `pnpm --filter erc8004 register`              | Register an agent on-chain           |
+| `update`     | `pnpm --filter erc8004 update`                | Update agent metadata                |
+| `feedback`   | `pnpm --filter erc8004 feedback`              | Submit feedback                      |
+| `revoke`     | `pnpm --filter erc8004 revoke`                | Revoke an agent                      |
+| `respond`    | `pnpm --filter erc8004 respond`               | Respond to feedback                  |
+| `transfer`   | `pnpm --filter erc8004 transfer`              | Transfer agent ownership             |
+
 ---
 
 ## Development Workflow
@@ -155,6 +205,7 @@ pnpm typecheck    # Ensure no type errors
 pnpm --filter decision-engine test
 pnpm --filter interface test
 pnpm --filter sdk test
+pnpm --filter agent-sdk test
 
 # With coverage
 pnpm --filter decision-engine test:coverage
@@ -174,7 +225,7 @@ pnpm --filter sdk prepublish:check
 - **Framework**: Vitest (across all packages)
 - **Run all tests**: Execute test scripts per package (no root-level `test` script)
 - **Coverage**: Available via `test:coverage` in the decision-engine package
-- **Watch mode**: Available in decision-engine and SDK packages
+- **Watch mode**: Available in decision-engine, SDK, and agent-sdk packages
 
 ---
 
