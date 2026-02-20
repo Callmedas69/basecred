@@ -70,9 +70,8 @@ export class BasecredAgent {
   }
 
   /** Get the global activity feed. */
-  async getFeed(limit?: number): Promise<FeedEntry[]> {
-    const query = limit !== undefined ? { limit: String(limit) } : undefined
-    const res = await httpGet<{ entries: FeedEntry[] }>(this.http, "/api/v1/agent/feed", query)
+  async getFeed(): Promise<FeedEntry[]> {
+    const res = await httpGet<{ entries: FeedEntry[] }>(this.http, "/api/v1/agent/feed")
     return res.entries
   }
 

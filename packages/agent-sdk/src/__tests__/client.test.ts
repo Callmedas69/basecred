@@ -37,8 +37,8 @@ describe("BasecredAgent.checkOwner", () => {
       signals: {
         trust: "HIGH",
         socialTrust: "HIGH",
-        builder: "PROFICIENT",
-        creator: "INTERMEDIATE",
+        builder: "EXPERT",
+        creator: "BUILDER",
         recencyDays: 5,
         spamRisk: "LOW",
         signalCoverage: 1,
@@ -90,27 +90,18 @@ describe("BasecredAgent.getPolicies", () => {
 })
 
 describe("BasecredAgent.getFeed", () => {
-  it("returns feed entries and passes limit as query param", async () => {
+  it("returns feed entries from wrapped response", async () => {
     const entries = [
       { agentName: "Bot", ownerAddress: "0x...", context: "comment", timestamp: 123 },
     ]
     const f = mockFetchOk({ entries })
     const agent = new BasecredAgent({ apiKey: "bc_test", fetch: f })
 
-    const result = await agent.getFeed(5)
+    const result = await agent.getFeed()
     expect(result).toEqual(entries)
 
     const [url] = f.mock.calls[0]
-    expect(url).toContain("limit=5")
-  })
-
-  it("omits limit query param when not specified", async () => {
-    const f = mockFetchOk({ entries: [] })
-    const agent = new BasecredAgent({ apiKey: "bc_test", fetch: f })
-
-    await agent.getFeed()
-    const [url] = f.mock.calls[0]
-    expect(url).not.toContain("limit")
+    expect(url).toBe("https://www.zkbasecred.xyz/api/v1/agent/feed")
   })
 })
 

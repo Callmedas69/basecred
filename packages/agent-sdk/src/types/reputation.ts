@@ -4,10 +4,10 @@
  */
 
 /** Trust tier values from the decision engine */
-export type Tier = "VERY_HIGH" | "HIGH" | "MODERATE" | "NEUTRAL" | "LOW" | "VERY_LOW"
+export type Tier = "VERY_LOW" | "LOW" | "NEUTRAL" | "HIGH" | "VERY_HIGH"
 
 /** Builder/Creator capability values */
-export type Capability = "EXPERT" | "PROFICIENT" | "INTERMEDIATE" | "MODERATE" | "EXPLORER"
+export type Capability = "EXPLORER" | "BUILDER" | "EXPERT" | "ELITE"
 
 /** Normalized reputation signals from external providers */
 export interface NormalizedSignals {

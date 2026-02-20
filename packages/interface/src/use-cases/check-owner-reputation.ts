@@ -381,17 +381,15 @@ async function logActivitiesAndFeed(
 const TRUST_LABELS: Record<string, string> = {
   VERY_HIGH: "very high trust",
   HIGH: "high trust",
-  MODERATE: "moderate trust",
   NEUTRAL: "neutral trust",
   LOW: "low trust",
   VERY_LOW: "very low trust",
 }
 
 const CAPABILITY_LABELS: Record<string, string> = {
+  ELITE: "exceptional builder credentials",
   EXPERT: "strong builder credentials",
-  PROFICIENT: "solid builder credentials",
-  INTERMEDIATE: "growing builder credentials",
-  MODERATE: "emerging builder credentials",
+  BUILDER: "solid builder credentials",
   EXPLORER: "early-stage builder credentials",
 }
 
