@@ -56,12 +56,44 @@ const limiters = {
       prefix: "rl:feed",
     }),
 
-  /** /api/v1/stats — per IP */
+  /** /api/v1/stats, /api/v1/contexts, /api/v1/policies — per IP */
   stats: () =>
     new Ratelimit({
       redis: getRedis(),
       limiter: Ratelimit.slidingWindow(30, "60 s"),
       prefix: "rl:stats",
+    }),
+
+  /** /api/v1/decide-with-proof — per IP (expensive: 3 API calls + ZK proof + on-chain tx) */
+  decideWithProof: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(10, "60 s"),
+      prefix: "rl:decide-proof",
+    }),
+
+  /** /api/v1/agent/decide — per IP (ZK proof verification) */
+  agentDecide: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(30, "60 s"),
+      prefix: "rl:agent-decide",
+    }),
+
+  /** /api/v1/agent/register/[claimId]/status — per IP (polling endpoint) */
+  statusPoll: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(60, "60 s"),
+      prefix: "rl:status-poll",
+    }),
+
+  /** Wallet-authenticated endpoints (activity, registrations, key revocation) — per wallet */
+  walletAuth: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(30, "60 s"),
+      prefix: "rl:wallet-auth",
     }),
 } as const
 

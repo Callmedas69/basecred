@@ -5,6 +5,7 @@
 import type { EthosConfig } from '../types/config.js';
 import type { EthosFacet } from '../types/ethos.js';
 import type { AvailabilityState } from '../types/availability.js';
+import { retryFetch } from './retry.js';
 
 // Raw API response type for /profiles endpoint (internal only)
 interface EthosProfilesApiResponse {
@@ -53,21 +54,32 @@ export interface EthosRepositoryResult {
   facet?: EthosFacet;
 }
 
+const FETCH_TIMEOUT_MS = 10_000;
+
 export async function fetchEthosProfile(
   address: string,
   config: EthosConfig
 ): Promise<EthosRepositoryResult> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
   try {
-    const response = await fetch(`${config.baseUrl}/api/v2/profiles`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Ethos-Client': config.clientId,
-      },
-      body: JSON.stringify({ addresses: [address] }),
-    });
+    const response = await retryFetch(() =>
+      fetch(`${config.baseUrl}/api/v2/profiles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Ethos-Client': config.clientId,
+        },
+        body: JSON.stringify({ addresses: [address] }),
+        signal: controller.signal,
+      })
+    );
 
     if (!response.ok) {
+      if (response.status === 429) {
+        return { availability: 'rate_limited' };
+      }
       return { availability: 'error' };
     }
 
@@ -109,5 +121,7 @@ export async function fetchEthosProfile(
     return { availability: 'available', facet };
   } catch {
     return { availability: 'error' };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

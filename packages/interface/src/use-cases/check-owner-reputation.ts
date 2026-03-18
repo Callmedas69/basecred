@@ -25,7 +25,6 @@ import {
   type DecisionContext,
   type Decision,
 } from "basecred-decision-engine"
-import { getUnifiedProfile } from "basecred-sdk"
 import { createApiKeyRepository, type IApiKeyRepository } from "@/repositories/apiKeyRepository"
 import { createActivityRepository, type IActivityRepository } from "@/repositories/activityRepository"
 import { createAgentRegistrationRepository, type IAgentRegistrationRepository } from "@/repositories/agentRegistrationRepository"
@@ -35,9 +34,10 @@ import { createDecisionRegistryRepository } from "@/repositories/decisionRegistr
 import { submitDecisionOnChain } from "@/use-cases/submit-decision-onchain"
 import type { ActivityEntry } from "@/types/apiKeys"
 import type { GlobalFeedEntry } from "@/types/agentRegistration"
+import { fetchLiveProfile } from "@/repositories/liveProfileRepository"
 import { sendWebhook } from "@/lib/webhook"
 import { extractRevertReason } from "@/lib/errors"
-import { getSDKConfig, getRelayerPrivateKey } from "@/lib/serverConfig"
+import { getRelayerPrivateKey } from "@/lib/serverConfig"
 import { truncateAddress } from "@/lib/utils"
 
 export class CheckOwnerReputationError extends Error {
@@ -130,10 +130,8 @@ export async function checkOwnerReputation(
     }
   }
 
-  // 4. Fetch owner profile once (config validated at startup via serverConfig)
-  const config = getSDKConfig()
-
-  const profileData = await getUnifiedProfile(ownerAddress, config)
+  // 4. Fetch owner profile once (goes through cached repository layer)
+  const profileData = await fetchLiveProfile(ownerAddress)
 
   // 5. Normalize signals once
   const signals = normalizeSignals(profileData)

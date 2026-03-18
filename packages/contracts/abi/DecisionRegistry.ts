@@ -77,6 +77,25 @@ export const DECISION_REGISTRY_ABI = [
   },
   {
     "type": "function",
+    "name": "getContextDecisionCount",
+    "inputs": [
+      {
+        "name": "context",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getDecision",
     "inputs": [
       {
@@ -157,6 +176,46 @@ export const DECISION_REGISTRY_ABI = [
   },
   {
     "type": "function",
+    "name": "getStats",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct DecisionRegistry.Stats",
+        "components": [
+          {
+            "name": "totalDecisions",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "uniqueSubjectCount",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "denyCount",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "allowWithLimitsCount",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "allowCount",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "initialize",
     "inputs": [
       {
@@ -168,6 +227,39 @@ export const DECISION_REGISTRY_ABI = [
         "name": "initialOwner",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "initializeV2",
+    "inputs": [
+      {
+        "name": "existingSubjects",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "outcomeCounts",
+        "type": "uint64[3]",
+        "internalType": "uint64[3]"
+      },
+      {
+        "name": "contextIds",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "contextCounts",
+        "type": "uint64[]",
+        "internalType": "uint64[]"
+      },
+      {
+        "name": "totalDecisionCount",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "outputs": [],

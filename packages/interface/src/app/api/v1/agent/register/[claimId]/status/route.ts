@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { checkRateLimit } from "@/lib/rateLimit"
 import { checkAgentStatus } from "@/use-cases/check-agent-status"
 
 const CLAIM_ID_REGEX = /^[a-f0-9]{64}$/
@@ -12,6 +13,16 @@ export async function GET(
   { params }: { params: Promise<{ claimId: string }> }
 ) {
   try {
+    // Rate limit by IP — polling endpoint
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+    const rateCheck = await checkRateLimit("statusPoll", ip)
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
+        { status: 429, headers: { "Retry-After": String(rateCheck.retryAfter ?? 60) } }
+      )
+    }
+
     const { claimId } = await params
 
     if (!CLAIM_ID_REGEX.test(claimId)) {

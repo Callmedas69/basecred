@@ -5,6 +5,7 @@
 import type { TalentConfig } from '../types/config.js';
 import type { TalentFacet, TalentData, TalentSignals } from '../types/talent.js';
 import type { AvailabilityState } from '../types/availability.js';
+import { retryFetch } from './retry.js';
 
 const BUILDER_SCORE_SLUGS = ['builder_score_2025', 'builder_score'];
 const CREATOR_SCORE_SLUGS = ['creator_score_2025', 'creator_score'];
@@ -56,24 +57,35 @@ function mostRecentTimestamp(items: TalentScoreItem[]): string | null {
   return latestIso;
 }
 
+const FETCH_TIMEOUT_MS = 10_000;
+
 export async function fetchTalentScore(
   address: string,
   config: TalentConfig
 ): Promise<TalentRepositoryResult> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
   try {
     const url = `${config.baseUrl}/scores?id=${address}&account_source=wallet`;
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-API-KEY': config.apiKey,
-        'Accept': 'application/json',
-      },
-    });
+    const response = await retryFetch(() =>
+      fetch(url, {
+        method: 'GET',
+        headers: {
+          'X-API-KEY': config.apiKey,
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+      })
+    );
 
     if (!response.ok) {
       if (response.status === 404) {
         return { availability: 'not_found' };
+      }
+      if (response.status === 429) {
+        return { availability: 'rate_limited' };
       }
       return { availability: 'error' };
     }
@@ -125,5 +137,7 @@ export async function fetchTalentScore(
     return { availability: 'available', facet };
   } catch {
     return { availability: 'error' };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

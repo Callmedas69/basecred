@@ -13,6 +13,7 @@
 
 import type { FarcasterConfig } from '../types/config.js';
 import type { AvailabilityState } from '../types/availability.js';
+import { retryFetch } from './retry.js';
 
 // Raw Neynar API response type (internal only)
 // Based on /v2/farcaster/user/bulk-by-address/ endpoint
@@ -46,6 +47,7 @@ export interface FarcasterRepositoryResult {
 }
 
 const DEFAULT_NEYNAR_BASE_URL = 'https://api.neynar.com';
+const FETCH_TIMEOUT_MS = 10_000;
 
 export async function fetchFarcasterScore(
     address: string,
@@ -54,19 +56,24 @@ export async function fetchFarcasterScore(
     // Normalize address to lowercase for consistent lookup
     const normalizedAddress = address.toLowerCase();
     const baseUrl = config.neynarBaseUrl ?? DEFAULT_NEYNAR_BASE_URL;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
     try {
         const url = new URL(`${baseUrl}/v2/farcaster/user/bulk-by-address`);
         url.searchParams.set('addresses', normalizedAddress);
 
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-            headers: {
-                'x-api-key': config.neynarApiKey,
-                'Accept': 'application/json',
-                'x-neynar-experimental': 'true',
-            },
-        });
+        const response = await retryFetch(() =>
+            fetch(url.toString(), {
+                method: 'GET',
+                headers: {
+                    'x-api-key': config.neynarApiKey,
+                    'Accept': 'application/json',
+                    'x-neynar-experimental': 'true',
+                },
+                signal: controller.signal,
+            })
+        );
 
         if (!response.ok) {
             // Handle specific error codes
@@ -77,6 +84,9 @@ export async function fetchFarcasterScore(
             if (response.status === 404) {
                 // No user found for this address
                 return { availability: 'not_found' };
+            }
+            if (response.status === 429) {
+                return { availability: 'rate_limited' };
             }
             // Other errors
             return { availability: 'error' };
@@ -122,7 +132,9 @@ export async function fetchFarcasterScore(
             lastUpdatedAt: new Date().toISOString(),
         };
     } catch {
-        // Network or parsing error
+        // Network, timeout, or parsing error
         return { availability: 'error' };
+    } finally {
+        clearTimeout(timeoutId);
     }
 }

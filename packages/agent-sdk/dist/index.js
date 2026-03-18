@@ -367,9 +367,8 @@ var BasecredAgent = class {
     return res.policies;
   }
   /** Get the global activity feed. */
-  async getFeed(limit) {
-    const query = limit !== void 0 ? { limit: String(limit) } : void 0;
-    const res = await httpGet(this.http, "/api/v1/agent/feed", query);
+  async getFeed() {
+    const res = await httpGet(this.http, "/api/v1/agent/feed");
     return res.entries;
   }
   /** Get aggregated protocol statistics. */

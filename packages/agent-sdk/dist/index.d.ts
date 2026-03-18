@@ -137,9 +137,9 @@ interface PublicRequestOptions {
  * Mirrors CheckOwnerReputationOutput from the API.
  */
 /** Trust tier values from the decision engine */
-type Tier = "VERY_HIGH" | "HIGH" | "MODERATE" | "NEUTRAL" | "LOW" | "VERY_LOW";
+type Tier = "VERY_LOW" | "LOW" | "NEUTRAL" | "HIGH" | "VERY_HIGH";
 /** Builder/Creator capability values */
-type Capability = "EXPERT" | "PROFICIENT" | "INTERMEDIATE" | "MODERATE" | "EXPLORER";
+type Capability = "EXPLORER" | "BUILDER" | "EXPERT" | "ELITE";
 /** Normalized reputation signals from external providers */
 interface NormalizedSignals {
     /** Aggregated long-term trust (from Ethos) */
@@ -256,7 +256,7 @@ declare class BasecredAgent {
     /** List all policies with their context and policy hash. */
     getPolicies(): Promise<PolicyInfo[]>;
     /** Get the global activity feed. */
-    getFeed(limit?: number): Promise<FeedEntry[]>;
+    getFeed(): Promise<FeedEntry[]>;
     /** Get aggregated protocol statistics. */
     getStats(): Promise<ProtocolStats>;
     /**

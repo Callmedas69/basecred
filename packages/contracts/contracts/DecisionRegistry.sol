@@ -41,16 +41,31 @@ contract DecisionRegistry is OwnableUpgradeable, UUPSUpgradeable {
         address submitter;
     }
 
+    struct Stats {
+        uint64 totalDecisions;
+        uint64 uniqueSubjectCount;
+        uint64 denyCount;            // outcome 0
+        uint64 allowWithLimitsCount; // outcome 1
+        uint64 allowCount;           // outcome 2
+    }
+
     // ---------------------------------------------------------------
     // ERC-7201 Namespaced Storage
     // ---------------------------------------------------------------
 
     /// @custom:storage-location erc7201:basecred.storage.DecisionRegistry
     struct DecisionRegistryStorage {
+        // --- V1 fields (DO NOT REORDER OR REMOVE) ---
         bool restricted;
         IVerifier verifier;
         mapping(address => bool) authorizedSubmitters;
         mapping(bytes32 => DecisionRecord) decisions;
+        // --- V2 fields (appended for on-chain stats) ---
+        uint64 totalDecisions;
+        uint64 uniqueSubjectCount;
+        mapping(bytes32 => bool) seenSubjects;
+        mapping(uint8 => uint64) decisionsByOutcome;
+        mapping(bytes32 => uint64) decisionsByContext;
     }
 
     // keccak256(abi.encode(uint256(keccak256("basecred.storage.DecisionRegistry")) - 1)) & ~bytes32(uint256(0xff))
@@ -101,6 +116,33 @@ contract DecisionRegistry is OwnableUpgradeable, UUPSUpgradeable {
 
         DecisionRegistryStorage storage $ = _getStorage();
         $.verifier = IVerifier(verifierAddress);
+    }
+
+    /// @notice Seeds stats counters with historical data. Called once during upgrade.
+    function initializeV2(
+        bytes32[] calldata existingSubjects,
+        uint64[3] calldata outcomeCounts,
+        bytes32[] calldata contextIds,
+        uint64[] calldata contextCounts,
+        uint64 totalDecisionCount
+    ) external reinitializer(2) onlyOwner {
+        require(contextIds.length == contextCounts.length, "Array length mismatch");
+
+        DecisionRegistryStorage storage $ = _getStorage();
+        $.totalDecisions = totalDecisionCount;
+        $.uniqueSubjectCount = uint64(existingSubjects.length);
+
+        for (uint256 i = 0; i < existingSubjects.length; i++) {
+            $.seenSubjects[existingSubjects[i]] = true;
+        }
+
+        $.decisionsByOutcome[0] = outcomeCounts[0];
+        $.decisionsByOutcome[1] = outcomeCounts[1];
+        $.decisionsByOutcome[2] = outcomeCounts[2];
+
+        for (uint256 i = 0; i < contextIds.length; i++) {
+            $.decisionsByContext[contextIds[i]] = contextCounts[i];
+        }
     }
 
     // ---------------------------------------------------------------
@@ -179,6 +221,15 @@ contract DecisionRegistry is OwnableUpgradeable, UUPSUpgradeable {
             submitter: msg.sender
         });
 
+        // V2: increment stats counters
+        $.totalDecisions++;
+        if (!$.seenSubjects[subjectHash]) {
+            $.seenSubjects[subjectHash] = true;
+            $.uniqueSubjectCount++;
+        }
+        $.decisionsByOutcome[decision]++;
+        $.decisionsByContext[context]++;
+
         emit DecisionSubmitted(subjectHash, context, decision, policyHash, uint64(block.timestamp));
     }
 
@@ -214,5 +265,22 @@ contract DecisionRegistry is OwnableUpgradeable, UUPSUpgradeable {
 
     function authorizedSubmitters(address submitter) external view returns (bool) {
         return _getStorage().authorizedSubmitters[submitter];
+    }
+
+    /// @notice Returns aggregate protocol stats in a single call.
+    function getStats() external view returns (Stats memory) {
+        DecisionRegistryStorage storage $ = _getStorage();
+        return Stats({
+            totalDecisions: $.totalDecisions,
+            uniqueSubjectCount: $.uniqueSubjectCount,
+            denyCount: $.decisionsByOutcome[0],
+            allowWithLimitsCount: $.decisionsByOutcome[1],
+            allowCount: $.decisionsByOutcome[2]
+        });
+    }
+
+    /// @notice Returns the number of decisions for a specific context.
+    function getContextDecisionCount(bytes32 context) external view returns (uint64) {
+        return _getStorage().decisionsByContext[context];
     }
 }

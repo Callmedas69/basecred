@@ -51,37 +51,22 @@ const OUTCOME_LABELS: Record<number, string> = {
 export async function getProtocolStats(): Promise<ProtocolStats> {
   const repo = createStatsRepository()
 
-  const [events, uniqueAgents] = await Promise.all([
-    repo.getDecisionEvents(),
+  const [onChainStats, uniqueAgents] = await Promise.all([
+    repo.getOnChainStats(),
     repo.getRegisteredAgentCount(),
   ])
 
-  // Unique subjects
-  const subjectSet = new Set<string>()
-  const outcomeCounts = new Map<number, number>()
-  const contextCounts = new Map<number, number>()
-
-  for (const event of events) {
-    subjectSet.add(event.subjectHash)
-
-    // Outcome aggregation
-    const d = event.decision
-    outcomeCounts.set(d, (outcomeCounts.get(d) ?? 0) + 1)
-
-    // Context aggregation — context is bytes32(uint256(contextId))
-    const contextId = Number(BigInt(event.context))
-    contextCounts.set(contextId, (contextCounts.get(contextId) ?? 0) + 1)
-  }
-
   // Build outcome breakdown (always include all 3 outcomes)
-  const decisionsByOutcome: OutcomeBreakdown[] = [0, 1, 2].map((outcome) => ({
-    outcome,
-    label: OUTCOME_LABELS[outcome] ?? `UNKNOWN_${outcome}`,
-    count: outcomeCounts.get(outcome) ?? 0,
-  }))
+  const decisionsByOutcome: OutcomeBreakdown[] = [
+    { outcome: 0, label: OUTCOME_LABELS[0], count: onChainStats.denyCount },
+    { outcome: 1, label: OUTCOME_LABELS[1], count: onChainStats.allowWithLimitsCount },
+    { outcome: 2, label: OUTCOME_LABELS[2], count: onChainStats.allowCount },
+  ]
 
   // Build context breakdown sorted by count descending
-  const decisionsByContext: ContextBreakdown[] = Array.from(contextCounts.entries())
+  const decisionsByContext: ContextBreakdown[] = Array.from(
+    onChainStats.contextCounts.entries()
+  )
     .map(([contextId, count]) => {
       let label: string
       try {
@@ -95,9 +80,9 @@ export async function getProtocolStats(): Promise<ProtocolStats> {
     .sort((a, b) => b.count - a.count)
 
   return {
-    totalDecisions: events.length,
+    totalDecisions: onChainStats.totalDecisions,
     uniqueAgents,
-    uniqueSubjects: subjectSet.size,
+    uniqueSubjects: onChainStats.uniqueSubjects,
     decisionsByOutcome,
     decisionsByContext,
     lastUpdated: new Date().toISOString(),

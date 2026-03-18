@@ -10,22 +10,27 @@
  * - MUST NOT perform authorization or validation
  * - MUST NOT make time-based decisions
  */
+import { retryFetch } from './retry.js';
 const DEFAULT_NEYNAR_BASE_URL = 'https://api.neynar.com';
+const FETCH_TIMEOUT_MS = 10_000;
 export async function fetchFarcasterScore(address, config) {
     // Normalize address to lowercase for consistent lookup
     const normalizedAddress = address.toLowerCase();
     const baseUrl = config.neynarBaseUrl ?? DEFAULT_NEYNAR_BASE_URL;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
         const url = new URL(`${baseUrl}/v2/farcaster/user/bulk-by-address`);
         url.searchParams.set('addresses', normalizedAddress);
-        const response = await fetch(url.toString(), {
+        const response = await retryFetch(() => fetch(url.toString(), {
             method: 'GET',
             headers: {
                 'x-api-key': config.neynarApiKey,
                 'Accept': 'application/json',
                 'x-neynar-experimental': 'true',
             },
-        });
+            signal: controller.signal,
+        }));
         if (!response.ok) {
             // Handle specific error codes
             if (response.status === 401 || response.status === 403) {
@@ -35,6 +40,9 @@ export async function fetchFarcasterScore(address, config) {
             if (response.status === 404) {
                 // No user found for this address
                 return { availability: 'not_found' };
+            }
+            if (response.status === 429) {
+                return { availability: 'rate_limited' };
             }
             // Other errors
             return { availability: 'error' };
@@ -73,7 +81,10 @@ export async function fetchFarcasterScore(address, config) {
         };
     }
     catch {
-        // Network or parsing error
+        // Network, timeout, or parsing error
         return { availability: 'error' };
+    }
+    finally {
+        clearTimeout(timeoutId);
     }
 }

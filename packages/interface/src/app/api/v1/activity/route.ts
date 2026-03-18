@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { isAddress } from "viem"
+import { checkRateLimit } from "@/lib/rateLimit"
 import { getActivityLog } from "@/use-cases/get-activity-log"
 
 /**
@@ -24,6 +25,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { code: "INVALID_REQUEST", message: "Valid Ethereum address required" },
         { status: 400 }
+      )
+    }
+
+    // Rate limit by wallet address
+    const rateCheck = await checkRateLimit("walletAuth", address.toLowerCase())
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
+        { status: 429, headers: { "Retry-After": String(rateCheck.retryAfter ?? 60) } }
       )
     }
 

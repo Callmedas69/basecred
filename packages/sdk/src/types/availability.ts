@@ -2,10 +2,11 @@
  * Availability states. Each source declares exactly one state.
  */
 export type AvailabilityState =
-  | 'available'    // profile exists and data fetched
-  | 'not_found'    // no profile exists
-  | 'unlinked'     // identity exists but is not linked
-  | 'error';       // API error or failure
+  | 'available'       // profile exists and data fetched
+  | 'not_found'       // no profile exists
+  | 'unlinked'        // identity exists but is not linked
+  | 'rate_limited'    // provider returned 429
+  | 'error';          // API error or failure
 
 export interface Availability {
   ethos: AvailabilityState;

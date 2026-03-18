@@ -1,6 +1,7 @@
 /**
  * Talent Repository — Data access layer for Talent Protocol API.
  */
+import { retryFetch } from './retry.js';
 const BUILDER_SCORE_SLUGS = ['builder_score_2025', 'builder_score'];
 const CREATOR_SCORE_SLUGS = ['creator_score_2025', 'creator_score'];
 function pickPreferredScore(scores, slugs) {
@@ -28,19 +29,26 @@ function mostRecentTimestamp(items) {
     }
     return latestIso;
 }
+const FETCH_TIMEOUT_MS = 10_000;
 export async function fetchTalentScore(address, config) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
         const url = `${config.baseUrl}/scores?id=${address}&account_source=wallet`;
-        const response = await fetch(url, {
+        const response = await retryFetch(() => fetch(url, {
             method: 'GET',
             headers: {
                 'X-API-KEY': config.apiKey,
                 'Accept': 'application/json',
             },
-        });
+            signal: controller.signal,
+        }));
         if (!response.ok) {
             if (response.status === 404) {
                 return { availability: 'not_found' };
+            }
+            if (response.status === 429) {
+                return { availability: 'rate_limited' };
             }
             return { availability: 'error' };
         }
@@ -83,5 +91,8 @@ export async function fetchTalentScore(address, config) {
     }
     catch {
         return { availability: 'error' };
+    }
+    finally {
+        clearTimeout(timeoutId);
     }
 }

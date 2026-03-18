@@ -18,6 +18,7 @@ export const runtime = "nodejs"
 export const maxDuration = 90
 
 import { NextRequest, NextResponse } from "next/server"
+import { checkRateLimit } from "@/lib/rateLimit"
 import {
     normalizeSignals,
     encodeSignalsForCircuit,
@@ -74,6 +75,16 @@ export async function POST(req: NextRequest) {
     const t0 = performance.now()
 
     try {
+        // Rate limit by IP — expensive endpoint (3 API calls + ZK proof + on-chain tx)
+        const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+        const rateCheck = await checkRateLimit("decideWithProof", ip)
+        if (!rateCheck.allowed) {
+            return NextResponse.json(
+                { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
+                { status: 429, headers: { "Retry-After": String(rateCheck.retryAfter ?? 60) } }
+            )
+        }
+
         const body = await req.json() as DecideWithProofRequest
 
         // Validate input

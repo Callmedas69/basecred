@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { checkRateLimit } from "@/lib/rateLimit"
 import {
     executeDecisionWithProof,
     InMemoryPolicyRepository,
@@ -17,6 +18,16 @@ const proofVerifier: ProofVerifier = {
 
 export async function POST(req: NextRequest) {
     try {
+        // Rate limit by IP — public proof verification endpoint
+        const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+        const rateCheck = await checkRateLimit("agentDecide", ip)
+        if (!rateCheck.allowed) {
+            return NextResponse.json(
+                { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
+                { status: 429, headers: { "Retry-After": String(rateCheck.retryAfter ?? 60) } }
+            )
+        }
+
         const body = await req.json()
 
         const parsed = agentDecideRequestSchema.safeParse(body)

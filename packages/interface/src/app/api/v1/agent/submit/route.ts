@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { checkRateLimit } from "@/lib/rateLimit"
 import { z } from "zod"
 import { VALID_CONTEXTS, type DecisionContext, type Decision } from "basecred-decision-engine"
 import { createDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
@@ -59,6 +60,15 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(
                 { code: "UNAUTHORIZED", message: "API key required" },
                 { status: 401 }
+            )
+        }
+
+        // Rate limit by API key hash
+        const rateCheck = await checkRateLimit("apiKey", apiKeyHash)
+        if (!rateCheck.allowed) {
+            return NextResponse.json(
+                { code: "RATE_LIMITED", message: "Too many requests. Please slow down." },
+                { status: 429, headers: { "Retry-After": String(rateCheck.retryAfter ?? 60) } }
             )
         }
 
