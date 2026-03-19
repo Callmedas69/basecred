@@ -40,7 +40,7 @@ import { BasecredAgent } from "@basecred/agent-sdk";
 
 const registration = await BasecredAgent.register({
   agentName: "my_agent",
-  telegramId: "@owner_tg",
+  contactHandle: "@owner_tg",
   ownerAddress: "0x1234...abcd",
   webhookUrl: "https://example.com/webhook", // optional
 });
@@ -181,7 +181,7 @@ try {
 |---|---|
 | `BasecredAgentConfig` | Constructor config (`apiKey`, `baseUrl`, `timeoutMs`, `fetch`) |
 | `PublicRequestOptions` | Options for static methods (`baseUrl`, `timeoutMs`, `fetch`) |
-| `RegisterAgentInput` | Input for `register()` (`agentName`, `telegramId`, `ownerAddress`, `webhookUrl?`) |
+| `RegisterAgentInput` | Input for `register()` (`agentName`, `contactHandle`, `ownerAddress`, `webhookUrl?`) |
 | `Registration` | Returned by `register()`. Has `apiKey`, `claimId`, `poll()`, `waitUntilVerified()`. |
 | `RegistrationStatus` | Poll result (`status`, `agentName`, `verificationCode?`, `expiresAt?`) |
 | `RegistrationStatusValue` | `"pending_claim" \| "verified" \| "expired" \| "revoked"` |

@@ -31,7 +31,7 @@ import { BasecredAgent } from "@basecred/agent-sdk"
 // 1. Register your agent (no API key needed)
 const registration = await BasecredAgent.register({
   agentName: "MyBot",
-  telegramId: "@mybot",
+  contactHandle: "@mybot",
   ownerAddress: "0x...",
 })
 

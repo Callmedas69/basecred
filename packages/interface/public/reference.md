@@ -351,11 +351,11 @@ Below is a complete conversation showing the full flow from first boot to delive
 > I'd like to register with zkBaseCred to check your reputation. I need two things:
 >
 > 1. Your Ethereum wallet address (0x...)
-> 2. Your Telegram handle (e.g. @yourname)
+> 2. A contact handle (e.g. @yourname on Telegram, Discord, X, etc.)
 
 **Owner:**
 
-> My wallet is 0xABC123...DEF456 and my Telegram is @alice_dev
+> My wallet is 0xABC123...DEF456 and my handle is @alice_dev
 
 **Agent registers:**
 
@@ -365,7 +365,7 @@ Content-Type: application/json
 
 {
   "agentName": "alice_helper",
-  "telegramId": "@alice_dev",
+  "contactHandle": "@alice_dev",
   "ownerAddress": "0xABC123...DEF456",
   "webhookUrl": "https://alice-bot.example.com/hooks/basecred"
 }

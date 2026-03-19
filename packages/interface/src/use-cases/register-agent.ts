@@ -35,7 +35,7 @@ const AGENT_NAME_REGEX = /^[a-zA-Z0-9_]{2,64}$/
 
 export interface RegisterAgentInput {
   agentName: string
-  telegramId: string
+  contactHandle: string
   ownerAddress: string
   webhookUrl?: string
 }
@@ -48,7 +48,7 @@ export interface RegisterAgentOutput {
 }
 
 export async function registerAgent(input: RegisterAgentInput): Promise<RegisterAgentOutput> {
-  const { agentName, telegramId, ownerAddress, webhookUrl } = input
+  const { agentName, contactHandle, ownerAddress, webhookUrl } = input
 
   // Validate ownerAddress
   if (!ownerAddress || !isAddress(ownerAddress)) {
@@ -63,13 +63,13 @@ export async function registerAgent(input: RegisterAgentInput): Promise<Register
     )
   }
 
-  // Validate telegramId (standard Telegram handle format)
-  if (!telegramId || typeof telegramId !== "string" || telegramId.trim().length === 0) {
-    throw new RegisterAgentError("telegramId is required", 400)
+  // Validate contactHandle (generic contact handle format)
+  if (!contactHandle || typeof contactHandle !== "string" || contactHandle.trim().length === 0) {
+    throw new RegisterAgentError("contactHandle is required", 400)
   }
-  if (!/^[@a-zA-Z0-9_.\-]{1,128}$/.test(telegramId.trim())) {
+  if (!/^[@a-zA-Z0-9_.\-]{1,128}$/.test(contactHandle.trim())) {
     throw new RegisterAgentError(
-      "telegramId must be 1-128 characters, alphanumeric with @, _, ., - only",
+      "contactHandle must be 1-128 characters, alphanumeric with @, _, ., - only",
       400
     )
   }
@@ -100,7 +100,7 @@ export async function registerAgent(input: RegisterAgentInput): Promise<Register
     claimId,
     verificationCode,
     agentName,
-    telegramId: telegramId.trim(),
+    contactHandle: contactHandle.trim(),
     ownerAddress: ownerAddress.toLowerCase(),
     status: "pending_claim",
     apiKeyHash,

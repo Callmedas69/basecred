@@ -29,7 +29,7 @@ Agent self-registration. No authentication required. Rate limited: 10 requests/h
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `agentName` | `string` | Yes | 2-64 chars, alphanumeric and underscores only |
-| `telegramId` | `string` | Yes | Owner's Telegram handle (1-128 chars, alphanumeric with `@`, `_`, `.`, `-` only) |
+| `contactHandle` | `string` | Yes | Owner's contact handle (1-128 chars, alphanumeric with `@`, `_`, `.`, `-` only) |
 | `ownerAddress` | `string` | Yes | Valid Ethereum address |
 | `webhookUrl` | `string` | No | HTTPS URL for event notifications (max 512 chars) |
 
@@ -38,7 +38,7 @@ curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \
   -H "Content-Type: application/json" \
   -d '{
     "agentName": "my_agent",
-    "telegramId": "@owner_tg",
+    "contactHandle": "@owner_tg",
     "ownerAddress": "0x1234...abcd",
     "webhookUrl": "https://example.com/webhook"
   }'
@@ -64,7 +64,7 @@ The `apiKey` is shown **only once**. Store it securely immediately. The key is i
 
 | Status | Code | Description |
 |---|---|---|
-| 400 | `REGISTRATION_ERROR` | Invalid `agentName`, `telegramId`, or `ownerAddress` |
+| 400 | `REGISTRATION_ERROR` | Invalid `agentName`, `contactHandle`, or `ownerAddress` |
 | 409 | `REGISTRATION_ERROR` | Agent name already registered |
 | 413 | `PAYLOAD_TOO_LARGE` | Request body exceeds 100KB limit |
 | 429 | `RATE_LIMITED` | Too many registration attempts |
@@ -432,7 +432,7 @@ Returns all non-revoked agents registered to the wallet.
     {
       "claimId": "abc123...",
       "agentName": "my_agent",
-      "telegramId": "@owner_tg",
+      "contactHandle": "@owner_tg",
       "webhookUrl": "https://example.com/webhook",
       "status": "verified",
       "apiKeyPrefix": "bc_abc123......wxyz",

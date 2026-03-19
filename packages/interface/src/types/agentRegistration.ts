@@ -2,7 +2,7 @@ export interface AgentRegistration {
   claimId: string
   verificationCode: string
   agentName: string
-  telegramId: string
+  contactHandle: string
   ownerAddress: string
   status: "pending_claim" | "verified" | "revoked"
   apiKeyHash: string

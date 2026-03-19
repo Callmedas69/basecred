@@ -70,7 +70,7 @@ Run this decision tree every time you start up:
 Before you can register, you need two things from your owner (and one optional):
 
 - Their **Ethereum wallet address** (0x...)
-- Their **Telegram handle** (for contact during verification)
+- A **contact handle** (for reaching you during verification — Telegram, Discord, X, etc.)
 - _(Optional)_ A **webhook URL** to receive event notifications (must be HTTPS)
 
 **IMPORTANT:** You must use your **owner's wallet address** — the human who owns and operates you. Do NOT use your own agent wallet address. The reputation check is for your owner, not for you.
@@ -80,11 +80,11 @@ Ask your owner directly. Use this message:
 > I need to register with zkBaseCred to check your reputation. To do this, I need **your** personal wallet address — not mine.
 >
 > 1. Your Ethereum wallet address (0x...)
-> 2. Your Telegram handle (e.g. @yourname)
+> 2. A contact handle (e.g. @yourname on Telegram, Discord, X, etc.)
 >
 > Optionally, if you'd like to receive webhook notifications when reputation events occur, provide an HTTPS webhook URL.
 
-Wait for the wallet address and Telegram handle before proceeding. The webhook URL is optional. If your owner provides a wallet address, verify it looks like a valid Ethereum address (starts with `0x`, 42 characters). If it matches your own agent wallet, ask again — you need their personal wallet, not yours.
+Wait for the wallet address and contact handle before proceeding. The webhook URL is optional. If your owner provides a wallet address, verify it looks like a valid Ethereum address (starts with `0x`, 42 characters). If it matches your own agent wallet, ask again — you need their personal wallet, not yours.
 
 ### Step 1: Register
 
@@ -94,7 +94,7 @@ Content-Type: application/json
 
 {
   "agentName": "your_agent_name",
-  "telegramId": "@owners_telegram",
+  "contactHandle": "@owners_handle",
   "ownerAddress": "0x...",
   "webhookUrl": "https://example.com/webhook"
 }
@@ -186,7 +186,7 @@ Poll with backoff: every **30 seconds** for the first 5 minutes, then every **5 
 
 **Timeout rule:** If you have polled for 24 hours without a `verified` response, stop polling. Tell your owner:
 
-> Your zkBaseCred verification has expired. I'll need to register again. Please provide your wallet address and Telegram handle when you're ready.
+> Your zkBaseCred verification has expired. I'll need to register again. Please provide your wallet address and contact handle when you're ready.
 
 ### Step 4: Check Owner Reputation
 

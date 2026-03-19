@@ -102,8 +102,8 @@ export class BasecredAgent {
     if (!input.ownerAddress?.match(/^0x[a-fA-F0-9]{40}$/)) {
       throw new ValidationError("ownerAddress must be a valid Ethereum address (0x + 40 hex chars)")
     }
-    if (!input.telegramId?.trim()) {
-      throw new ValidationError("telegramId is required")
+    if (!input.contactHandle?.trim()) {
+      throw new ValidationError("contactHandle is required")
     }
 
     const http = createHttpConfig({

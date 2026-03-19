@@ -126,7 +126,7 @@ describe("BasecredAgent.getStats", () => {
 describe("BasecredAgent.register (static)", () => {
   const validInput = {
     agentName: "MyBot",
-    telegramId: "@mybot",
+    contactHandle: "@mybot",
     ownerAddress: "0x168D8b4f50BB3aA67D05a6937B643004257118ED",
   }
 
@@ -164,9 +164,9 @@ describe("BasecredAgent.register (static)", () => {
     ).rejects.toThrow(ValidationError)
   })
 
-  it("rejects empty telegramId", async () => {
+  it("rejects empty contactHandle", async () => {
     await expect(
-      BasecredAgent.register({ ...validInput, telegramId: "" }),
+      BasecredAgent.register({ ...validInput, contactHandle: "" }),
     ).rejects.toThrow(ValidationError)
   })
 })

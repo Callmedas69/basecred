@@ -38,7 +38,7 @@ const DECISION_COLORS: Record<string, string> = {
 interface OwnerAgent {
   claimId: string;
   agentName: string;
-  telegramId: string;
+  contactHandle: string;
   webhookUrl: string | null;
   status: "pending_claim" | "verified" | "revoked";
   apiKeyPrefix: string;

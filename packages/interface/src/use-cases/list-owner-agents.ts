@@ -12,7 +12,7 @@ import type { AgentRegistration } from "@/types/agentRegistration"
 export interface OwnerAgentInfo {
   claimId: string
   agentName: string
-  telegramId: string
+  contactHandle: string
   status: AgentRegistration["status"]
   apiKeyPrefix: string
   createdAt: number
@@ -37,7 +37,7 @@ export async function listOwnerAgents(
     .map((r) => ({
       claimId: r.claimId,
       agentName: r.agentName,
-      telegramId: r.telegramId,
+      contactHandle: r.contactHandle,
       status: r.status,
       apiKeyPrefix: r.apiKeyPrefix,
       createdAt: r.createdAt,

@@ -181,7 +181,7 @@ function QuickStart() {
             <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
               {`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \\
   -H "Content-Type: application/json" \\
-  -d '{"agentName":"my_agent","telegramId":"@owner","ownerAddress":"0x...","webhookUrl":"https://your-endpoint.com/webhook"}'`}
+  -d '{"agentName":"my_agent","contactHandle":"@owner","ownerAddress":"0x...","webhookUrl":"https://your-endpoint.com/webhook"}'`}
             </pre>
           </AccordionContent>
         </AccordionItem>

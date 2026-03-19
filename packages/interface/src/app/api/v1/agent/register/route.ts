@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { agentName, telegramId, ownerAddress, webhookUrl } = body
+    const { agentName, ownerAddress, webhookUrl } = body
+    // Accept both contactHandle (new) and telegramId (legacy) for backward compatibility
+    const contactHandle = body.contactHandle || body.telegramId
 
     // Rate limit per wallet to prevent namespace pollution
     if (ownerAddress && typeof ownerAddress === "string") {
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const result = await registerAgent({ agentName, telegramId, ownerAddress, webhookUrl })
+    const result = await registerAgent({ agentName, contactHandle, ownerAddress, webhookUrl })
 
     return NextResponse.json({
       apiKey: result.apiKey,

@@ -12,8 +12,8 @@ interface HttpClientConfig {
 interface RegisterAgentInput {
     /** Display name for the agent */
     agentName: string;
-    /** Owner's Telegram handle (e.g. "@mybot") */
-    telegramId: string;
+    /** Owner's contact handle (e.g. "@owner" on Telegram, Discord, X, etc.) */
+    contactHandle: string;
     /** Owner's Ethereum wallet address (0x...) */
     ownerAddress: string;
     /** Optional webhook URL for event notifications */
