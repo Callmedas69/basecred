@@ -10,6 +10,29 @@ This file contains the standardized report formats for delivering reputation res
 
 Use this template after calling `/agent/check-owner`. Fill in values from the API response.
 
+**CRITICAL: You MUST read each context's decision individually from the `results` object. Different contexts can and often do have different decisions (ALLOW, DENY, ALLOW_WITH_LIMITS). Do NOT assume all contexts have the same decision.**
+
+### Context Key Mapping
+
+The API response uses dotted keys in the `results` object. Map them to report labels as follows:
+
+| API Response Key     | Report Label   |
+| -------------------- | -------------- |
+| `allowlist.general`  | Allowlist      |
+| `comment`            | Comment        |
+| `publish`            | Publish        |
+| `apply`              | Apply          |
+| `governance.vote`    | Governance     |
+
+For each line in "Access by Context", you must look up the **specific** decision:
+- Allowlist decision = `results["allowlist.general"].decision`
+- Comment decision = `results["comment"].decision`
+- Publish decision = `results["publish"].decision`
+- Apply decision = `results["apply"].decision`
+- Governance decision = `results["governance.vote"].decision`
+
+### Template
+
 ```
 zkBaseCred Reputation Report
 Wallet: {ownerAddress}
@@ -19,18 +42,18 @@ Overall: {one-line plain language summary}
 
 --- Wallet Score ---
 
-  On-chain Trust:    {trust level}
-  Social Trust:      {socialTrust level}
-  Builder:           {builder level}
-  Creator:           {creator level}
+  On-chain Trust:    {signals.trust}
+  Social Trust:      {signals.socialTrust}
+  Builder:           {signals.builder}
+  Creator:           {signals.creator}
 
 --- Access by Context ---
 
-  Allowlist:   {decision} ({confidence})
-  Comment:     {decision} ({confidence})
-  Publish:     {decision} ({confidence})
-  Apply:       {decision} ({confidence})
-  Governance:  {decision} ({confidence})
+  Allowlist:   {results["allowlist.general"].decision} ({results["allowlist.general"].confidence})
+  Comment:     {results["comment"].decision} ({results["comment"].confidence})
+  Publish:     {results["publish"].decision} ({results["publish"].confidence})
+  Apply:       {results["apply"].decision} ({results["apply"].confidence})
+  Governance:  {results["governance.vote"].decision} ({results["governance.vote"].confidence})
 
 --- Constraints ---
 {If any context has non-empty constraints, list them here. Otherwise: "None"}
@@ -51,7 +74,45 @@ Overall: {one-line plain language summary}
 
 **Where to get wallet scores:** The `check-owner` response includes both a `signals` object with exact values and a `summary` field. Use the `signals` object directly: `signals.trust` -> On-chain Trust, `signals.socialTrust` -> Social Trust, `signals.builder` -> Builder, `signals.creator` -> Creator.
 
-**Example — all ALLOW, with proof:**
+**Example — mixed results (most common scenario):**
+
+> zkBaseCred Reputation Report
+> Wallet: 0xABC123...DEF456
+> Date: 2025-06-15
+>
+> Overall: Solid reputation with some areas needing improvement.
+>
+> --- Wallet Score ---
+>
+> On-chain Trust: Moderate
+> Social Trust: Low
+> Builder: Intermediate
+> Creator: Explorer
+>
+> --- Access by Context ---
+>
+> Allowlist: ALLOW (HIGH)
+> Comment: ALLOW (HIGH)
+> Publish: ALLOW_WITH_LIMITS (MEDIUM)
+> Apply: DENY (HIGH)
+> Governance: DENY (HIGH)
+>
+> --- Constraints ---
+>
+> - Publish: Content will be placed in a review queue before going live.
+>
+> --- Blocking Factors ---
+>
+> - Apply: Builder and creator track records need improvement.
+> - Governance: On-chain trust and social presence need improvement.
+>
+> --- What This Means ---
+> You're trusted for basic activities like commenting, but publishing requires review. Applications and governance voting require stronger credentials. To improve: build your on-chain trust through community participation and increase your social presence.
+>
+> --- On-Chain Proof ---
+> Verified with zero-knowledge proof. Transaction: 0xdef789...
+
+**Example — all ALLOW:**
 
 > zkBaseCred Reputation Report
 > Wallet: 0xABC123...DEF456
@@ -72,7 +133,7 @@ Overall: {one-line plain language summary}
 > Comment: ALLOW (HIGH)
 > Publish: ALLOW (HIGH)
 > Apply: ALLOW (HIGH)
-> Governance: ALLOW (MEDIUM)
+> Governance: ALLOW (HIGH)
 >
 > --- Constraints ---
 > None
@@ -85,43 +146,6 @@ Overall: {one-line plain language summary}
 >
 > --- On-Chain Proof ---
 > Verified with zero-knowledge proof. Transaction: 0xabc123...
-
-**Example — mixed results:**
-
-> zkBaseCred Reputation Report
-> Wallet: 0xABC123...DEF456
-> Date: 2025-06-15
->
-> Overall: Solid reputation with some areas needing improvement.
->
-> --- Wallet Score ---
->
-> On-chain Trust: Moderate
-> Social Trust: Low
-> Builder: Intermediate
-> Creator: Explorer
->
-> --- Access by Context ---
->
-> Allowlist: ALLOW (HIGH)
-> Comment: ALLOW (HIGH)
-> Publish: ALLOW_WITH_LIMITS (MEDIUM)
-> Apply: ALLOW (HIGH)
-> Governance: DENY (HIGH)
->
-> --- Constraints ---
->
-> - Publish: Content will be placed in a review queue before going live.
->
-> --- Blocking Factors ---
->
-> - Governance: On-chain trust and social presence need improvement.
->
-> --- What This Means ---
-> You're trusted for most activities, but governance voting requires a stronger reputation. To improve: build your on-chain trust through community participation and increase your social presence.
->
-> --- On-Chain Proof ---
-> Verified with zero-knowledge proof. Transaction: 0xdef789...
 
 ---
 
