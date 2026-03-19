@@ -125,7 +125,7 @@ export async function verifyAgentClaim(
   // Mark registration as verified
   await regRepo.markVerified(claimId, tweetUrl)
 
-  // Fire webhook on verification (fire-and-forget)
+  // Fire webhook on verification (fire-and-forget, HMAC-signed)
   if (registration.webhookUrl) {
     sendWebhook(registration.webhookUrl, {
       event: "agent.verified",
@@ -135,8 +135,9 @@ export async function verifyAgentClaim(
       data: {
         claimId,
         apiKeyPrefix: registration.apiKeyPrefix,
+        verificationType: "tweet",
       },
-    }).catch((err) => console.error("Webhook delivery failed:", err))
+    }, registration.apiKeyHash).catch((err) => console.error("Webhook delivery failed:", err))
   }
 
   return { success: true }

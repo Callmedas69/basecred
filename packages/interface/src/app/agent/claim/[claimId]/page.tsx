@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { useAccount, useSignMessage } from "wagmi";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +15,8 @@ import {
   Clock,
   Bot,
   ExternalLink,
+  Wallet,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface ClaimDetails {
   status: "pending_claim" | "verified" | "expired" | "revoked";
@@ -36,6 +37,12 @@ export default function ClaimPage() {
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Wallet verification state
+  const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
+  const [walletVerifying, setWalletVerifying] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -63,11 +70,6 @@ export default function ClaimPage() {
 
   useEffect(() => {
     if (claim?.status === "pending_claim") {
-      // Fetch the full details from a separate call that returns verification info
-      // The status endpoint only returns status + agentName for security
-      // The claim page needs the verification code — we embed it via the registration record
-      // For now, we need a way to get the verification code. Let's use query params or a dedicated endpoint.
-      // Since claimId is the bearer token (256-bit), we can safely expose verification code to holders.
       fetch(`/api/v1/agent/register/${claimId}/status?include=details`)
         .then((res) => res.json())
         .then((data) => {
@@ -110,6 +112,56 @@ export default function ClaimPage() {
     }
   };
 
+  const handleWalletVerify = async () => {
+    if (!fullDetails) return;
+    setWalletVerifying(true);
+    setWalletError(null);
+
+    // Check wallet matches owner address
+    if (!isConnected || !address) {
+      setWalletError("Please connect your wallet first.");
+      setWalletVerifying(false);
+      return;
+    }
+
+    if (address.toLowerCase() !== fullDetails.ownerAddress.toLowerCase()) {
+      setWalletError(
+        `Connected wallet (${address.slice(0, 6)}...${address.slice(-4)}) does not match the registered owner address. Please connect the correct wallet.`
+      );
+      setWalletVerifying(false);
+      return;
+    }
+
+    const message = `I am verifying my zkBaseCred agent.\n\nClaim ID: ${claimId}\nVerification Code: ${fullDetails.verificationCode}`;
+
+    try {
+      const signature = await signMessageAsync({ message });
+
+      const res = await fetch(`/api/v1/agent/register/${claimId}/verify-wallet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature, message }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Wallet verification failed");
+      }
+
+      setVerified(true);
+    } catch (err: any) {
+      // User rejected the signature in wallet
+      if (err.name === "UserRejectedRequestError" || err.code === 4001) {
+        setWalletError("Signature request was rejected. Please try again.");
+      } else {
+        setWalletError(err.message || "Wallet verification failed");
+      }
+    } finally {
+      setWalletVerifying(false);
+    }
+  };
+
   const verificationCode = fullDetails?.verificationCode || "";
   const tweetTemplate = `I'm verifying my BaseCred agent. Code: ${verificationCode}`;
 
@@ -118,6 +170,13 @@ export default function ClaimPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Check if connected wallet matches owner
+  const walletMatchesOwner =
+    isConnected &&
+    address &&
+    fullDetails?.ownerAddress &&
+    address.toLowerCase() === fullDetails.ownerAddress.toLowerCase();
 
   // Countdown timer
   const [timeLeft, setTimeLeft] = useState("");
@@ -214,7 +273,7 @@ export default function ClaimPage() {
               <Bot className="w-10 h-10 mx-auto text-teal-500" />
               <h1 className="text-2xl font-bold">Verify Agent Ownership</h1>
               <p className="text-sm text-muted-foreground">
-                Confirm you own this agent by posting a verification code on X
+                Confirm you own this agent via X post or wallet signature
               </p>
             </div>
 
@@ -248,11 +307,75 @@ export default function ClaimPage() {
               </Card>
             )}
 
-            {/* Step 1: Post Tweet */}
+            {/* Option A: Wallet Verification */}
             <Card className="bg-card/70 border-border/70">
               <CardContent className="p-4 space-y-4">
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <div className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-500 flex items-center justify-center text-xs font-bold shrink-0">
+                  <Wallet className="w-5 h-5 text-teal-500 shrink-0" />
+                  Option A: Verify with Wallet Signature
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Connect the owner wallet and sign a message to verify instantly. No tweet required.
+                </p>
+
+                {!isConnected && (
+                  <p className="text-xs text-amber-400">
+                    Connect your wallet using the button in the navigation bar.
+                  </p>
+                )}
+
+                {isConnected && !walletMatchesOwner && fullDetails && (
+                  <p className="text-xs text-red-400">
+                    Connected wallet ({address?.slice(0, 6)}...{address?.slice(-4)}) does not match
+                    the registered owner ({fullDetails.ownerAddress.slice(0, 6)}...{fullDetails.ownerAddress.slice(-4)}).
+                    Please switch to the correct wallet.
+                  </p>
+                )}
+
+                <Button
+                  onClick={handleWalletVerify}
+                  disabled={walletVerifying || !walletMatchesOwner || !fullDetails}
+                  className="w-full"
+                >
+                  {walletVerifying ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Signing...
+                    </>
+                  ) : (
+                    <>
+                      <Wallet className="w-4 h-4 mr-2" />
+                      Sign to Verify
+                    </>
+                  )}
+                </Button>
+
+                {walletError && (
+                  <div className="text-sm text-red-400 flex items-start gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    {walletError}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 border-t border-border/50" />
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">or</span>
+              <div className="flex-1 border-t border-border/50" />
+            </div>
+
+            {/* Option B: Tweet Verification (Step 1) */}
+            <Card className="bg-card/70 border-border/70">
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <ExternalLink className="w-5 h-5 text-teal-500 shrink-0" />
+                  Option B: Verify via X Post
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="w-5 h-5 rounded-full bg-teal-500/20 text-teal-500 flex items-center justify-center text-[10px] font-bold shrink-0">
                     1
                   </div>
                   Post this on X
@@ -297,11 +420,11 @@ export default function ClaimPage() {
               </CardContent>
             </Card>
 
-            {/* Step 2: Submit Tweet URL */}
+            {/* Option B: Tweet Verification (Step 2) */}
             <Card className="bg-card/70 border-border/70">
               <CardContent className="p-4 space-y-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <div className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-500 flex items-center justify-center text-xs font-bold shrink-0">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="w-5 h-5 rounded-full bg-teal-500/20 text-teal-500 flex items-center justify-center text-[10px] font-bold shrink-0">
                     2
                   </div>
                   Paste your tweet URL

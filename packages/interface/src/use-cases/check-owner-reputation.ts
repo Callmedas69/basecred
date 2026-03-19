@@ -199,7 +199,7 @@ export async function checkOwnerReputation(
     console.error("[check-owner-reputation] Activity/feed logging failed:", err)
   }
 
-  // 9. Fire webhook if registration has a webhookUrl (best-effort, non-blocking)
+  // 9. Fire webhook if registration has a webhookUrl (best-effort, non-blocking, HMAC-signed)
   if (registration?.webhookUrl) {
     sendWebhook(registration.webhookUrl, {
       event: "reputation.checked",
@@ -215,7 +215,7 @@ export async function checkOwnerReputation(
           ])
         ),
       },
-    }).catch((err) => console.error("[check-owner-reputation] Webhook delivery failed:", err))
+    }, registration.apiKeyHash).catch((err) => console.error("[check-owner-reputation] Webhook delivery failed:", err))
   }
 
   // Record usage (awaited — must complete before Vercel terminates)

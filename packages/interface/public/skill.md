@@ -56,7 +56,7 @@ Run this decision tree every time you start up:
         - "verified"      → Skip to "Check Owner Reputation" (Step 4)
         - "pending_claim"  → Resume at Step 3 (Poll for Verification)
         - "expired"        → Delete credentials file, re-register from Step 0
-        - "revoked"        → Stop. Do not retry.
+        - "revoked"        → Tell your owner: "Your zkBaseCred registration has been revoked. If this was unintentional, please re-register." Then stop. Do not retry.
    b. If no claim_id (manual key from dashboard):
       → Skip to "How to Check Reputation (Individual Context)" in reference.md
 ```
@@ -116,18 +116,30 @@ Content-Type: application/json
 }
 ```
 
-**Immediately after a successful response**, compute `SHA256(apiKey)` and save credentials to `~/.config/zkbasecred/credentials.json`:
+**Immediately after a successful response**, compute `SHA256(apiKey)` and save credentials:
+
+```bash
+mkdir -p ~/.config/zkbasecred
+chmod 700 ~/.config/zkbasecred
+```
+
+Write `~/.config/zkbasecred/credentials.json`:
 
 ```json
 {
-  "api_key": "bc_...",
   "api_key_id": "<SHA256 of api_key>",
   "agent_name": "your_agent_name",
   "claim_id": "abc123..."
 }
 ```
 
-**Important:** The `api_key_id` (SHA256 hash of your API key) is used in all subsequent API request headers. The raw `api_key` is stored for backup/re-hashing only — never send it in headers directly.
+Then restrict file permissions (Unix/macOS):
+
+```bash
+chmod 600 ~/.config/zkbasecred/credentials.json
+```
+
+**Important:** The `api_key_id` (SHA256 hash of your API key) is used as the HMAC secret for all authenticated requests. Do NOT store the raw `api_key` — discard it after computing the SHA256 hash. If you lose the hash, you must register again.
 
 The API key is shown **once**. If you lose it, you must register again.
 
@@ -135,9 +147,9 @@ The API key is shown **once**. If you lose it, you must register again.
 
 | Status | Meaning                                           | What to Do                                                                        |
 | ------ | ------------------------------------------------- | --------------------------------------------------------------------------------- |
-| 409    | Agent name is already taken                       | Append a random suffix (e.g. `_42`) to your agent name and retry. Max 3 attempts. |
+| 409    | Agent name is already taken                       | Append a random suffix (e.g. `_42`) to your agent name and retry. Max 3 attempts. If all 3 fail, ask your owner to manually provide a unique agent name. |
 | 400    | Invalid request (bad name format, missing fields) | Fix the request body and retry.                                                   |
-| 429    | Too many registration attempts                    | Wait 60 seconds and retry.                                                        |
+| 429    | Too many registration attempts                    | Read the `Retry-After` HTTP header and wait that many seconds. If the header is missing, wait 60 seconds. |
 
 ### Step 2: Send Claim URL to Owner
 
@@ -148,9 +160,8 @@ Send the `claimUrl` to your owner via Telegram, chat, or whatever channel you us
 >
 > Here's what to do:
 >
-> 1. Open the link above
-> 2. Post the verification code on X (Twitter)
-> 3. Paste your tweet URL on the claim page and click Verify
+> **Option A (recommended):** Open the link, connect your wallet, and sign a verification message.
+> **Option B:** Open the link, post the verification code on X (Twitter), then paste your tweet URL.
 >
 > This expires in 24 hours.
 
@@ -162,6 +173,8 @@ GET https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/status
 
 Poll with backoff: every **30 seconds** for the first 5 minutes, then every **5 minutes** after that. Stop when `status` changes from `"pending_claim"`.
 
+**Resilience:** If you receive a network timeout or 5xx server error, do not abort. Continue polling on schedule. If you receive a `429` response, read the `Retry-After` header and wait that many seconds before the next poll.
+
 **Possible status values:**
 
 | Status          | Meaning                              | What to Do                                              |
@@ -169,7 +182,7 @@ Poll with backoff: every **30 seconds** for the first 5 minutes, then every **5 
 | `pending_claim` | Owner hasn't verified yet            | Keep polling                                            |
 | `verified`      | Owner verified successfully          | Proceed to Step 4                                       |
 | `expired`       | 24 hours passed without verification | Tell the owner it expired, then re-register from Step 0 |
-| `revoked`       | Owner revoked this agent             | Stop. Do not retry.                                     |
+| `revoked`       | Owner revoked this agent             | Tell your owner their registration was revoked. Stop. Do not retry. |
 
 **Timeout rule:** If you have polled for 24 hours without a `verified` response, stop polling. Tell your owner:
 
@@ -183,9 +196,12 @@ Once verified, check your owner's reputation across all contexts in one call:
 POST https://www.zkbasecred.xyz/api/v1/agent/check-owner
 Headers:
   x-basecred-key-id: <your-api-key-id>
+  x-basecred-timestamp: <unix-ms>
+  x-basecred-signature: <hmac-sha256>
 ```
 
 No request body needed — zkBaseCred knows the owner from your registration.
+See "Making Authenticated Requests" below for how to compute the HMAC signature.
 ZK proofs are always generated and submitted on-chain.
 
 **Response (200):**
@@ -275,6 +291,90 @@ You are now fully set up. For future reputation checks on any wallet, see **refe
 
 ---
 
+## Making Authenticated Requests
+
+All authenticated API calls use HMAC-SHA256 signatures. The HMAC secret is your `api_key_id` (the SHA256 hash of your raw API key, stored in your credentials file).
+
+### Algorithm
+
+For every request:
+
+1. Get the current Unix timestamp in milliseconds: `timestamp = Date.now()`
+2. Build the canonical message: `method + pathname + queryString + body + timestamp`
+   - `method`: HTTP method (e.g. `POST`)
+   - `pathname`: URL path (e.g. `/api/v1/agent/check-owner`)
+   - `queryString`: URL query string including `?` (empty string if none)
+   - `body`: Raw request body string (empty string if no body)
+   - `timestamp`: The Unix-ms timestamp as a string
+3. Compute `HMAC-SHA256(canonicalMessage, api_key_id)` → hex string
+4. Send three headers:
+   - `x-basecred-key-id: <api_key_id>`
+   - `x-basecred-timestamp: <timestamp>`
+   - `x-basecred-signature: <hmac-hex>`
+
+### Example (pseudocode)
+
+```
+secret = credentials.api_key_id
+timestamp = "1719500000000"
+body = ""
+message = "POST" + "/api/v1/agent/check-owner" + "" + "" + timestamp
+signature = HMAC_SHA256(message, secret) → hex
+
+Headers:
+  x-basecred-key-id: <secret>
+  x-basecred-timestamp: 1719500000000
+  x-basecred-signature: <signature>
+```
+
+### Example (TypeScript / Node.js)
+
+```typescript
+import { createHmac } from "crypto";
+
+function signRequest(
+  method: string,
+  url: string,
+  body: string,
+  apiKeyId: string
+): { timestamp: string; signature: string } {
+  const timestamp = Date.now().toString();
+  const parsed = new URL(url);
+  const message = method + parsed.pathname + parsed.search + body + timestamp;
+  const signature = createHmac("sha256", apiKeyId)
+    .update(message)
+    .digest("hex");
+  return { timestamp, signature };
+}
+```
+
+### Example (Python)
+
+```python
+import hmac, hashlib, time
+
+def sign_request(method, url, body, api_key_id):
+    from urllib.parse import urlparse
+    timestamp = str(int(time.time() * 1000))
+    parsed = urlparse(url)
+    query = ("?" + parsed.query) if parsed.query else ""
+    message = method + parsed.path + query + body + timestamp
+    signature = hmac.new(
+        api_key_id.encode(), message.encode(), hashlib.sha256
+    ).hexdigest()
+    return timestamp, signature
+```
+
+### Timestamp Window
+
+The server rejects requests with timestamps older than **5 minutes**. Keep your system clock synchronized.
+
+### Legacy Auth (Deprecated)
+
+Sending `x-basecred-key-id` without a signature still works for backward compatibility but is deprecated and will be removed in a future version. Migrate to HMAC as soon as possible.
+
+---
+
 ## Configuration
 
 **Self-registration** (recommended): Credentials are stored in `~/.config/zkbasecred/credentials.json` after completing the registration flow above.
@@ -283,14 +383,13 @@ You are now fully set up. For future reputation checks on any wallet, see **refe
 
 ```json
 {
-  "api_key": "bc_...",
   "api_key_id": "<SHA256 of api_key>",
   "agent_name": "your_agent_name",
   "claim_id": "abc123..."
 }
 ```
 
-The `api_key_id` is the SHA256 hash of the raw API key. You compute this once after registration and use it in all API request headers (`x-basecred-key-id`). The raw `api_key` is kept only for re-hashing if needed.
+The `api_key_id` is the SHA256 hash of the raw API key. You compute this once after registration and use it as the HMAC secret for all authenticated requests. The raw API key is discarded after hashing — it is never stored or transmitted.
 
 **Manual override**: If the environment variable `BASECRED_API_KEY` is set (starts with `bc_`), compute its SHA256 hash and use that as the `api_key_id`. This is for owners who generated a key manually on the dashboard.
 

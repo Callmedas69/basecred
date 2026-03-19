@@ -154,6 +154,38 @@ Body:
 
 ---
 
+## Wallet Verification (Alternative to Tweet)
+
+Owners can verify their agent registration by signing a message with their wallet instead of posting a tweet. This is the recommended verification method.
+
+```
+POST https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/verify-wallet
+Content-Type: application/json
+
+Body:
+{
+  "signature": "0x...",
+  "message": "I am verifying my zkBaseCred agent.\n\nClaim ID: {claimId}\nVerification Code: {code}"
+}
+```
+
+The message must match the exact format above, with the claimId and verification code from the registration. The signature must be from the wallet that was registered as the owner.
+
+**Success response (200):** `{ "success": true }`
+
+**Error responses:**
+
+| Status | Meaning |
+|--------|---------|
+| 400 | Invalid claim ID or missing fields |
+| 404 | Registration not found or expired |
+| 409 | Already verified or API key limit reached |
+| 410 | Registration expired or revoked |
+| 422 | Invalid signature, wrong wallet, or message mismatch |
+| 429 | Rate limited |
+
+---
+
 ## Owner Management Endpoints
 
 These endpoints allow owners to manage their agent registrations from the dashboard. They require wallet signature authentication.
@@ -250,6 +282,41 @@ If you provided a `webhookUrl` during registration, zkBaseCred will POST JSON to
 }
 ```
 
+### Verifying Webhook Signatures
+
+All webhook payloads are signed with HMAC-SHA256. The signature is sent in the `x-zkbasecred-signature` header. The HMAC secret is your `api_key_id` (SHA256 hash of your raw API key — the same value stored in your credentials file).
+
+**Algorithm:**
+
+1. Read the raw request body as a UTF-8 string
+2. Compute `HMAC-SHA256(body, api_key_id)` → hex string
+3. Compare the computed hex string to the `x-zkbasecred-signature` header value
+4. If they match, the payload is authentic
+
+**TypeScript example:**
+
+```typescript
+import { createHmac, timingSafeEqual } from "crypto";
+
+function verifyWebhook(body: string, signature: string, secret: string): boolean {
+  const expected = createHmac("sha256", secret).update(body).digest("hex");
+  if (expected.length !== signature.length) return false;
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+}
+```
+
+**Python example:**
+
+```python
+import hmac, hashlib
+
+def verify_webhook(body: bytes, signature: str, secret: str) -> bool:
+    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+If the `x-zkbasecred-signature` header is missing, the webhook was sent without signing (this should not happen for current registrations). Reject unsigned webhooks for maximum security.
+
 ### Requirements
 
 - URL must use **HTTPS** (no HTTP)
@@ -334,9 +401,8 @@ Response:
 >
 > Here's what to do:
 >
-> 1. Open the link above
-> 2. Post the verification code on X (Twitter)
-> 3. Paste your tweet URL on the claim page and click Verify
+> **Option A (recommended):** Open the link, connect your wallet, and sign a verification message.
+> **Option B:** Open the link, post the verification code on X (Twitter), then paste your tweet URL.
 >
 > This expires in 24 hours.
 

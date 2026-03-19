@@ -54,7 +54,7 @@ export async function revokeAgent(
   // Revoke the registration (returns pre-revoke snapshot)
   const revokedReg = await regRepo.revoke(claimId)
 
-  // Fire webhook on revoke (fire-and-forget)
+  // Fire webhook on revoke (fire-and-forget, HMAC-signed)
   if (revokedReg?.webhookUrl) {
     sendWebhook(revokedReg.webhookUrl, {
       event: "agent.revoked",
@@ -64,7 +64,7 @@ export async function revokeAgent(
       data: {
         claimId,
       },
-    }).catch((err) => console.error("Webhook delivery failed:", err))
+    }, revokedReg.apiKeyHash).catch((err) => console.error("Webhook delivery failed:", err))
   }
 
   return { success: true }

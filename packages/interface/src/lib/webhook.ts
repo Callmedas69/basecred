@@ -3,7 +3,10 @@
  *
  * Fire-and-forget POST to external webhook URLs.
  * HTTPS only, SSRF-safe, 5s timeout, no retries.
+ * Payloads are HMAC-signed when apiKeyHash is provided.
  */
+
+import { createHmac } from "crypto"
 
 export interface WebhookPayload {
   event: "reputation.checked" | "agent.verified" | "agent.revoked"
@@ -70,18 +73,40 @@ export function validateWebhookUrl(url: string): string | null {
 }
 
 /**
+ * Compute HMAC-SHA256 signature for a webhook payload.
+ */
+function signWebhookPayload(body: string, secret: string): string {
+  return createHmac("sha256", secret).update(body).digest("hex")
+}
+
+/**
  * Sends a webhook payload to the given URL.
  * Fire-and-forget: 5s timeout, no retries, errors are logged and swallowed.
+ * When apiKeyHash is provided, the payload is signed with HMAC-SHA256.
  */
-export async function sendWebhook(url: string, payload: WebhookPayload): Promise<void> {
+export async function sendWebhook(
+  url: string,
+  payload: WebhookPayload,
+  apiKeyHash?: string
+): Promise<void> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS)
 
   try {
+    const body = JSON.stringify(payload)
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    }
+
+    if (apiKeyHash) {
+      headers["x-zkbasecred-signature"] = signWebhookPayload(body, apiKeyHash)
+    }
+
     await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers,
+      body,
       signal: controller.signal,
     })
   } catch (err) {

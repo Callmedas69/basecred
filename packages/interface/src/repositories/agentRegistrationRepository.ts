@@ -16,7 +16,7 @@ export interface IAgentRegistrationRepository {
   getByVerificationCode(code: string): Promise<string | null>
   getByAgentName(agentName: string): Promise<string | null>
   listByOwner(address: string): Promise<AgentRegistration[]>
-  markVerified(claimId: string, tweetUrl: string): Promise<void>
+  markVerified(claimId: string, tweetUrl: string | null): Promise<void>
   revoke(claimId: string): Promise<AgentRegistration | null>
 }
 
@@ -76,7 +76,7 @@ export function createAgentRegistrationRepository(): IAgentRegistrationRepositor
       return results.sort((a, b) => b.createdAt - a.createdAt)
     },
 
-    async markVerified(claimId: string, tweetUrl: string): Promise<void> {
+    async markVerified(claimId: string, tweetUrl: string | null): Promise<void> {
       const data = await redis.get<string>(`agent:reg:${claimId}`)
       if (!data) throw new Error("Registration not found")
 
