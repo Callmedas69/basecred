@@ -9,6 +9,7 @@ import {
 } from "basecred-decision-engine"
 import { verifyGroth16Proof } from "@/lib/zkProofVerifier"
 import { agentDecideRequestSchema } from "@/lib/agentSchemas"
+import { toAppError } from "@/lib/errors"
 
 const policyRepository = new InMemoryPolicyRepository()
 
@@ -56,22 +57,12 @@ export async function POST(req: NextRequest) {
         const response = NextResponse.json(result)
         response.headers.set("x-policy-hash", result.policyHash)
         return response
-    } catch (error: any) {
-        const message = error?.message || "Unknown error"
-        const status = resolveStatus(message)
-
+    } catch (error: unknown) {
+        const appError = toAppError(error)
+        console.error("Decision error:", appError.message)
         return NextResponse.json(
-            { code: "DECISION_ERROR", message },
-            { status }
+            { code: appError.code, message: appError.message },
+            { status: appError.status }
         )
     }
-}
-
-function resolveStatus(message: string): number {
-    if (message.startsWith("Invalid context")) return 400
-    if (message.startsWith("Policy not found")) return 404
-    if (message.includes("Policy hash mismatch")) return 409
-    if (message.includes("Invalid proof")) return 400
-    if (message.includes("Missing signals")) return 400
-    return 500
 }

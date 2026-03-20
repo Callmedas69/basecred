@@ -686,7 +686,8 @@ function Dashboard() {
                 No agents have checked your reputation yet.
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="relative">
+                <div className="overflow-x-auto">
                 <table className="w-full text-xs font-mono">
                   <thead>
                     <tr className="text-left text-muted-foreground border-b border-border">
@@ -727,6 +728,8 @@ function Dashboard() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden" aria-hidden="true" />
               </div>
             )}
           </section>

@@ -24,9 +24,10 @@ export async function GET(req: NextRequest) {
                 normalizationVersion: policy.normalizationVersion,
             })),
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
+        console.error("Policy error:", error)
         return NextResponse.json(
-            { code: "INTERNAL_ERROR", message: error.message || "Unknown error" },
+            { code: "INTERNAL_ERROR", message: "An unexpected error occurred" },
             { status: 500 }
         )
     }

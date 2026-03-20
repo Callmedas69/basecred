@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { DocsMobileNav } from "@/components/DocsMobileNav";
 
 export default function DocsLayout({
   children,
@@ -39,7 +40,10 @@ export default function DocsLayout({
 
       {/* Main Content */}
       <main className="flex-1 md:ml-64">
-        <div className="max-w-4xl mx-auto p-8 lg:p-12">{children}</div>
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-12">
+          <DocsMobileNav />
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -473,7 +473,7 @@ export default function Home() {
 
             {/*WORDMARK */}
             <div className="relative pointer-events-none select-none text-center overflow-hidden -mx-[clamp(1.5rem,4vw,4rem)] w-[100vw] self-center">
-              <h1 className="text-[22vw] leading-none font-semibold tracking-tighter text-foreground/60 whitespace-nowrap">
+              <h1 className="text-[12vw] sm:text-[16vw] md:text-[22vw] leading-none font-semibold tracking-tighter text-foreground/60 whitespace-nowrap">
                 basecred
               </h1>
             </div>

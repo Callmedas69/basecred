@@ -82,7 +82,10 @@ export default function ClaimPage() {
             });
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.error("Failed to load claim details:", err);
+          setVerifyError("Failed to load verification details. Please refresh the page.");
+        });
     }
   }, [claim?.status, claimId]);
 

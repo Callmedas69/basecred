@@ -19,12 +19,12 @@ import {
   CheckCircle2,
   Shield,
   Activity,
-  LayoutDashboard,
   Send,
   Loader2,
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ContextTabBar } from "@/components/ContextTabBar";
 import { CHAIN_CONFIG } from "@/lib/blockchainConfig";
 import {
   contextToBytes32,
@@ -71,9 +71,9 @@ const CONTEXT_DESCRIPTIONS: Record<string, string> = {
 };
 
 const DECISION_LABELS: Record<string, { label: string; color: string }> = {
-  ALLOW: { label: "Eligible", color: "text-emerald-600" },
-  ALLOW_WITH_LIMITS: { label: "Limited", color: "text-amber-600" },
-  DENY: { label: "Not Ready", color: "text-red-600" },
+  ALLOW: { label: "Eligible", color: "text-emerald-500" },
+  ALLOW_WITH_LIMITS: { label: "Limited", color: "text-amber-500" },
+  DENY: { label: "Not Ready", color: "text-red-500" },
 };
 
 interface DecisionResult {
@@ -468,7 +468,7 @@ export default function HumanPage() {
       <div className="max-w-5xl mx-auto space-y-8 md:space-y-12 pt-24 md:pt-28 lg:pt-32 px-4 sm:px-6 md:px-12 pb-8 sm:pb-12 md:pb-16">
         {/* Header */}
         <div className="space-y-3 md:space-y-4 text-center md:text-left">
-          <h1 className="text-[3.5rem] sm:text-[5rem] md:text-[6rem] lg:text-[8rem] font-black tracking-tighter leading-[0.8] text-foreground select-none uppercase break-words">
+          <h1 className="text-[clamp(2.5rem,12vw,3.5rem)] sm:text-[5rem] md:text-[6rem] lg:text-[8rem] font-black tracking-tighter leading-[0.8] text-foreground select-none uppercase break-words">
             Human
           </h1>
           <p className="text-muted-foreground text-base sm:text-lg md:text-xl max-w-2xl leading-relaxed pl-2 border-l-4 border-teal-500">
@@ -524,52 +524,15 @@ export default function HumanPage() {
         {!contextsLoading && isConnected && isContextLoading && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-500 space-y-6 md:space-y-8">
             {/* Context Tabs (visible during loading so user can switch) */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-              <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm font-bold uppercase tracking-wider whitespace-nowrap">
-                <LayoutDashboard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span>Context:</span>
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide w-full sm:w-auto">
-                {contexts.map((ctx) => {
-                  const ctxResult = contextResults.get(ctx);
-                  const decision = ctxResult?.decision?.decision;
-
-                  return (
-                    <button
-                      key={ctx}
-                      onClick={() => {
-                        setSelectedContext(ctx);
-                        if (address) evaluateContext(ctx, address);
-                      }}
-                      className={cn(
-                        "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 border whitespace-nowrap flex items-center gap-1.5",
-                        selectedContext === ctx
-                          ? "bg-foreground text-background border-foreground shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                          : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground",
-                      )}
-                    >
-                      {ctx}
-                      {ctxResult?.loading ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : decision ? (
-                        <span
-                          className={cn(
-                            "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full",
-                            decision === "ALLOW"
-                              ? "bg-emerald-500"
-                              : decision === "DENY"
-                                ? "bg-red-500"
-                                : "bg-yellow-500",
-                          )}
-                        />
-                      ) : ctxResult?.error ? (
-                        <AlertCircle className="w-3 h-3 text-red-500" />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <ContextTabBar
+              contexts={contexts}
+              selectedContext={selectedContext}
+              contextResults={contextResults}
+              onSelect={(ctx) => {
+                setSelectedContext(ctx);
+                if (address) evaluateContext(ctx, address);
+              }}
+            />
 
             {/* Loading indicator */}
             <div className="py-12 md:py-16 text-center border border-border/50 rounded-2xl md:rounded-3xl bg-muted/10">
@@ -610,15 +573,15 @@ export default function HumanPage() {
                 className={cn(
                   "relative overflow-hidden rounded-2xl md:rounded-[2rem] border transition-all duration-500",
                   currentDecision.decision === "ALLOW"
-                    ? "border-emerald-500/30 bg-emerald-50 shadow-[0_0_60px_-15px_rgba(16,185,129,0.3)]"
+                    ? "border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_60px_-15px_rgba(16,185,129,0.3)]"
                     : currentDecision.decision === "DENY"
-                      ? "border-red-500/30 bg-red-50 shadow-[0_0_60px_-15px_rgba(239,68,68,0.3)]"
-                      : "border-yellow-500/30 bg-yellow-50 shadow-[0_0_60px_-15px_rgba(234,179,8,0.3)]",
+                      ? "border-red-500/30 bg-red-500/10 shadow-[0_0_60px_-15px_rgba(239,68,68,0.3)]"
+                      : "border-yellow-500/30 bg-yellow-500/10 shadow-[0_0_60px_-15px_rgba(234,179,8,0.3)]",
                 )}
               >
                 <div className="relative z-10 p-6 sm:p-8 md:p-12">
                   <div className="space-y-3 md:space-y-4">
-                    <div className="font-mono text-xs sm:text-sm tracking-widest text-gray-500 flex items-center gap-2">
+                    <div className="font-mono text-xs sm:text-sm tracking-widest text-muted-foreground flex items-center gap-2">
                       <span className="opacity-50">&gt;_</span> REPUTATION
                       DECISION
                     </div>
@@ -626,21 +589,21 @@ export default function HumanPage() {
                       className={cn(
                         "text-4xl sm:text-5xl md:text-7xl lg:text-9xl font-black tracking-tighter uppercase break-words leading-[0.85]",
                         currentDecision.decision === "ALLOW"
-                          ? "text-emerald-600 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]"
+                          ? "text-emerald-500 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]"
                           : currentDecision.decision === "DENY"
-                            ? "text-red-600 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]"
-                            : "text-yellow-600 drop-shadow-[0_0_8px_rgba(234,179,8,0.3)]",
+                            ? "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]"
+                            : "text-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.3)]",
                       )}
                     >
                       {currentDecision.decision.replace(/_/g, " ")}
                     </div>
-                    <div className="text-gray-600 font-mono text-xs sm:text-sm md:text-base max-w-2xl leading-relaxed">
+                    <div className="text-muted-foreground font-mono text-xs sm:text-sm md:text-base max-w-2xl leading-relaxed">
                       {CONTEXT_DESCRIPTIONS[selectedContext] || selectedContext}
                     </div>
                     <div className="flex flex-wrap items-center gap-2 pt-2">
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] sm:text-xs font-mono uppercase tracking-wider bg-white/60",
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] sm:text-xs font-mono uppercase tracking-wider bg-background/60",
                           DECISION_LABELS[currentDecision.decision]?.color ||
                             "text-foreground",
                         )}
@@ -649,17 +612,17 @@ export default function HumanPage() {
                         {DECISION_LABELS[currentDecision.decision]?.label ||
                           currentDecision.decision}
                       </span>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-teal-500/30 text-[10px] sm:text-xs font-mono uppercase tracking-wider bg-teal-50/60 text-teal-600">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-teal-500/30 text-[10px] sm:text-xs font-mono uppercase tracking-wider bg-teal-500/10 text-teal-500">
                         <Shield className="w-3 h-3" />
                         ZK Verified
                       </span>
                     </div>
 
                     {/* Seal On-Chain Button */}
-                    <div className="pt-4 border-t border-gray-200/50 mt-4 flex flex-wrap gap-3 items-center">
+                    <div className="pt-4 border-t border-border/50 mt-4 flex flex-wrap gap-3 items-center">
                       {submitResults.get(selectedContext)?.txHash ? (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-emerald-600">
+                          <div className="flex items-center gap-2 text-emerald-500">
                             <CheckCircle2 className="w-4 h-4" />
                             <span className="text-sm font-medium">
                               Confirmed on-chain
@@ -669,14 +632,14 @@ export default function HumanPage() {
                             href={CHAIN_CONFIG.txUrl(submitResults.get(selectedContext)?.txHash ?? "")}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs text-teal-600 hover:text-teal-500 underline font-mono break-all"
+                            className="text-xs text-teal-500 hover:text-teal-400 underline font-mono break-all"
                           >
                             View on BaseScan
                           </a>
                         </div>
                       ) : submitResults.get(selectedContext)?.error ? (
                         <div className="flex flex-wrap items-center gap-3">
-                          <div className="text-sm text-red-600 flex items-center gap-2">
+                          <div className="text-sm text-red-500 flex items-center gap-2">
                             <AlertCircle className="w-4 h-4" />
                             {submitResults.get(selectedContext)?.error}
                           </div>
@@ -753,53 +716,15 @@ export default function HumanPage() {
               </div>
 
               {/* Context Tabs */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm font-bold uppercase tracking-wider whitespace-nowrap">
-                  <LayoutDashboard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Context:</span>
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide w-full sm:w-auto">
-                  {contexts.map((ctx) => {
-                    const ctxResult = contextResults.get(ctx);
-                    const decision = ctxResult?.decision?.decision;
-
-                    return (
-                      <button
-                        key={ctx}
-                        onClick={() => {
-                          setSelectedContext(ctx);
-                          // Auto-evaluate if not yet cached
-                          if (address) evaluateContext(ctx, address);
-                        }}
-                        className={cn(
-                          "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 border whitespace-nowrap flex items-center gap-1.5",
-                          selectedContext === ctx
-                            ? "bg-foreground text-background border-foreground shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                            : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground",
-                        )}
-                      >
-                        {ctx}
-                        {ctxResult?.loading ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : decision ? (
-                          <span
-                            className={cn(
-                              "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full",
-                              decision === "ALLOW"
-                                ? "bg-emerald-500"
-                                : decision === "DENY"
-                                  ? "bg-red-500"
-                                  : "bg-yellow-500",
-                            )}
-                          />
-                        ) : ctxResult?.error ? (
-                          <AlertCircle className="w-3 h-3 text-red-500" />
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <ContextTabBar
+                contexts={contexts}
+                selectedContext={selectedContext}
+                contextResults={contextResults}
+                onSelect={(ctx) => {
+                  setSelectedContext(ctx);
+                  if (address) evaluateContext(ctx, address);
+                }}
+              />
 
               {/* Wallet & Signals Summary */}
               <div className="space-y-4 md:space-y-6">
@@ -1039,10 +964,11 @@ export default function HumanPage() {
                           Groth16 Proof
                         </h3>
                         <Card className="bg-black/90 border-border">
-                          <CardContent className="p-0">
-                            <pre className="p-4 overflow-auto text-[10px] sm:text-xs font-mono text-zinc-300 max-h-[300px] leading-relaxed">
+                          <CardContent className="p-0 relative">
+                            <pre className="p-4 overflow-auto text-[11px] sm:text-xs font-mono text-zinc-300 max-h-[50vh] sm:max-h-[300px] leading-relaxed">
                               {JSON.stringify(currentProof.proof, null, 2)}
                             </pre>
+                            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-black/90 to-transparent sm:hidden" aria-hidden="true" />
                           </CardContent>
                         </Card>
                       </div>
@@ -1053,10 +979,11 @@ export default function HumanPage() {
                 {/* JSON Tab */}
                 <TabsContent value="json">
                   <Card className="bg-black/90 border-border shadow-2xl">
-                    <CardContent className="p-0">
-                      <pre className="p-4 sm:p-6 overflow-auto text-[10px] sm:text-xs md:text-sm font-mono text-zinc-300 max-h-[400px] sm:max-h-[600px] leading-relaxed">
+                    <CardContent className="p-0 relative">
+                      <pre className="p-4 sm:p-6 overflow-auto text-[11px] sm:text-xs md:text-sm font-mono text-zinc-300 max-h-[50vh] sm:max-h-[600px] leading-relaxed">
                         {JSON.stringify(currentDecision, null, 2)}
                       </pre>
+                      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-black/90 to-transparent sm:hidden" aria-hidden="true" />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -1072,52 +999,15 @@ export default function HumanPage() {
           currentContextResult?.error && (
             <div className="animate-in fade-in space-y-6 md:space-y-8">
               {/* Context Tabs */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                <div className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm font-bold uppercase tracking-wider whitespace-nowrap">
-                  <LayoutDashboard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Context:</span>
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide w-full sm:w-auto">
-                  {contexts.map((ctx) => {
-                    const ctxResult = contextResults.get(ctx);
-                    const decision = ctxResult?.decision?.decision;
-
-                    return (
-                      <button
-                        key={ctx}
-                        onClick={() => {
-                          setSelectedContext(ctx);
-                          if (address) evaluateContext(ctx, address);
-                        }}
-                        className={cn(
-                          "px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 border whitespace-nowrap flex items-center gap-1.5",
-                          selectedContext === ctx
-                            ? "bg-foreground text-background border-foreground shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                            : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground",
-                        )}
-                      >
-                        {ctx}
-                        {ctxResult?.loading ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : decision ? (
-                          <span
-                            className={cn(
-                              "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full",
-                              decision === "ALLOW"
-                                ? "bg-emerald-500"
-                                : decision === "DENY"
-                                  ? "bg-red-500"
-                                  : "bg-yellow-500",
-                            )}
-                          />
-                        ) : ctxResult?.error ? (
-                          <AlertCircle className="w-3 h-3 text-red-500" />
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <ContextTabBar
+                contexts={contexts}
+                selectedContext={selectedContext}
+                contextResults={contextResults}
+                onSelect={(ctx) => {
+                  setSelectedContext(ctx);
+                  if (address) evaluateContext(ctx, address);
+                }}
+              />
 
               {/* Error state */}
               <div className="py-12 text-center border-2 border-dashed border-border/50 rounded-2xl bg-muted/10">

@@ -16,9 +16,10 @@ export async function GET(req: NextRequest) {
         const contexts = getAllContexts()
 
         return NextResponse.json({ contexts })
-    } catch (error: any) {
+    } catch (error: unknown) {
+        console.error("Context error:", error)
         return NextResponse.json(
-            { code: "INTERNAL_ERROR", message: error.message || "Unknown error" },
+            { code: "INTERNAL_ERROR", message: "An unexpected error occurred" },
             { status: 500 }
         )
     }

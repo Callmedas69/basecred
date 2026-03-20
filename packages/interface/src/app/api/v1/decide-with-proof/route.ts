@@ -1,15 +1,7 @@
 /**
- * Decide with ZK Proof API
+ * Decide with ZK Proof API — Transport Layer
  *
- * Generates ZK proofs for reputation decisions and auto-submits on-chain.
- *
- * Flow:
- * 1. Fetch SDK output (raw scores from Ethos, Neynar, Talent)
- * 2. Normalize signals using decision-engine normalizers
- * 3. Encode signals for circuit
- * 4. Generate ZK proof (circuit computes decision)
- * 5. Auto-submit proof on-chain via relayer
- * 6. Return decision, signals, proof data, and on-chain status
+ * Validates input, applies rate limiting, delegates to use case.
  */
 
 // Force Node.js runtime (required for snarkjs WASM operations)
@@ -19,61 +11,19 @@ export const maxDuration = 90
 
 import { NextRequest, NextResponse } from "next/server"
 import { checkRateLimit } from "@/lib/rateLimit"
+import { VALID_CONTEXTS, type DecisionContext } from "basecred-decision-engine"
 import {
-    normalizeSignals,
-    encodeSignalsForCircuit,
-    encodeContextId,
-    decodeDecision,
-    VALID_CONTEXTS,
-    InMemoryPolicyRepository,
-    listPolicies,
-    resolveBlockingFactors,
-    deriveBlockingFactorsForContext,
-    type DecisionContext,
-    type Decision,
-    type NormalizedSignals,
-    type ConfidenceTier,
-} from "basecred-decision-engine"
-import { fetchLiveProfile } from "@/repositories/liveProfileRepository"
-import { generateProof, areCircuitFilesAvailable } from "@/lib/proofGenerator"
-import { submitDecisionOnChain } from "@/use-cases/submit-decision-onchain"
-import { createDecisionRegistryRepository } from "@/repositories/decisionRegistryRepository"
-import { getRelayerPrivateKey } from "@/lib/serverConfig"
-import { extractRevertReason } from "@/lib/errors"
-import { logSubmissionFeed } from "@/use-cases/log-submission-feed"
-
-const policyRepository = new InMemoryPolicyRepository()
+    executeDecideWithProof,
+    CircuitNotAvailableError,
+    PolicyNotFoundError,
+} from "@/use-cases/decide-with-proof"
 
 interface DecideWithProofRequest {
     subject: string
     context: string
 }
 
-interface DecideWithProofResponse {
-    decision: "ALLOW" | "DENY" | "ALLOW_WITH_LIMITS"
-    confidence: ConfidenceTier
-    constraints: string[]
-    blockingFactors?: string[]
-    signals: NormalizedSignals
-    proof: {
-        a: [string, string]
-        b: [[string, string], [string, string]]
-        c: [string, string]
-    }
-    publicSignals: [string, string, string]
-    policyHash: string
-    contextId: number
-    explain: string[]
-    onChain: {
-        submitted: boolean
-        txHash?: string
-        error?: string
-    }
-}
-
 export async function POST(req: NextRequest) {
-    const t0 = performance.now()
-
     try {
         // Rate limit by IP — expensive endpoint (3 API calls + ZK proof + on-chain tx)
         const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
@@ -112,215 +62,36 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        const context = body.context as DecisionContext
+        const result = await executeDecideWithProof({
+            subject: body.subject,
+            context: body.context as DecisionContext,
+            apiKeyHash: req.headers.get("x-basecred-key-id") ?? undefined,
+        })
 
-        // Check if circuit files are available
-        const circuitAvailable = await areCircuitFilesAvailable()
-        if (!circuitAvailable) {
+        // Strip timing from response (internal-only)
+        const { timing: _timing, ...response } = result
+
+        return NextResponse.json(response)
+    } catch (error: unknown) {
+        console.error("Decide with proof error:", error)
+
+        if (error instanceof CircuitNotAvailableError) {
             return NextResponse.json(
-                {
-                    code: "ZK_NOT_CONFIGURED",
-                    message: "ZK circuit files are not available. Check ZK_CIRCUIT_WASM_PATH and ZK_CIRCUIT_ZKEY_PATH.",
-                },
+                { code: "ZK_NOT_CONFIGURED", message: "ZK circuit files are not available. Check ZK_CIRCUIT_WASM_PATH and ZK_CIRCUIT_ZKEY_PATH." },
                 { status: 503 }
             )
         }
 
-        // Get policy for this context
-        const policies = await listPolicies({ policyRepository })
-        const policy = policies.find((p) => p.context === context)
-        if (!policy) {
+        if (error instanceof PolicyNotFoundError) {
             return NextResponse.json(
-                { code: "POLICY_NOT_FOUND", message: `No policy found for context: ${context}` },
+                { code: "POLICY_NOT_FOUND", message: error.message },
                 { status: 404 }
             )
         }
 
-        // 1. Fetch SDK output (raw scores)
-        const tFetch = performance.now()
-        const profile = await fetchLiveProfile(body.subject)
-        const fetchMs = performance.now() - tFetch
-
-        // 2. Normalize signals
-        const tNorm = performance.now()
-        const signals = normalizeSignals(profile)
-
-        // 3. Encode for circuit
-        const circuitSignals = encodeSignalsForCircuit(signals)
-        const contextId = encodeContextId(context)
-        const normEncodeMs = performance.now() - tNorm
-
-        // 4. Generate ZK proof (circuit computes decision)
-        const tProof = performance.now()
-        const proofResult = await generateProof({
-            circuitSignals,
-            policyHash: policy.policyHash,
-            contextId,
-        })
-        const proofMs = performance.now() - tProof
-
-        // 5. Derive confidence, constraints, and blocking factors
-        // ZK-verified decisions use "HIGH" confidence (same as check-owner ZK path)
-        const confidence: ConfidenceTier = "HIGH"
-        const constraints = deriveConstraintsForContext(proofResult.decision, context)
-        const blockingSnapshot = resolveBlockingFactors(signals)
-        const blockingFactors = proofResult.decision === "DENY"
-            ? deriveBlockingFactorsForContext(context, blockingSnapshot, signals)
-            : undefined
-
-        // 6. Build explanation based on decision and signals
-        const explain = buildExplanation(proofResult.decision, signals, context)
-
-        // 7. Auto-submit on-chain
-        let onChain: DecideWithProofResponse["onChain"] = { submitted: false, error: "Relayer not configured" }
-
-        const relayerKey = getRelayerPrivateKey()
-        if (relayerKey) {
-            try {
-                const registryRepo = createDecisionRegistryRepository(relayerKey)
-                const output = await submitDecisionOnChain(
-                    {
-                        subject: body.subject,
-                        context,
-                        decision: proofResult.decision as Decision,
-                        policyHash: policy.policyHash,
-                        proof: proofResult.proof,
-                        publicSignals: proofResult.publicSignals,
-                    },
-                    { decisionRegistryRepository: registryRepo }
-                )
-                onChain = { submitted: true, txHash: output.transactionHash }
-            } catch (err: unknown) {
-                const reason = extractRevertReason(err)
-                console.error(`[decide-with-proof] On-chain submit failed for ${context}: ${reason}`)
-                onChain = { submitted: false, error: reason }
-            }
-        }
-
-        // 8. Log to global feed (best-effort)
-        const apiKeyHash = req.headers.get("x-basecred-key-id")
-        if (apiKeyHash && onChain.txHash) {
-            try {
-                await logSubmissionFeed({
-                    apiKeyHash,
-                    subject: body.subject,
-                    context,
-                    txHash: onChain.txHash,
-                })
-            } catch (err) {
-                console.error("[decide-with-proof] Feed logging failed:", err)
-            }
-        }
-
-        const totalMs = performance.now() - t0
-
-        console.log(
-            `[ZK Timing] subject=${body.subject} context=${context} | ` +
-            `fetch=${fetchMs.toFixed(0)}ms norm+encode=${normEncodeMs.toFixed(0)}ms ` +
-            `proof=${proofMs.toFixed(0)}ms total=${totalMs.toFixed(0)}ms`
-        )
-
-        const response: DecideWithProofResponse = {
-            decision: proofResult.decision,
-            confidence,
-            constraints,
-            ...(blockingFactors !== undefined && { blockingFactors }),
-            signals,
-            proof: proofResult.proof,
-            publicSignals: proofResult.publicSignals,
-            policyHash: policy.policyHash,
-            contextId,
-            explain,
-            onChain,
-        }
-
-        return NextResponse.json(response)
-    } catch (error: any) {
-        const totalMs = performance.now() - t0
-        console.error(`Decide with proof error (${totalMs.toFixed(0)}ms):`, error)
-
-        // Handle specific error types
-        if (error.message?.includes("file")) {
-            return NextResponse.json(
-                { code: "ZK_ERROR", message: "Failed to load circuit files" },
-                { status: 503 }
-            )
-        }
-
         return NextResponse.json(
-            { code: "INTERNAL_ERROR", message: error.message || "Unknown error" },
+            { code: "INTERNAL_ERROR", message: "An unexpected error occurred" },
             { status: 500 }
         )
     }
-}
-
-/**
- * Derive constraints for the ZK proof path.
- *
- * The ZK circuit doesn't return rule IDs, so we derive constraints
- * from the decision + context, mirroring the decision engine rules.
- */
-function deriveConstraintsForContext(
-    decision: string,
-    context: string
-): string[] {
-    if (decision !== "ALLOW_WITH_LIMITS") return []
-
-    const constraintMap: Record<string, string[]> = {
-        "allowlist.general": ["reduced_access"],
-        comment: ["rate_limited"],
-        publish: ["review_queue"],
-        "governance.vote": ["reduced_weight"],
-        apply: ["review_required"],
-    }
-    return constraintMap[context] ?? ["limited_access"]
-}
-
-/**
- * Build human-readable explanation for the decision.
- */
-function buildExplanation(
-    decision: "ALLOW" | "DENY" | "ALLOW_WITH_LIMITS",
-    signals: NormalizedSignals,
-    context: DecisionContext
-): string[] {
-    const reasons: string[] = []
-
-    // Add signal summary
-    reasons.push(`Trust level: ${signals.trust}`)
-    reasons.push(`Social trust: ${signals.socialTrust}`)
-    reasons.push(`Builder capability: ${signals.builder}`)
-    reasons.push(`Creator capability: ${signals.creator}`)
-
-    if (signals.spamRisk !== "NEUTRAL") {
-        reasons.push(`Spam risk: ${signals.spamRisk}`)
-    }
-
-    if (signals.recencyDays > 0) {
-        reasons.push(`Last activity: ${signals.recencyDays} days ago`)
-    }
-
-    reasons.push(`Signal coverage: ${Math.round(signals.signalCoverage * 100)}%`)
-
-    // Add decision-specific reasoning
-    if (decision === "ALLOW") {
-        reasons.push(`Eligible for ${context} based on reputation signals.`)
-    } else if (decision === "ALLOW_WITH_LIMITS") {
-        reasons.push(`Limited access to ${context} - some criteria not fully met.`)
-    } else {
-        // DENY
-        if (signals.signalCoverage < 0.5) {
-            reasons.push("Insufficient signal coverage to make a confident decision.")
-        } else if (signals.spamRisk === "HIGH" || signals.spamRisk === "VERY_HIGH") {
-            reasons.push("High spam risk detected.")
-        } else if (signals.trust === "VERY_LOW") {
-            reasons.push("Trust level is too low for this context.")
-        } else if (signals.socialTrust === "VERY_LOW" || signals.socialTrust === "LOW") {
-            reasons.push("Social trust is below required threshold.")
-        } else {
-            reasons.push(`Requirements for ${context} not met.`)
-        }
-    }
-
-    return reasons
 }

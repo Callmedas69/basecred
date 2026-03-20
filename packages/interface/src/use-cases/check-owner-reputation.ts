@@ -39,6 +39,7 @@ import { sendWebhook } from "@/lib/webhook"
 import { extractRevertReason } from "@/lib/errors"
 import { getRelayerPrivateKey } from "@/lib/serverConfig"
 import { truncateAddress } from "@/lib/utils"
+import { deriveConstraintsForContext } from "@/lib/decisionHelpers"
 
 export class CheckOwnerReputationError extends Error {
   status: number
@@ -306,29 +307,6 @@ async function buildResultsWithProof(
   }
 
   return results
-}
-
-/**
- * Derive constraints for the ZK proof path.
- *
- * The ZK circuit doesn't return rule IDs, so we can't use `getConstraintsForRule`.
- * Instead, derive constraints from the decision + context, mirroring the same
- * constraint semantics used by the decision engine rules.
- */
-function deriveConstraintsForContext(
-  decision: string,
-  context: string
-): string[] {
-  if (decision !== "ALLOW_WITH_LIMITS") return []
-
-  const constraintMap: Record<string, string[]> = {
-    "allowlist.general": ["reduced_access"],
-    comment: ["rate_limited"],
-    publish: ["review_queue"],
-    "governance.vote": ["reduced_weight"],
-    apply: ["review_required"],
-  }
-  return constraintMap[context] ?? ["limited_access"]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -178,11 +178,14 @@ function QuickStart() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4">
-            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-              {`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \\
+            <div className="relative">
+              <pre className="bg-black/90 rounded-lg p-3 sm:p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+                {`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/register \\
   -H "Content-Type: application/json" \\
   -d '{"agentName":"my_agent","contactHandle":"@owner","ownerAddress":"0x...","webhookUrl":"https://your-endpoint.com/webhook"}'`}
-            </pre>
+              </pre>
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 rounded-r-lg bg-gradient-to-l from-black/90 to-transparent sm:hidden" aria-hidden="true" />
+            </div>
           </AccordionContent>
         </AccordionItem>
 
@@ -196,9 +199,12 @@ function QuickStart() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 space-y-3">
-            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-              {`curl https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/status`}
-            </pre>
+            <div className="relative">
+              <pre className="bg-black/90 rounded-lg p-3 sm:p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+                {`curl https://www.zkbasecred.xyz/api/v1/agent/register/{claimId}/status`}
+              </pre>
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 rounded-r-lg bg-gradient-to-l from-black/90 to-transparent sm:hidden" aria-hidden="true" />
+            </div>
             <p className="text-xs text-muted-foreground">
               Poll every 30s until status is &quot;verified&quot;
             </p>
@@ -215,10 +221,13 @@ function QuickStart() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 space-y-3">
-            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-              {`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/check-owner \\
+            <div className="relative">
+              <pre className="bg-black/90 rounded-lg p-3 sm:p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+                {`curl -X POST https://www.zkbasecred.xyz/api/v1/agent/check-owner \\
   -H "x-api-key: bc_your_key_here"`}
-            </pre>
+              </pre>
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 rounded-r-lg bg-gradient-to-l from-black/90 to-transparent sm:hidden" aria-hidden="true" />
+            </div>
             <p className="text-xs text-muted-foreground">
               Returns reputation across all 5 contexts with a natural language
               summary
@@ -236,12 +245,15 @@ function QuickStart() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4">
-            <pre className="bg-black/90 rounded-lg p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
-              {`curl -X POST https://www.zkbasecred.xyz/api/v1/decide-with-proof \\
+            <div className="relative">
+              <pre className="bg-black/90 rounded-lg p-3 sm:p-4 text-xs font-mono text-zinc-200 overflow-x-auto whitespace-pre">
+                {`curl -X POST https://www.zkbasecred.xyz/api/v1/decide-with-proof \\
   -H "x-api-key: bc_your_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{"subject":"0x...","context":"comment"}'`}
-            </pre>
+              </pre>
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 rounded-r-lg bg-gradient-to-l from-black/90 to-transparent sm:hidden" aria-hidden="true" />
+            </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
@@ -312,7 +324,8 @@ function LiveFeed() {
           No agent activity yet. Be the first to register an agent!
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative">
+          <div className="overflow-x-auto">
           <table className="w-full text-xs font-mono">
             <caption className="sr-only">
               Recent agent reputation check activity
@@ -369,6 +382,8 @@ function LiveFeed() {
               ))}
             </tbody>
           </table>
+          </div>
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden" aria-hidden="true" />
         </div>
       )}
     </section>
