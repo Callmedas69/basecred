@@ -6,3 +6,4 @@ workingfolder/*
 .env*
 .claude/
 foundryup.ps1
+sales-collateral/*

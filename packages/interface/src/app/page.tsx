@@ -14,13 +14,21 @@ import {
   Activity,
   Hexagon,
   Lock,
+  Coins,
+  ExternalLink,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHAIN_CONFIG } from "@/lib/blockchainConfig";
 
 import { Navbar } from "@/components/Navbar";
 
+const ZKB_TOKEN_ADDRESS = "0x1758b8d8ac471605772084af534438c781113ba3";
+const ZKB_UNISWAP_URL = `https://app.uniswap.org/swap?outputCurrency=${ZKB_TOKEN_ADDRESS}&chain=base`;
+
 export default function Home() {
   const [copied, setCopied] = useState(false);
+  const [tokenCopied, setTokenCopied] = useState(false);
 
   const container: Variants = {
     hidden: { opacity: 0 },
@@ -382,6 +390,86 @@ export default function Home() {
               ))}
             </motion.div>
           </div>
+        </motion.div>
+      </section>
+
+      {/* $ZKB Token */}
+      <section className="py-[clamp(4rem,10vw,8rem)] relative z-10">
+        <motion.div
+          className="container mx-auto px-6"
+          variants={container}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-100px" }}
+        >
+          <motion.div variants={item}>
+            <Card className="bg-card/50 border-border/50 border-teal-500/20 overflow-hidden relative">
+              <CardContent className="p-6 sm:p-10 space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-teal-500/20 text-teal-500 flex items-center justify-center shrink-0">
+                    <Coins className="w-5 h-5" />
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-xl sm:text-2xl font-bold">ZKBASECRED Token</h3>
+                    <span className="text-xs font-mono bg-teal-500/15 text-teal-400 px-2 py-0.5 rounded-full">
+                      $ZKB
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-2xl">
+                  The native token powering the zkBaseCred ecosystem on Base.
+                </p>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                    Contract Address
+                  </p>
+                  <div className="flex items-center gap-2 bg-black/90 rounded-lg p-4">
+                    <code className="text-sm font-mono text-teal-400 flex-1 break-all">
+                      {ZKB_TOKEN_ADDRESS}
+                    </code>
+                    <button
+                      aria-label={tokenCopied ? "Copied" : "Copy to clipboard"}
+                      className="shrink-0 p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(ZKB_TOKEN_ADDRESS);
+                        setTokenCopied(true);
+                        setTimeout(() => setTokenCopied(false), 2000);
+                      }}
+                    >
+                      {tokenCopied ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-teal-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <a
+                    href={CHAIN_CONFIG.addressUrl(ZKB_TOKEN_ADDRESS)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border border-border bg-background/50 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-all flex-1"
+                  >
+                    View on BaseScan
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                  <a
+                    href={ZKB_UNISWAP_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-all flex-1"
+                  >
+                    Trade on Uniswap
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </motion.div>
       </section>
 
