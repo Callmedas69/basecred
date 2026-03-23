@@ -131,7 +131,7 @@ const MAIN_LINKS: NavLink[] = [
 ];
 
 const MORE_LINKS: NavLink[] = [
-  { href: "/token", label: "token", match: (p) => p === "/token" },
+  { href: "/token", label: "$zkb", match: (p) => p === "/token" },
   { href: "/stats", label: "stats", match: (p) => p === "/stats" },
   {
     href: "http://docs.zkbasecred.xyz",
@@ -164,7 +164,8 @@ export function Navbar() {
     }
     if (moreOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [moreOpen]);
 
