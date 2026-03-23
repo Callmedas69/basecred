@@ -40,7 +40,7 @@ import {
 } from "@/lib/onChainContracts";
 
 const DECISION_REGISTRY_ADDRESS = ONCHAIN_CONTRACTS.find(
-  (c) => c.name === "Decision Registry",
+  (c) => c.name === "Decision Registry (Proxy)",
 )!.address as `0x${string}`;
 
 /**

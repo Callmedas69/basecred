@@ -430,35 +430,31 @@ Headers:
 
 Response:
 
+**CRITICAL: Each context has its OWN decision. You MUST read each `results[context].decision` individually. Do NOT copy decisions from this example — use the actual API response values.**
+
 ```json
 {
   "ownerAddress": "0xabc123...def456",
   "agentName": "alice_helper",
   "zkEnabled": true,
-  "summary": "Your reputation is strong. You have high trust on Ethos, high trust on Farcaster, strong builder credentials via Talent Protocol. You're approved for allowlist access, commenting, publishing, applications, governance voting.",
+  "summary": "Mixed reputation — approved for commenting, limited for allowlist and publishing, denied for applications and governance.",
+  "formattedReport": "zkBaseCred Reputation Report\nWallet: 0xabc123...def456\nDate: 2025-06-15\n\nOverall: Mixed reputation — approved for commenting, limited for allowlist and publishing, denied for applications and governance.\n\n--- Wallet Score ---\n\n  On-chain Trust:    Moderate\n  Social Trust:      Moderate\n  Builder:           Intermediate\n  Creator:           Explorer\n\n--- Access by Context ---\n\n  Allowlist:      ALLOW_WITH_LIMITS (HIGH)\n  Comment:        ALLOW (HIGH)\n  Publish:        ALLOW_WITH_LIMITS (HIGH)\n  Apply:          DENY (HIGH)\n  Governance:     DENY (HIGH)\n\n--- Constraints ---\n\n  - Allowlist: Reduced access granted\n  - Publish: Content will be placed in a review queue\n\n--- Blocking Factors ---\n\n  - Apply: builder track record and creator track record need improvement\n  - Governance: on-chain trust and social presence need improvement\n\n--- What This Means ---\nYou're trusted for comment. Allowlist, Publish have limited access. Apply, Governance require stronger credentials.\n\n--- On-Chain Proof ---\nVerified with zero-knowledge proof. Transaction: 0xabc123...",
   "signals": {
-    "trust": "HIGH",
-    "socialTrust": "HIGH",
-    "builder": "EXPERT",
-    "creator": "MODERATE",
+    "trust": "MODERATE",
+    "socialTrust": "MODERATE",
+    "builder": "INTERMEDIATE",
+    "creator": "EXPLORER",
     "spamRisk": "NEUTRAL",
-    "recencyDays": 3,
-    "signalCoverage": 0.85
+    "recencyDays": 12,
+    "signalCoverage": 0.65
   },
   "results": {
     "allowlist.general": {
-      "decision": "ALLOW",
+      "decision": "ALLOW_WITH_LIMITS",
       "confidence": "HIGH",
-      "constraints": [],
+      "constraints": ["reduced_access"],
       "verified": true,
-      "proof": {
-        "a": ["0x...", "0x..."],
-        "b": [
-          ["0x...", "0x..."],
-          ["0x...", "0x..."]
-        ],
-        "c": ["0x...", "0x..."]
-      },
+      "proof": { "a": ["0x...", "0x..."], "b": [["0x...","0x..."],["0x...","0x..."]], "c": ["0x...", "0x..."] },
       "publicSignals": ["...", "...", "..."],
       "policyHash": "sha256:...",
       "contextId": 1,
@@ -469,68 +465,42 @@ Response:
       "confidence": "HIGH",
       "constraints": [],
       "verified": true,
-      "proof": {
-        "a": ["0x...", "0x..."],
-        "b": [
-          ["0x...", "0x..."],
-          ["0x...", "0x..."]
-        ],
-        "c": ["0x...", "0x..."]
-      },
+      "proof": { "a": ["0x...", "0x..."], "b": [["0x...","0x..."],["0x...","0x..."]], "c": ["0x...", "0x..."] },
       "publicSignals": ["...", "...", "..."],
       "policyHash": "sha256:...",
       "contextId": 2,
       "onChain": { "submitted": true, "txHash": "0xdef456..." }
     },
     "publish": {
-      "decision": "ALLOW",
+      "decision": "ALLOW_WITH_LIMITS",
       "confidence": "HIGH",
-      "constraints": [],
+      "constraints": ["review_queue"],
       "verified": true,
-      "proof": {
-        "a": ["0x...", "0x..."],
-        "b": [
-          ["0x...", "0x..."],
-          ["0x...", "0x..."]
-        ],
-        "c": ["0x...", "0x..."]
-      },
+      "proof": { "a": ["0x...", "0x..."], "b": [["0x...","0x..."],["0x...","0x..."]], "c": ["0x...", "0x..."] },
       "publicSignals": ["...", "...", "..."],
       "policyHash": "sha256:...",
       "contextId": 3,
       "onChain": { "submitted": true, "txHash": "0x789abc..." }
     },
     "apply": {
-      "decision": "ALLOW",
+      "decision": "DENY",
       "confidence": "HIGH",
       "constraints": [],
+      "blockingFactors": ["builder", "creator"],
       "verified": true,
-      "proof": {
-        "a": ["0x...", "0x..."],
-        "b": [
-          ["0x...", "0x..."],
-          ["0x...", "0x..."]
-        ],
-        "c": ["0x...", "0x..."]
-      },
+      "proof": { "a": ["0x...", "0x..."], "b": [["0x...","0x..."],["0x...","0x..."]], "c": ["0x...", "0x..."] },
       "publicSignals": ["...", "...", "..."],
       "policyHash": "sha256:...",
       "contextId": 4,
       "onChain": { "submitted": true, "txHash": "0xdef789..." }
     },
     "governance.vote": {
-      "decision": "ALLOW",
+      "decision": "DENY",
       "confidence": "HIGH",
       "constraints": [],
+      "blockingFactors": ["trust", "socialTrust"],
       "verified": true,
-      "proof": {
-        "a": ["0x...", "0x..."],
-        "b": [
-          ["0x...", "0x..."],
-          ["0x...", "0x..."]
-        ],
-        "c": ["0x...", "0x..."]
-      },
+      "proof": { "a": ["0x...", "0x..."], "b": [["0x...","0x..."],["0x...","0x..."]], "c": ["0x...", "0x..."] },
       "publicSignals": ["...", "...", "..."],
       "policyHash": "sha256:...",
       "contextId": 5,
@@ -540,75 +510,9 @@ Response:
 }
 ```
 
-**What DENY and ALLOW_WITH_LIMITS look like in `check-owner` results:**
+**Agent forwards the `formattedReport` field directly to the owner:**
 
-A `DENY` context entry includes `blockingFactors` — the signals that caused the denial:
-
-```json
-"governance.vote": {
-  "decision": "DENY",
-  "confidence": "HIGH",
-  "constraints": [],
-  "blockingFactors": ["trust", "socialTrust"],
-  "verified": true,
-  "proof": { "a": ["0x...", "0x..."], "b": [["0x...","0x..."],["0x...","0x..."]], "c": ["0x...", "0x..."] },
-  "publicSignals": ["...", "...", "..."],
-  "policyHash": "sha256:...",
-  "contextId": 5,
-  "onChain": { "submitted": true, "txHash": "0x..." }
-}
-```
-
-An `ALLOW_WITH_LIMITS` context entry includes `constraints` — the restrictions applied:
-
-```json
-"publish": {
-  "decision": "ALLOW_WITH_LIMITS",
-  "confidence": "HIGH",
-  "constraints": ["review_queue"],
-  "verified": true,
-  "proof": { "a": ["0x...", "0x..."], "b": [["0x...","0x..."],["0x...","0x..."]], "c": ["0x...", "0x..."] },
-  "publicSignals": ["...", "...", "..."],
-  "policyHash": "sha256:...",
-  "contextId": 3,
-  "onChain": { "submitted": true, "txHash": "0x..." }
-}
-```
-
-**Agent delivers results using the standardized report format (see reporting.md):**
-
-> zkBaseCred Reputation Report
-> Wallet: 0xabc123...def456
-> Date: 2025-06-15
->
-> Overall: Strong reputation across all categories.
->
-> --- Wallet Score ---
->
-> On-chain Trust: High
-> Social Trust: High
-> Builder: Expert
-> Creator: Moderate
->
-> --- Access by Context ---
->
-> Allowlist: ALLOW (HIGH)
-> Comment: ALLOW (HIGH)
-> Publish: ALLOW (HIGH)
-> Apply: ALLOW (HIGH)
-> Governance: ALLOW (HIGH)
->
-> --- Constraints ---
-> None
->
-> --- Blocking Factors ---
-> None
->
-> --- What This Means ---
-> You're well-trusted by the on-chain community, have an active social presence, and a strong track record building projects. You're approved across all categories.
->
-> --- On-Chain Proof ---
-> Verified with zero-knowledge proof. Transaction: 0xabc123...
+> _(The agent sends the value of `formattedReport` from the response as-is — no reformatting needed.)_
 
 ---
 

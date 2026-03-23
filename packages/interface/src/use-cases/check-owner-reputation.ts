@@ -72,6 +72,7 @@ export interface CheckOwnerReputationOutput {
   agentName: string
   zkEnabled: boolean
   summary: string
+  formattedReport: string
   signals: NormalizedSignals
   results: Record<string, ContextResult>
 }
@@ -226,7 +227,9 @@ export async function checkOwnerReputation(
     console.error("[check-owner-reputation] Usage recording failed:", err)
   }
 
-  return { ownerAddress, agentName, zkEnabled: withProof, summary, signals, results }
+  const formattedReport = buildFormattedReport(ownerAddress, signals, results, summary)
+
+  return { ownerAddress, agentName, zkEnabled: withProof, summary, formattedReport, signals, results }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -453,4 +456,201 @@ function buildReputationSummary(
   }
 
   return parts.join(" ")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Formatted Report Builder (server-built, agent-forwarded)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SIGNAL_DISPLAY: Record<string, string> = {
+  VERY_HIGH: "Very High",
+  HIGH: "High",
+  MODERATE: "Moderate",
+  NEUTRAL: "Neutral",
+  LOW: "Low",
+  VERY_LOW: "Very Low",
+}
+
+const BUILDER_DISPLAY: Record<string, string> = {
+  ELITE: "Elite",
+  EXPERT: "Expert",
+  PROFICIENT: "Proficient",
+  INTERMEDIATE: "Intermediate",
+  MODERATE: "Moderate",
+  EXPLORER: "Explorer",
+}
+
+const CONSTRAINT_DISPLAY: Record<string, string> = {
+  review_queue: "Content will be placed in a review queue",
+  reduced_access: "Reduced access granted",
+  rate_limited: "Rate limited",
+  activity_required: "More on-chain activity required",
+  probation_period: "New account probation period",
+  limited_actions: "Limited actions allowed",
+  review_required: "Manual review required",
+  reduced_weight: "Governance vote weight reduced",
+}
+
+const BLOCKING_FACTOR_DISPLAY: Record<string, string> = {
+  trust: "on-chain trust",
+  socialTrust: "social presence",
+  builder: "builder track record",
+  creator: "creator track record",
+  spamRisk: "spam risk flag",
+  signalCoverage: "identity verification coverage",
+}
+
+const CONTEXT_REPORT_LABELS: Record<string, string> = {
+  "allowlist.general": "Allowlist",
+  comment: "Comment",
+  publish: "Publish",
+  apply: "Apply",
+  "governance.vote": "Governance",
+}
+
+function displaySignal(value: string): string {
+  return SIGNAL_DISPLAY[value] ?? BUILDER_DISPLAY[value] ?? value
+}
+
+function buildFormattedReport(
+  ownerAddress: string,
+  signals: NormalizedSignals,
+  results: Record<string, ContextResult>,
+  summary: string
+): string {
+  const date = new Date().toISOString().split("T")[0]
+  const lines: string[] = []
+
+  lines.push("zkBaseCred Reputation Report")
+  lines.push(`Wallet: ${ownerAddress}`)
+  lines.push(`Date: ${date}`)
+  lines.push("")
+  lines.push(`Overall: ${summary}`)
+  lines.push("")
+  lines.push("--- Wallet Score ---")
+  lines.push("")
+  lines.push(`  On-chain Trust:    ${displaySignal(signals.trust)}`)
+  lines.push(`  Social Trust:      ${displaySignal(signals.socialTrust)}`)
+  lines.push(`  Builder:           ${displaySignal(signals.builder)}`)
+  lines.push(`  Creator:           ${displaySignal(signals.creator)}`)
+  lines.push("")
+  lines.push("--- Access by Context ---")
+  lines.push("")
+
+  for (const [context, result] of Object.entries(results)) {
+    const label = CONTEXT_REPORT_LABELS[context] ?? context
+    const pad = " ".repeat(Math.max(1, 14 - label.length))
+    lines.push(`  ${label}:${pad}${result.decision} (${result.confidence})`)
+  }
+
+  lines.push("")
+  lines.push("--- Constraints ---")
+
+  const constraintEntries: string[] = []
+  for (const [context, result] of Object.entries(results)) {
+    if (result.constraints && result.constraints.length > 0) {
+      const label = CONTEXT_REPORT_LABELS[context] ?? context
+      const descriptions = result.constraints.map(
+        (c) => CONSTRAINT_DISPLAY[c] ?? c
+      )
+      constraintEntries.push(`  - ${label}: ${descriptions.join("; ")}`)
+    }
+  }
+  if (constraintEntries.length > 0) {
+    lines.push("")
+    lines.push(...constraintEntries)
+  } else {
+    lines.push("None")
+  }
+
+  lines.push("")
+  lines.push("--- Blocking Factors ---")
+
+  const blockingEntries: string[] = []
+  for (const [context, result] of Object.entries(results)) {
+    if (result.blockingFactors && result.blockingFactors.length > 0) {
+      const label = CONTEXT_REPORT_LABELS[context] ?? context
+      const descriptions = result.blockingFactors.map(
+        (f) => BLOCKING_FACTOR_DISPLAY[f] ?? f
+      )
+      blockingEntries.push(
+        `  - ${label}: ${descriptions.join(" and ")} need${descriptions.length === 1 ? "s" : ""} improvement`
+      )
+    }
+  }
+  if (blockingEntries.length > 0) {
+    lines.push("")
+    lines.push(...blockingEntries)
+  } else {
+    lines.push("None")
+  }
+
+  lines.push("")
+  lines.push("--- What This Means ---")
+
+  const decisions = Object.values(results).map((r) => r.decision)
+  const allowCount = decisions.filter((d) => d === "ALLOW").length
+  const denyCount = decisions.filter((d) => d === "DENY").length
+  const limitedCount = decisions.filter((d) => d === "ALLOW_WITH_LIMITS").length
+
+  const allowContexts = Object.entries(results)
+    .filter(([, r]) => r.decision === "ALLOW")
+    .map(([c]) => CONTEXT_REPORT_LABELS[c] ?? c)
+  const limitedContexts = Object.entries(results)
+    .filter(([, r]) => r.decision === "ALLOW_WITH_LIMITS")
+    .map(([c]) => CONTEXT_REPORT_LABELS[c] ?? c)
+  const deniedContexts = Object.entries(results)
+    .filter(([, r]) => r.decision === "DENY")
+    .map(([c]) => CONTEXT_REPORT_LABELS[c] ?? c)
+
+  const meaningParts: string[] = []
+  if (allowCount === decisions.length) {
+    meaningParts.push("You're approved across all categories.")
+  } else {
+    if (allowContexts.length > 0) {
+      meaningParts.push(`You're trusted for ${allowContexts.join(", ").toLowerCase()}.`)
+    }
+    if (limitedContexts.length > 0) {
+      meaningParts.push(`${limitedContexts.join(", ")} ${limitedCount === 1 ? "has" : "have"} limited access.`)
+    }
+    if (deniedContexts.length > 0) {
+      meaningParts.push(`${deniedContexts.join(", ")} ${denyCount === 1 ? "requires" : "require"} stronger credentials.`)
+    }
+  }
+
+  const advice: string[] = []
+  if (signals.signalCoverage < 0.5) {
+    advice.push("connect more accounts to increase signal coverage")
+  }
+  if (signals.trust === "LOW" || signals.trust === "VERY_LOW") {
+    advice.push("build your on-chain trust through community participation")
+  }
+  if (signals.socialTrust === "LOW" || signals.socialTrust === "VERY_LOW") {
+    advice.push("increase your social presence")
+  }
+  if (advice.length > 0) {
+    meaningParts.push("To improve: " + advice.join(", ") + ".")
+  }
+
+  lines.push(meaningParts.join(" "))
+
+  lines.push("")
+  lines.push("--- On-Chain Proof ---")
+
+  const txHashes = Object.values(results)
+    .map((r) => r.onChain?.txHash)
+    .filter(Boolean)
+  const errors = Object.values(results)
+    .map((r) => r.onChain?.error)
+    .filter(Boolean)
+
+  if (txHashes.length > 0) {
+    lines.push(`Verified with zero-knowledge proof. Transaction: ${txHashes[0]}`)
+  } else if (errors.length > 0) {
+    lines.push(`On-chain submission failed: ${errors[0]}`)
+  } else {
+    lines.push("No on-chain submission attempted.")
+  }
+
+  return lines.join("\n")
 }

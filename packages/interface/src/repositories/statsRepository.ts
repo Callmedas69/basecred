@@ -74,7 +74,7 @@ export interface IStatsRepository {
 }
 
 function getRegistryAddress(): `0x${string}` {
-  const registry = ONCHAIN_CONTRACTS.find((c) => c.name === "Decision Registry")
+  const registry = ONCHAIN_CONTRACTS.find((c) => c.name === "Decision Registry (Proxy)")
   if (!registry) {
     throw new Error("Decision Registry contract not found in ONCHAIN_CONTRACTS")
   }

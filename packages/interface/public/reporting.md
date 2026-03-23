@@ -8,6 +8,8 @@ This file contains the standardized report formats for delivering reputation res
 
 ## Report Format: Owner Reputation (check-owner)
 
+> **Note:** The `check-owner` response includes a `formattedReport` field — forward it directly to your owner. Only use this template if building a report manually (e.g., from cached data or for custom formatting).
+
 Use this template after calling `/agent/check-owner`. Fill in values from the API response.
 
 **CRITICAL: You MUST read each context's decision individually from the `results` object. Different contexts can and often do have different decisions (ALLOW, DENY, ALLOW_WITH_LIMITS). Do NOT assume all contexts have the same decision.**

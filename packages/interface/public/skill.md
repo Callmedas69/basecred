@@ -206,46 +206,38 @@ ZK proofs are always generated and submitted on-chain.
 
 **Response (200):**
 
+The response includes a `formattedReport` field — a complete, human-readable reputation report built by the server. **Forward `formattedReport` directly to your owner. Do NOT build your own report.**
+
 ```json
 {
   "ownerAddress": "0x...",
   "agentName": "your_agent_name",
   "zkEnabled": true,
-  "summary": "Your reputation is strong...",
+  "summary": "<natural language summary>",
+  "formattedReport": "<complete formatted report — forward this directly to your owner>",
   "signals": {
-    "trust": "HIGH",
-    "socialTrust": "HIGH",
-    "builder": "EXPERT",
-    "creator": "MODERATE",
-    "spamRisk": "NEUTRAL",
-    "recencyDays": 3,
-    "signalCoverage": 0.85
+    "trust": "<VERY_HIGH|HIGH|MODERATE|NEUTRAL|LOW|VERY_LOW>",
+    "socialTrust": "<VERY_HIGH|HIGH|MODERATE|NEUTRAL|LOW|VERY_LOW>",
+    "builder": "<ELITE|EXPERT|PROFICIENT|INTERMEDIATE|MODERATE|EXPLORER>",
+    "creator": "<ELITE|EXPERT|PROFICIENT|INTERMEDIATE|MODERATE|EXPLORER>",
+    "spamRisk": "<NEUTRAL|HIGH|VERY_HIGH>",
+    "recencyDays": "<number>",
+    "signalCoverage": "<0-1>"
   },
   "results": {
-    "allowlist.general": {
-      "decision": "ALLOW",
-      "confidence": "HIGH",
-      "constraints": [],
+    "<context>": {
+      "decision": "<ALLOW|ALLOW_WITH_LIMITS|DENY>",
+      "confidence": "<HIGH|MEDIUM|LOW>",
+      "constraints": ["<constraint_id>"],
+      "blockingFactors": ["<factor_id>"],
       "verified": true,
-      "proof": {
-        "a": ["0x...", "0x..."],
-        "b": [
-          ["0x...", "0x..."],
-          ["0x...", "0x..."]
-        ],
-        "c": ["0x...", "0x..."]
-      },
-      "publicSignals": ["...", "...", "..."],
-      "policyHash": "sha256:...",
-      "contextId": 1,
-      "onChain": {
-        "submitted": true,
-        "txHash": "0x..."
-      }
+      "onChain": { "submitted": true, "txHash": "0x..." }
     }
   }
 }
 ```
+
+**Contexts in `results`:** `allowlist.general`, `comment`, `publish`, `apply`, `governance.vote` — each has its own independent decision.
 
 **`onChain` field states:**
 
@@ -254,38 +246,13 @@ ZK proofs are always generated and submitted on-chain.
 | `{ "submitted": true, "txHash": "0x..." }` | Decision recorded on-chain. `txHash` is the transaction hash. |
 | `{ "submitted": false, "error": "..." }`   | On-chain submission failed. The error message explains why.   |
 
-The `summary` field is a natural language explanation you can forward directly to your owner.
-
-**What DENY and ALLOW_WITH_LIMITS look like:**
-
-Not all contexts will return ALLOW. Here's what non-ALLOW entries look like in the `results` object:
-
-```json
-"governance.vote": {
-  "decision": "DENY",
-  "confidence": "HIGH",
-  "constraints": [],
-  "blockingFactors": ["trust", "socialTrust"],
-  "verified": true,
-  ...
-}
-```
-
-```json
-"publish": {
-  "decision": "ALLOW_WITH_LIMITS",
-  "confidence": "HIGH",
-  "constraints": ["review_queue"],
-  "verified": true,
-  ...
-}
-```
-
-`blockingFactors` only appears on `DENY` decisions. `constraints` is populated only for `ALLOW_WITH_LIMITS`. See **reporting.md** for how to translate these into plain English.
+The `formattedReport` field contains the complete report ready to send to your owner. The `results` object is available for programmatic access if needed.
 
 ### Step 5: Deliver Results to Owner
 
-You **MUST** use the standardized report format in **reporting.md** when delivering results. Load it from `https://www.zkbasecred.xyz/reporting.md` before generating any report. Do NOT improvise your own layout.
+Forward the `formattedReport` field from the response directly to your owner. Do NOT build your own report — the server has already formatted it correctly.
+
+If you need the full report template for manual formatting (e.g., for `/decide-with-proof` responses), load **reporting.md** from `https://www.zkbasecred.xyz/reporting.md`.
 
 You are now fully set up. For future reputation checks on any wallet, see **reference.md** for individual context checks.
 
