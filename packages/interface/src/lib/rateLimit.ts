@@ -95,6 +95,14 @@ const limiters = {
       limiter: Ratelimit.slidingWindow(30, "60 s"),
       prefix: "rl:wallet-auth",
     }),
+
+  /** /api/v1/token-market — per IP (12h cached, light reads) */
+  tokenMarket: () =>
+    new Ratelimit({
+      redis: getRedis(),
+      limiter: Ratelimit.slidingWindow(10, "60 s"),
+      prefix: "rl:token-market",
+    }),
 } as const
 
 export type RateLimiterType = keyof typeof limiters

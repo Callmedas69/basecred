@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -117,15 +117,21 @@ function MenuIcon({ open }: { open: boolean }) {
   );
 }
 
-const NAV_LINKS: {
+interface NavLink {
   href: string;
   label: string;
   match: (p: string) => boolean;
   external?: boolean;
-}[] = [
+}
+
+const MAIN_LINKS: NavLink[] = [
   { href: "/human", label: "human", match: (p) => p === "/human" },
   { href: "/agent", label: "agent", match: (p) => p === "/agent" },
   { href: "/usecases", label: "usecases", match: (p) => p === "/usecases" },
+];
+
+const MORE_LINKS: NavLink[] = [
+  { href: "/token", label: "token", match: (p) => p === "/token" },
   { href: "/stats", label: "stats", match: (p) => p === "/stats" },
   {
     href: "http://docs.zkbasecred.xyz",
@@ -135,14 +141,32 @@ const NAV_LINKS: {
   },
 ];
 
+const ALL_LINKS = [...MAIN_LINKS, ...MORE_LINKS];
+
 export function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
 
-  // Close menu on route change
+  // Close menu + dropdown on route change
   useEffect(() => {
     setMenuOpen(false);
+    setMoreOpen(false);
   }, [pathname]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    }
+    if (moreOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [moreOpen]);
 
   // Prevent body scroll when menu is open
   useEffect(() => {
@@ -155,6 +179,8 @@ export function Navbar() {
       document.body.style.overflow = "";
     };
   }, [menuOpen]);
+
+  const moreIsActive = MORE_LINKS.some((link) => link.match(pathname));
 
   return (
     <>
@@ -182,7 +208,7 @@ export function Navbar() {
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
             <div className="flex gap-8 text-4xl font-normal tracking-tight text-muted-foreground">
-              {NAV_LINKS.map((link) => (
+              {MAIN_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -190,13 +216,50 @@ export function Navbar() {
                     "hover:text-foreground transition-colors lowercase",
                     link.match(pathname) && "text-foreground",
                   )}
-                  {...(link.external
-                    ? { target: "_blank", rel: "noopener noreferrer" }
-                    : {})}
                 >
                   {link.label}
                 </Link>
               ))}
+
+              {/* More dropdown */}
+              <div ref={moreRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMoreOpen((prev) => !prev)}
+                  className={cn(
+                    "flex items-center gap-1 hover:text-foreground transition-colors lowercase cursor-pointer",
+                    moreIsActive && "text-foreground",
+                  )}
+                >
+                  more
+                  <ChevronDown
+                    className={cn(
+                      "w-5 h-5 transition-transform duration-200",
+                      moreOpen && "rotate-180",
+                    )}
+                  />
+                </button>
+                {moreOpen && (
+                  <div className="absolute right-0 top-full mt-3 min-w-[160px] rounded-xl border border-border bg-background shadow-lg py-2">
+                    {MORE_LINKS.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className={cn(
+                          "block px-5 py-2.5 text-lg font-normal lowercase text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors",
+                          link.match(pathname) && "text-foreground",
+                        )}
+                        onClick={() => setMoreOpen(false)}
+                        {...(link.external
+                          ? { target: "_blank", rel: "noopener noreferrer" }
+                          : {})}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <WalletButton />
           </div>
@@ -224,7 +287,7 @@ export function Navbar() {
         )}
       >
         <div className="flex flex-col gap-6 px-6 pt-8">
-          {NAV_LINKS.map((link, i) => (
+          {ALL_LINKS.map((link, i) => (
             <Link
               key={link.href}
               href={link.href}
@@ -258,7 +321,7 @@ export function Navbar() {
             )}
             style={{
               transitionDelay: menuOpen
-                ? `${75 * (NAV_LINKS.length + 1)}ms`
+                ? `${75 * (ALL_LINKS.length + 1)}ms`
                 : "0ms",
             }}
           >
