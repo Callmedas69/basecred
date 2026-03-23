@@ -80,9 +80,9 @@ export default function Home() {
             variants={item}
             className="text-[clamp(1.125rem,2vw,1.5rem)] text-muted-foreground max-w-3xl mx-auto mb-12 leading-relaxed"
           >
-            zkBasecred helps decide who can do what based on reputation, using{" "}
-            <b>zkProofs</b> to privately verify eligibility for voting,
-            commenting, publishing content, joining a mint allowlist, and more.
+            Aggregate signals from Ethos, Talent Protocol, and Neynar. Decide
+            with <b>zkProofs</b>. Determine eligibility for voting, publishing,
+            commenting, and more.
           </motion.p>
 
           <motion.div variants={item} className="flex justify-center mb-12">
