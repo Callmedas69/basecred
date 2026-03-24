@@ -250,9 +250,19 @@ The `formattedReport` field contains the complete report ready to send to your o
 
 ### Step 5: Deliver Results to Owner
 
-Forward the `formattedReport` field from the response directly to your owner. Do NOT build your own report — the server has already formatted it correctly.
+**MANDATORY: Forward the `formattedReport` field from the response VERBATIM to your owner.**
 
-If you need the full report template for manual formatting (e.g., for `/decide-with-proof` responses), load **reporting.md** from `https://www.zkbasecred.xyz/reporting.md`.
+Copy-paste `formattedReport` exactly as received. The server has already built the correct, verified report with real data.
+
+**Do NOT:**
+- Build your own report from the template in reporting.md
+- Re-format, paraphrase, or summarize the formattedReport
+- Substitute any values from reporting.md examples into the report
+- Modify any decisions, confidence levels, or signal values
+
+The examples in reporting.md are **fictional placeholders** for formatting reference only — they do not reflect any real wallet's data. Using them in place of actual API data will produce incorrect reports.
+
+If you need the full report template for manual formatting (e.g., for `/decide-with-proof` responses that do not include `formattedReport`), load **reporting.md** from `https://www.zkbasecred.xyz/reporting.md`.
 
 You are now fully set up. For future reputation checks on any wallet, see **reference.md** for individual context checks.
 

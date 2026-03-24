@@ -8,9 +8,9 @@ This file contains the standardized report formats for delivering reputation res
 
 ## Report Format: Owner Reputation (check-owner)
 
-> **Note:** The `check-owner` response includes a `formattedReport` field — forward it directly to your owner. Only use this template if building a report manually (e.g., from cached data or for custom formatting).
+> **MANDATORY:** The `check-owner` response includes a `formattedReport` field. You MUST forward it directly to your owner **verbatim**. Do NOT build your own report. Do NOT use any example values from this file. The `formattedReport` is the single source of truth.
 
-Use this template after calling `/agent/check-owner`. Fill in values from the API response.
+The template below is provided ONLY as a formatting reference for manual report building (e.g., `/decide-with-proof` responses or cached data). It is NOT needed for `check-owner` — always use `formattedReport` instead.
 
 **CRITICAL: You MUST read each context's decision individually from the `results` object. Different contexts can and often do have different decisions (ALLOW, DENY, ALLOW_WITH_LIMITS). Do NOT assume all contexts have the same decision.**
 
@@ -76,78 +76,42 @@ Overall: {one-line plain language summary}
 
 **Where to get wallet scores:** The `check-owner` response includes both a `signals` object with exact values and a `summary` field. Use the `signals` object directly: `signals.trust` -> On-chain Trust, `signals.socialTrust` -> Social Trust, `signals.builder` -> Builder, `signals.creator` -> Creator.
 
-**Example — mixed results (most common scenario):**
+> **REMINDER: For `check-owner` responses, forward `formattedReport` verbatim. Do NOT rebuild the report. The examples below are ONLY for `/decide-with-proof` manual formatting.**
+
+**Formatting reference — mixed results (FICTIONAL values, do NOT copy):**
 
 > zkBaseCred Reputation Report
-> Wallet: 0xABC123...DEF456
-> Date: 2025-06-15
+> Wallet: 0xEXAMPLE_ONLY_NOT_REAL
+> Date: {current date}
 >
-> Overall: Solid reputation with some areas needing improvement.
+> Overall: {summary from API response}
 >
 > --- Wallet Score ---
 >
-> On-chain Trust: Moderate
-> Social Trust: Low
-> Builder: Intermediate
-> Creator: Explorer
+> On-chain Trust: {signals.trust}
+> Social Trust: {signals.socialTrust}
+> Builder: {signals.builder}
+> Creator: {signals.creator}
 >
 > --- Access by Context ---
 >
-> Allowlist: ALLOW (HIGH)
-> Comment: ALLOW (HIGH)
-> Publish: ALLOW_WITH_LIMITS (MEDIUM)
-> Apply: DENY (HIGH)
-> Governance: DENY (HIGH)
+> Allowlist: {results["allowlist.general"].decision} ({results["allowlist.general"].confidence})
+> Comment: {results["comment"].decision} ({results["comment"].confidence})
+> Publish: {results["publish"].decision} ({results["publish"].confidence})
+> Apply: {results["apply"].decision} ({results["apply"].confidence})
+> Governance: {results["governance.vote"].decision} ({results["governance.vote"].confidence})
 >
 > --- Constraints ---
->
-> - Publish: Content will be placed in a review queue before going live.
->
-> --- Blocking Factors ---
->
-> - Apply: Builder and creator track records need improvement.
-> - Governance: On-chain trust and social presence need improvement.
->
-> --- What This Means ---
-> You're trusted for basic activities like commenting, but publishing requires review. Applications and governance voting require stronger credentials. To improve: build your on-chain trust through community participation and increase your social presence.
->
-> --- On-Chain Proof ---
-> Verified with zero-knowledge proof. Transaction: 0xdef789...
-
-**Example — all ALLOW:**
-
-> zkBaseCred Reputation Report
-> Wallet: 0xABC123...DEF456
-> Date: 2025-06-15
->
-> Overall: Strong reputation across all categories.
->
-> --- Wallet Score ---
->
-> On-chain Trust: High
-> Social Trust: High
-> Builder: Expert
-> Creator: Moderate
->
-> --- Access by Context ---
->
-> Allowlist: ALLOW (HIGH)
-> Comment: ALLOW (HIGH)
-> Publish: ALLOW (HIGH)
-> Apply: ALLOW (HIGH)
-> Governance: ALLOW (HIGH)
->
-> --- Constraints ---
-> None
+> {List constraints from API response, or "None"}
 >
 > --- Blocking Factors ---
-> None
+> {List blocking factors from API response, or "None"}
 >
 > --- What This Means ---
-> You're well-trusted by the on-chain community, have an active social presence, and a strong track record building projects. You're approved across all categories.
+> {2-3 sentences translated from signals — see "What the Signals Mean" section}
 >
 > --- On-Chain Proof ---
-> Verified with zero-knowledge proof. Transaction: 0xabc123...
+> {If onChain.txHash: "Verified with zero-knowledge proof. Transaction: {txHash}"}
 
 ---
 
@@ -260,3 +224,17 @@ Your owner likely does not know what "Ethos", "Talent Protocol", or "signalCover
 **Example:** Instead of saying _"You have high trust on Ethos and strong builder credentials via Talent Protocol"_, say:
 
 > You're well-trusted by the on-chain community and have a strong track record building projects. You're approved across all categories.
+
+---
+
+## Verification Checklist (Required Before Sending Any Report)
+
+If you are manually building a report (NOT using `formattedReport`), verify EVERY value against the actual API response before sending:
+
+1. For EACH context in "Access by Context", confirm the decision matches `results[contextKey].decision` from the API response
+2. For EACH context, confirm the confidence matches `results[contextKey].confidence` from the API response
+3. Confirm all signal values match the `signals` object from the API response
+4. If ANY value in your report does not match the API response, fix it before sending
+5. NEVER use values from the examples in this file — they are fictional placeholders
+
+> **If the `check-owner` response includes `formattedReport`, skip this checklist and forward `formattedReport` verbatim.**
